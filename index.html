@@ -3704,7 +3704,10 @@ async function gitRepoMenu(anchor) {
     gitLoad();
   }, { title: p.ruta, html: html(p) }])]);
   const m = $('#menu');
-  if (await fresh && $('#menu') === m) m.querySelectorAll('button[title]').forEach(b => { const p = ps.find(x => x.ruta === b.title); if (p) b.innerHTML = html(p); });
+  if (await fresh && $('#menu') === m) {
+    m.querySelectorAll('button[title]').forEach(b => { const p = ps.find(x => x.ruta === b.title); if (p) b.innerHTML = html(p); });
+    m.place(); // ahora es más ancha: se vuelve a colocar para que no se salga de la ventana
+  }
 }
 // ---------- Git a pantalla completa (⤢): proyectos y ramas · grafo con entrantes y salientes · detalle · cambios ----------
 // La columna derecha es la propia vista Git (#gitv), que se muda aquí mientras dura y vuelve a la barra al salir.
@@ -5714,11 +5717,17 @@ function openMenu(anchor, items, { search } = {}) {
   } else setTimeout(() => btns.find(b => !b.disabled)?.focus({ preventScroll: true }));
   m.append(...parts);
   (document.querySelector('dialog[open]') || document.body).append(m); // dentro de un modal abierto, o quedaría debajo
-  const r = anchor.getBoundingClientRect?.() || { top: anchor.y, bottom: anchor.y, left: anchor.x, right: anchor.x }, h = m.offsetHeight;
-  // si no cabe debajo (botón cerca del borde inferior), se abre hacia arriba
-  m.style.top = Math.max(4, r.bottom + 4 + h > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
-  if (r.right - m.offsetWidth < 4 || !anchor.getBoundingClientRect) m.style.left = Math.max(4, Math.min(r.left, innerWidth - m.offsetWidth - 4)) + 'px'; // a la izquierda no cabe: se abre hacia la derecha
-  else m.style.right = Math.max(4, innerWidth - r.right) + 'px';
+  // m.place(): colocar (también de nuevo si el contenido cambia de tamaño con el menú abierto, p. ej. la lista de proyectos
+  // de Git cuando llega su estado: al ensancharse, pegada por la derecha, se salía por la izquierda de la ventana)
+  m.place = () => {
+    m.style.left = m.style.right = '';
+    const r = anchor.getBoundingClientRect?.() || { top: anchor.y, bottom: anchor.y, left: anchor.x, right: anchor.x }, h = m.offsetHeight;
+    // si no cabe debajo (botón cerca del borde inferior), se abre hacia arriba
+    m.style.top = Math.max(4, r.bottom + 4 + h > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+    if (r.right - m.offsetWidth < 4 || !anchor.getBoundingClientRect) m.style.left = Math.max(4, Math.min(r.left, innerWidth - m.offsetWidth - 4)) + 'px'; // a la izquierda no cabe: se abre hacia la derecha
+    else m.style.right = Math.max(4, innerWidth - r.right) + 'px';
+  };
+  m.place();
   // Se cierra con un clic fuera, con Esc, o al pulsar dentro de un PDF/HTML (ese clic no llega a DeskLens: la ventana pierde el foco)
   menuOff = new AbortController();
   const opt = { signal: menuOff.signal };

@@ -15,6 +15,15 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-15 · Git: la lista de proyectos se salía por la izquierda (v1.135)
+Captura del usuario: solo la primera vez, la lista de proyectos de Git salía cortada.
+
+**Causa:** `gitRepoMenu` abre el menú con `gitSum` aún sin datos (filas estrechas, «…»), y `openMenu` lo pega por la derecha al botón (`style.right`). Cuando llega `/api/git/resumen`, las filas se ensanchan hacia la izquierda y se salen de la ventana. La segunda vez `gitSum` ya está y se coloca bien.
+
+**Arreglo:** la colocación de `openMenu` pasa a `m.place()` (borra left/right y vuelve a medir), y `gitRepoMenu` la llama tras poner las filas al día.
+
+Probado en el 8799 con `gfL.izq` = 290: el menú se abrió en 66–321 px; al llegar el estado midió 355 px y quedó en 56–411 px (antes habría empezado en −34 px).
+
 ## 2026-11-15 · Cerrar grupo con confirmación (v1.134)
 A pedido del usuario, «✕ Cerrar el grupo» (`gMenu`) hace `ask` con «¿Seguro de cerrar el grupo «X»?» y la lista de pestañas (• nombre). Solo cierra si se pulsa «Cerrar N pestañas»: Esc o Cancelar no cierran nada.
 

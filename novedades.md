@@ -1,6 +1,9 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.135 · 2026-11-15 · Git: la lista de proyectos ya no sale cortada
+- La primera vez que se abría la lista de «Proyecto» en Git, al llegar el estado de cada proyecto (rama, cambios, por subir) se ensanchaba y se salía por la izquierda de la ventana. Ahora se vuelve a colocar al ensancharse.
+
 ## v1.134 · 2026-11-15 · Cerrar grupo pide confirmación
 - «Cerrar el grupo» pregunta antes «¿Seguro de cerrar el grupo «nombre»?» con la lista de sus pestañas; Esc o Cancelar no cierra nada.
 
