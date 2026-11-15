@@ -1,6 +1,9 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.137 · 2026-11-15 · Commits que llegan, numerados
+- En Fusionar / Pull, la lista «Commits que llegan» lleva delante el número de fila (1 = el más reciente), como las otras dos listas. Si hay más de los que se muestran, la última línea dice cuáles faltan («… y 14 más (del 21 al 34)»).
+
 ## v1.136 · 2026-11-15 · Vuelven los atajos de VS Code al editor
 - Alt+↑/↓ mover línea, Shift+Alt+↑/↓ duplicarla, Ctrl+Alt+↑/↓ cursor extra, Ctrl+D siguiente coincidencia, Ctrl+Shift+L todas, Ctrl+Shift+K borrar línea, Esc volver a un cursor y Alt+Z ajuste de línea funcionan otra vez en el editor de archivos. Se habían perdido al añadir el plegado de bloques (v1.96).
 

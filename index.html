@@ -871,7 +871,8 @@ dialog#dlg.sets.mg{width:min(1200px,calc(100vw - 32px));height:min(760px,calc(10
 .mgtab th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
 .mgtab th:hover{color:var(--ink)}.mgtab th:nth-child(1){width:34px;cursor:default;text-align:right}.mgtab th:nth-child(2){width:28px}.mgtab th:nth-child(3){width:18%}.mgtab th:nth-child(4){width:20%}.mgtab th:nth-child(6){width:190px}.mgtab th:nth-child(7){width:100px;cursor:default}
 /* n.º de fila (en el orden que se ve) en las dos listas de fusionar */
-.mgtab td.mgn,.mgfile .mgn{color:var(--faint);font:12px Consolas,monospace;text-align:right}
+.mgcommits .mglist>div{display:grid;grid-template-columns:28px 1fr;gap:8px}
+.mgtab td.mgn,.mgfile .mgn,.mgcommits .mgn{color:var(--faint);font:12px Consolas,monospace;text-align:right}
 .mgtab td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle;overflow:hidden;text-overflow:ellipsis}
 .mgtab td:nth-child(3){white-space:nowrap}.mgtab td:nth-child(5){font-size:12px}.mgtab select{width:100%}
 .mgtab .mgdir{white-space:nowrap;direction:rtl;text-align:left}.mgtab .mgdir>span{direction:ltr;unicode-bidi:embed}/* ruta larga: se ve el final */
@@ -3098,7 +3099,7 @@ async function mergeOneDialog(accion, rama, dec = {}, txt = {}) {
     d.innerHTML = `<header><b>${pull ? `Traer «${esc(from)}» a «${esc(gst.rama)}»` : `Fusionar «${esc(from)}» en «${esc(gst.rama)}»`}</b><span class="sp"></span>
         <button class="small" data-re title="Vuelve a mirarlo todo (p. ej. tras cerrar un archivo en otro programa)">⟳ Comprobar otra vez</button><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
       <div class="mgbody">${card}
-        ${c.bloqueo && c.bloqueo !== 'a_medias' ? '' : c.lista.length ? `<details class="mgcommits"${items.length ? '' : ' open'}><summary>Commits que llegan (${c.commits})</summary><div class="mglist">${c.lista.map(x => `<div>⎇ <span class="gc">${esc(dayKey(x.fecha))} ${hhmm(x.fecha)} · ${esc(x.autor)} ·</span> «${esc(x.mensaje)}»</div>`).join('')}${c.commits > c.lista.length ? `<div class="gc">… y ${c.commits - c.lista.length} más</div>` : ''}</div></details>` : ''}
+        ${c.bloqueo && c.bloqueo !== 'a_medias' ? '' : c.lista.length ? `<details class="mgcommits"${items.length ? '' : ' open'}><summary>Commits que llegan (${c.commits})</summary><div class="mglist">${c.lista.map((x, i) => `<div><span class="mgn">${i + 1}</span><span>⎇ <span class="gc">${esc(dayKey(x.fecha))} ${hhmm(x.fecha)} · ${esc(x.autor)} ·</span> «${esc(x.mensaje)}»</span></div>`).join('')}${c.commits > c.lista.length ? `<div class="gc"><span></span><span>… y ${c.commits - c.lista.length} más (del ${c.lista.length + 1} al ${c.commits})</span></div>` : ''}</div></details>` : ''}
         ${items.length ? `<h4>Debes decidir (${items.length}${todo.length - left ? ` · ${todo.length - left} listo${todo.length - left === 1 ? '' : 's'}` : ''})</h4>${mergeTable()}` : ''}
         ${c.solos.length ? `<details class="mgsolos"${items.length ? '' : ' open'}><summary><h4>✓ Se fusionan sin problemas (${c.solos.length})</h4><small>git los junta automáticamente: no hay nada que elegir</small></summary><div class="mglist">${c.solos.map((f, i) => `<div class="mgfile"><span class="mgn">${i + 1}</span><span class="ic2">${{ A: '➕', D: '🗑' }[f.estado] || '✓'}</span>
           <b title="${esc(f.rel)}">${esc(f.rel)}</b><span class="what">${esc({ A: `llega nuevo de «${from}»`, D: `se borra («${from}» lo borró)` }[f.estado] || `se actualiza con lo de «${from}»`)}</span>

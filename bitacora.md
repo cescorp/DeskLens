@@ -15,6 +15,9 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-15 · Commits que llegan, numerados (v1.137)
+El usuario pidió numerar también la lista de commits de Fusionar/Pull, como las de archivos (v1.128). Columna `.mgn` de 28px en una rejilla; 1 = el más reciente (orden de `git log`). La línea «… y N más» dice el rango que falta.
+
 ## 2026-11-15 · Vuelven los atajos de VS Code al editor (v1.136)
 El usuario notó que ya no se podía mover ni duplicar líneas, ni poner varios cursores (hecho el 2026-11-03, v1.23).
 
