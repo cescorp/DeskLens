@@ -329,16 +329,23 @@ body.foldP #hP .tw,body.foldL #hL .tw{transform:none}
 body.foldP:not(.tfilt) #projects,body.foldP #tfilt,body.foldL #loose{display:none}
 /* filas: 22 px, nombres en negro, sin esquinas; el fondo de hover y del abierto va de borde a borde (::before
    sale hacia la izquierda y lo recorta el desplazamiento del panel) */
-:is(#projects,#loose,#tfilt) .node{height:22px;padding:0 6px 0 4px;border-radius:0;color:var(--ink);font-size:13px;position:relative;isolation:isolate}
-:is(#projects,#loose,#tfilt) .node::before{content:'';position:absolute;z-index:-1;inset:0 -8px 0 -400px;pointer-events:none}
+:is(#projects,#loose,#tfilt) .node{height:22px;padding:0 6px 0 4px;border-radius:0;color:var(--ink);font-size:13px;position:relative}
+/* ::before solo en las filas que lo pintan (hover, abierto, cursor): antes estaba en todas, cada una con su capa */
+:is(#projects,#loose,#tfilt) .node:is(:hover,.on,.kcur){isolation:isolate}
+:is(#projects,#loose,#tfilt) .node:is(:hover,.on,.kcur)::before{content:'';position:absolute;z-index:-1;top:0;bottom:0;right:-8px;
+  left:calc(-8px - var(--sangria,0px));pointer-events:none}
+/* --sangria: cuánto está metida la fila (cada .kids suma 17 px: 12 de margen, 4 de relleno y 1 de línea) */
+.kids{--sangria:17px}.kids .kids{--sangria:34px}.kids .kids .kids{--sangria:51px}.kids .kids .kids .kids{--sangria:68px}
+.kids .kids .kids .kids .kids{--sangria:85px}.kids .kids .kids .kids .kids .kids{--sangria:102px}
+.kids .kids .kids .kids .kids .kids .kids{--sangria:119px}.kids .kids .kids .kids .kids .kids .kids .kids{--sangria:400px}
 :is(#projects,#loose,#tfilt) .node:hover{background:none}
 :is(#projects,#loose,#tfilt) .node:hover::before{background:var(--hover)}
-/* abierto: fondo azul marino suave y raya de 2 px en el borde izquierdo del panel (el panel empieza a 44 px, tras la cinta;
-   el degradado va fijo a la ventana para que la raya caiga en el borde aunque la fila esté sangrada) */
+/* abierto: fondo azul marino suave y raya de 2 px en el borde izquierdo del panel */
 :is(#projects,#loose,#tfilt) .node.on{background:none}
-:is(#projects,#loose,#tfilt) .node.on::before{background:linear-gradient(90deg,var(--navy) 0 46px,var(--navybg) 46px) fixed}
+:is(#projects,#loose,#tfilt) .node.on::before{background:var(--navybg);box-shadow:inset 2px 0 0 var(--navy)}
 .sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur{background:none;box-shadow:none}
-.sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur::before{box-shadow:inset 0 1px 0 var(--navy),inset 0 -1px 0 var(--navy)} /* arriba y abajo: los lados quedan fuera, de borde a borde */
+.sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur::before{box-shadow:inset 0 1px 0 var(--navy),inset 0 -1px 0 var(--navy)} /* arriba y abajo, de borde a borde */
+.sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur.on::before{box-shadow:inset 2px 0 0 var(--navy),inset 0 1px 0 var(--navy),inset 0 -1px 0 var(--navy)}
 .sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur:not(.on)::before{background:var(--navybg)}
 :is(#projects,#loose,#tfilt) .node.seldir:not(.on){box-shadow:inset 2px 0 0 var(--navy)}
 /* proyectos: en negrita y separados por una línea fina */
@@ -1449,7 +1456,10 @@ function nodeEl(name, path, isDir, removable, git, it = {}) {
   el.className = 'node' + (isDir && tree.get(path) ? ' open' : ''); el.dataset.path = path; el.dataset.dir = isDir ? '1' : '';
   el.title = path + (it.fecha ? `\n${isDir ? '' : fmtSize(it.tam || 0) + ' · '}modificado ${new Date(it.fecha * 1000).toLocaleString('es')}` : '')
     + (it.n ? `\n${it.n[0]} carpeta${it.n[0] === 1 ? '' : 's'} · ${it.n[1]} archivo${it.n[1] === 1 ? '' : 's'}` : '');
-  if (isDir) el.onmouseenter = () => dirTamTitle(el); // lo que ocupa: se calcula solo al pasar el ratón
+  if (isDir) { // lo que ocupa: solo si el ratón se queda encima (al recorrer el árbol no se pide nada)
+    el.onmouseenter = () => { clearTimeout(dirTamTimer); dirTamTimer = setTimeout(() => dirTamTitle(el), 700); };
+    el.onmouseleave = () => clearTimeout(dirTamTimer);
+  }
   el.innerHTML = `<span class="chev">${isDir ? '›' : ''}</span>${fileIcon(name, isDir)}<span class="n"></span>` +
     (k.lock && !isDir ? '<span title="Archivo sensible">🔒</span>' : '') + (isDir ? dirCount(it.n) : '') +
     // archivos: punto con el estado de git; al pasar el ratón se cambia por (i) = información
@@ -1523,13 +1533,22 @@ function dirCount(n) {
   return `<span class="dcnt">${n[0] ? fmtCount(n[0]) + MINI.d : ''}${n[1] ? fmtCount(n[1]) + MINI.f : ''}</span>`;
 }
 // Lo que ocupa una carpeta (con subcarpetas) se añade a su título la primera vez que se pasa el ratón; se recuerda 1 min
+// Una petición a la vez y cortada a 1,5 s en el servidor: recorrer una carpeta enorme (node_modules) tardaba segundos
+// y llenaba las 6 conexiones del navegador, así que abrir carpetas esperaba detrás.
 const dirTam = new Map();
+let dirTamTimer, dirTamBusy = false;
 async function dirTamTitle(el) {
   const p = el.dataset.path, c = dirTam.get(p);
-  if (el.dataset.tam) return; el.dataset.tam = '1';
+  if (el.dataset.tam || dirTamBusy) return;
   let s = c && Date.now() - c.t < 60000 ? c.s : null;
-  if (!s) { try { s = await api('/api/carpeta/tam?ruta=' + encodeURIComponent(p)); dirTam.set(p, { s, t: Date.now() }); } catch { return; } }
-  el.title += `\nOcupa ${fmtSize(s.tam)} (${fmtCount(s.archivos)} archivo${s.archivos === 1 ? '' : 's'} con las subcarpetas)`;
+  if (!s) {
+    dirTamBusy = true;
+    try { s = await api('/api/carpeta/tam?seg=1.5&ruta=' + encodeURIComponent(p)); dirTam.set(p, { s, t: Date.now() }); } catch { return; }
+    finally { dirTamBusy = false; }
+  }
+  el.dataset.tam = '1';
+  const mas = s.parcial ? 'más de ' : '';
+  el.title += `\nOcupa ${mas}${fmtSize(s.tam)} (${mas}${fmtCount(s.archivos)} archivo${s.archivos === 1 ? '' : 's'} con las subcarpetas)`;
 }
 
 // ---------- teclado en el árbol (como VS Code y el Explorador de Windows) ----------
@@ -1614,7 +1633,7 @@ async function renameInline(el) {
     const to = t => r + t.slice(path.length); // la misma ruta, con el nombre nuevo
     for (const [k, v] of [...tree]) if (under(k, path)) { tree.delete(k); tree.set(to(k), v); } // sus carpetas abiertas siguen abiertas
     if (selDir && under(selDir, path)) selDir = to(selDir);
-    kcur = r; await loadSide(); SS.focus();
+    kcur = r; dirCache.clear(); await loadSide(); SS.focus();
     for (const t of [...open.filter(t => t !== was), ...open.filter(t => t === was)]) openTab(to(t), true); // la que veías, al final
     flash(`✓ «${old}» ahora se llama «${nombre}»`);
   };
@@ -1748,6 +1767,7 @@ async function trashPath(path, isDir) {
   for (const t of tabs.filter(t => under(t, path))) { await closeTab(t); if (tabs.includes(t)) return; } // canceló al guardar
   try { await api('/api/papelera', { ruta: path }); } catch (e) { return ask('No se pudo eliminar', e.message, ['Entendido']); }
   if (selDir && under(selDir, path)) selDir = null;
+  dirCache.clear(); // sin lo borrado, ni un instante
   await loadSide(); flash(`🗑 «${name}» está en la papelera`);
 }
 // ---------- pestaña web ----------
@@ -2584,14 +2604,15 @@ function collapse(el) { kidsOf(el).innerHTML = ''; el.classList.remove('open'); 
 const dirSig = items => items.map(i => i.nombre + (i.dir ? '/' + (i.n || '') : '') + ':' + (i.git || '')).join('|'); // qué hay, en qué orden y cuánto en cada carpeta
 // Despliega una carpeta del árbol con su orden (por proyecto). `sig` guarda qué había, para que el repaso
 // periódico (treePoll) solo vuelva a dibujarla si algo cambió.
+// Lo último que se leyó de cada carpeta: al abrirla se dibuja al instante con eso y, cuando llega la lista del servidor
+// (que en un repositorio grande puede tardar por git status), solo se redibuja si algo cambió.
+const dirCache = new Map();
 async function expand(el) {
-  const kids = kidsOf(el);
+  const kids = kidsOf(el), path = el.dataset.path, old = dirCache.get(path);
   el.classList.add('open');
-  try {
-    const items = sortItems(await api('/api/dir?ruta=' + encodeURIComponent(el.dataset.path)), el.dataset.path);
-    el.dataset.sig = dirSig(items);
-    // se arma aparte y se cambia de una vez: al refrescar, las subcarpetas abiertas no parpadean
-    const box = document.createElement('div'), pending = [];
+  // se arma aparte y se cambia de una vez: al refrescar, las subcarpetas abiertas no parpadean
+  const draw = async raw => {
+    const items = sortItems(raw, path), box = document.createElement('div'), pending = [];
     for (let i of items) {
       if (i.dir && side.compactas) i = await compactChain(i);
       const n = nodeEl(i.nombre, i.ruta, i.dir, undefined, i.git, i); box.append(n);
@@ -2599,9 +2620,18 @@ async function expand(el) {
       if (i.dir) { box.append(Object.assign(document.createElement('div'), { className: 'kids' })); if (tree.get(i.ruta)) pending.push(expand(n)); }
     }
     await Promise.all(pending);
-    kids.replaceChildren(...box.childNodes);
-  } catch (e) { kids.innerHTML = `<p class="ok">${esc(e.message)}</p>`; }
-  markActive();
+    if (!el.classList.contains('open')) return; // se cerró mientras llegaba
+    el.dataset.sig = dirSig(items); kids.replaceChildren(...box.childNodes); markActive();
+  };
+  const fresh = async () => {
+    try {
+      const raw = await api('/api/dir?ruta=' + encodeURIComponent(path));
+      dirCache.set(path, raw);
+      if (!old || dirSig(raw) !== dirSig(old)) await draw(raw);
+    } catch (e) { if (!old) kids.innerHTML = `<p class="ok">${esc(e.message)}</p>`; }
+  };
+  if (!old) return fresh();
+  await draw(old); fresh(); // ya se ve; la puesta al día sigue sola (quien espera a expand no espera al servidor)
 }
 // El árbol se pone al día solo: cada 4 s mira las carpetas desplegadas y redibuja la que cambió
 // (archivos nuevos, borrados, renombrados o con otro estado de git). Pausa con DeskLens oculto, un menú abierto o escribiendo en la barra.
@@ -2611,8 +2641,8 @@ async function treePoll() {
     if (document.hidden || $('#menu') || document.activeElement?.closest?.('aside input')) return;
     for (const el of [...document.querySelectorAll('aside .node.open')]) {
       if (!el.isConnected || el.dataset.sig === undefined) continue; // ya redibujada con su carpeta madre
-      let items; try { items = sortItems(await api('/api/dir?ruta=' + encodeURIComponent(el.dataset.path)), el.dataset.path); } catch { continue; }
-      if (dirSig(items) !== el.dataset.sig && el.isConnected) await expand(el);
+      let raw; try { raw = await api('/api/dir?ruta=' + encodeURIComponent(el.dataset.path)); } catch { continue; }
+      if (dirSig(sortItems(raw, el.dataset.path)) !== el.dataset.sig && el.isConnected) { dirCache.set(el.dataset.path, raw); await expand(el); }
     }
   } finally { setTimeout(treePoll, 4000); }
 }
@@ -2685,10 +2715,10 @@ async function newInline(type, dir = targetDir()) {
     try {
       if (type === 'carpeta') {
         const r = await api('/api/carpeta', { carpeta: dir, nombre });
-        selDir = r.ruta; tree.set(r.ruta, true); await loadSide(); return;
+        selDir = r.ruta; tree.set(r.ruta, true); dirCache.clear(); await loadSide(); return;
       }
       const html = /\.docx$/i.test(nombre) ? '<p></p>' : undefined;
-      const r = await api('/api/crear', { carpeta: dir, nombre, texto: '', html });
+      const r = await api('/api/crear', { carpeta: dir, nombre, texto: '', html }); dirCache.clear();
       await loadSide();
       const f = await api('/api/abrir?ruta=' + encodeURIComponent(r.ruta));
       openTab(r.ruta, true);

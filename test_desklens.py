@@ -683,6 +683,7 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     (arb / "SCAN - unidad 3.pdf").write_text("x")
     assert desklens.dir_counts(arb) == [2, 1] and desklens.dir_counts(arb / "vacía") == [0, 0]
     assert desklens.dir_counts(arb / "no-existe") is None
+    assert desklens.folder_size(arb, seconds=-1).get("parcial") and "parcial" not in desklens.folder_size(arb)  # título del árbol: cortado a tiempo
     li = {i["nombre"]: i for i in desklens.list_dir(arb)}
     assert li["Unidad 1"]["n"] == [0, 1] and li["SCAN - unidad 3.pdf"]["tam"] == 1 and "tam" not in li["Unidad 1"]
     f = desklens.tree_filter("leccion", [str(arb)])  # sin tilde encuentra «Lección»

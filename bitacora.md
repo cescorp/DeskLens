@@ -15,6 +15,19 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-14 · Explorador más ágil (v1.132)
+El usuario notaba lento el explorador (teclado, clic para plegar y desplegar). Lo medí en el 8799 con una copia de su `config.json`. En el servidor, `/api/dir` tarda 1–4 ms con la caché de git, y la primera vez en homeshape unos 2 s por `git status`. En la ventana, con 699 filas, plegar tarda unos 12 ms, desplegar unos 27 ms y `markActive` 1 ms.
+
+Causas encontradas:
+1. `dirTamTitle` se lanzaba en cada `mouseenter`, y `folder_size` de homeshape (211 mil archivos) tarda 8 s. Recorrer el árbol con el ratón llenaba las 6 conexiones del navegador y los clics esperaban detrás.
+2. `expand` esperaba al servidor antes de dibujar.
+3. `::before`, de 400 px y con `isolation`, estaba en todas las filas, y la raya usaba un fondo `fixed`.
+
+Arreglos:
+1. El tamaño se pide tras 700 ms quieto (`dirTamTimer`), de uno en uno (`dirTamBusy`), con `?seg=1.5`: `folder_size(path, seconds)` devuelve `parcial` y el título dice «más de».
+2. `dirCache` (ruta → lista en bruto): `expand` dibuja al instante desde la caché y pone al día en segundo plano, redibujando solo si cambió `dirSig`. `treePoll` llena la caché. Se vacía tras renombrar, eliminar o crear.
+3. `::before` solo en `:hover`, `.on` y `.kcur`; el borde izquierdo sale de `--sangria`, 17 px por nivel de `.kids`, y la raya es un `box-shadow`, sin `fixed`.
+
 ## 2026-11-14 · El árbol con aspecto de explorador (v1.131)
 El usuario quería «más de explorador y no de página web», cambiando solo colores y estilo. Aprobó los puntos 1–10 de la propuesta; el 11 (estado de git pintado en el nombre con M/U, como VS Code) quedó fuera porque solo respondió «ok».
 

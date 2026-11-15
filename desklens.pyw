@@ -3246,9 +3246,11 @@ def git_ignored(path):
     return {"repositorio": str(repo), "ignorados": [item(r) for r in rels], "seguidos": [item(r) for r in tracked]}
 
 
-def folder_size(path):
-    """Archivos y bytes de una carpeta, recursivo y sin seguir enlaces."""
+def folder_size(path, seconds=None):
+    """Archivos y bytes de una carpeta, recursivo y sin seguir enlaces. Con seconds, se corta a ese tiempo y
+    parcial = True (el título del árbol dice «más de…»: una carpeta con node_modules tarda segundos y ocupa el servidor)."""
     n = size = 0
+    t0 = time.monotonic()
     for d, _, files in os.walk(path):
         for f in files:
             try:
@@ -3256,6 +3258,8 @@ def folder_size(path):
                 n += 1
             except OSError:
                 pass
+        if seconds and time.monotonic() - t0 > seconds:
+            return {"archivos": n, "tam": size, "parcial": True}
     return {"archivos": n, "tam": size}
 
 
@@ -4386,7 +4390,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send_json(400, {"error": str(e)})
             if url.path in ("/api/carpeta/tam", "/api/carpeta/lista"):  # ruta ya comprobada: dentro de lo añadido
                 try:
-                    return self.send_json(200, folder_size(ruta) if url.path == "/api/carpeta/tam" else {"items": folder_items(ruta)})
+                    return self.send_json(200, folder_size(ruta, float(q["seg"]) if q.get("seg") else None)
+                                          if url.path == "/api/carpeta/tam" else {"items": folder_items(ruta)})
                 except OSError as e:
                     return self.send_json(400, {"error": str(e)})
             if url.path == "/api/git/grafo":

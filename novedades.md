@@ -1,6 +1,11 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.132 · 2026-11-14 · Explorador más ágil
+- Una carpeta que ya abriste antes se despliega al instante con lo que tenía y se pone al día sola un momento después; antes esperaba al servidor (en un repositorio grande, a git).
+- Pasar el ratón por el árbol ya no calcula lo que ocupa cada carpeta: solo se calcula si te quedas encima, una carpeta a la vez y como mucho 1,5 s («ocupa más de…» si es enorme). Antes, recorrer el árbol lanzaba muchos cálculos que hacían esperar a los clics.
+- El fondo de borde a borde solo se dibuja en la fila del ratón, la abierta y la del teclado, no en todas.
+
 ## v1.131 · 2026-11-14 · El árbol con aspecto de explorador
 - Letra de Windows (Segoe UI), nombres en negro y filas más compactas, sin esquinas redondeadas.
 - El archivo abierto se marca de borde a borde con un fondo azul marino suave y una raya azul marino a la izquierda; la carpeta elegida ya no lleva la raya morada.
