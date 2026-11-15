@@ -150,6 +150,7 @@ SETTINGS = [
     ("letra_codigo", "Editor y lectura", "Tamaño de letra del código (px)", 13, 9, 28),
     ("pestanas_vista_previa", "Editor y lectura", "Pestaña de vista previa: un clic reemplaza la anterior", True, None, None),
     ("revelar_en_arbol", "Editor y lectura", "Desplegar el árbol hasta el archivo abierto", True, None, None),
+    ("pestanas_por_proyecto", "Editor y lectura", "Agrupar las pestañas por proyecto (etiqueta de color delante; clic en ella las oculta o muestra)", True, None, None),
     ("carpetas_compactas", "Editor y lectura", "Carpetas compactas en el árbol: una carpeta que solo tiene otra carpeta dentro se muestra junto a ella («Curriculo / 2do Grado»), con menos clics", False, None, None),
     ("recargar_preguntar", "Editor y lectura", "Preguntar antes de recargar un archivo abierto que cambió en el disco (si no, se recarga solo; con cambios sin guardar siempre se pregunta)", False, None, None),
     ("consola_max_pestanas", "Consola", "Pestañas de consola como máximo (se cierran las terminadas más antiguas; las que siguen corriendo, nunca)", 5, 1, 50),

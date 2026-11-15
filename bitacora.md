@@ -15,6 +15,25 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-15 · Cerrar grupo con confirmación (v1.134)
+A pedido del usuario, «✕ Cerrar el grupo» (`gMenu`) hace `ask` con «¿Seguro de cerrar el grupo «X»?» y la lista de pestañas (• nombre). Solo cierra si se pulsa «Cerrar N pestañas»: Esc o Cancelar no cierran nada.
+
+## 2026-11-15 · Grupos de pestañas como Chrome (v1.133)
+El usuario eligió la opción A: grupos automáticos por proyecto y, además, grupos hechos a mano, plegables.
+
+**Modelo:** cada lado guarda `grp` (id → `{nombre, color, plegado}`) y `tg` (ruta → id hecho a mano; `''` significa sacada a propósito) en `desklens.tabs`/`desklens.split`, junto a `tabs`. Los copian `syncPane`, `activatePane`, `renderTabsOf`, `setSplit` (al juntar se mezclan) y el arranque con `savedSplit`.
+
+**Funciones:**
+- `groupOf(p)`: primero `tg`; si no hay entrada y está activo `pestanas_por_proyecto` (ajuste nuevo, True), devuelve `'p:' + ruta del proyecto`.
+- `gInfo`: lo de proyecto toma nombre `projLabel` y un color fijo por hash de la ruta en `GCOL`.
+- `groupOrder()`: en `renderTabs`, junta cada grupo donde está su primera pestaña.
+- `groupChip`: clic llama a `gFold` (si la visible está dentro, pasa a otra de fuera); el clic derecho abre `gMenu`; se puede arrastrar el grupo entero o soltar una pestaña encima.
+- `gTabItems` en el menú de la pestaña.
+- Al soltar una pestaña junto a otra, toma el grupo de esa otra.
+- `openTab` despliega el grupo de la pestaña; Ctrl+Tab salta los plegados; `gMove` mueve con `moveTab` y conserva nombre y color.
+
+Probado en el 8799 con la lista real de proyectos: agrupado, plegar (también con la visible dentro), desplegar al abrir desde el árbol, grupo a mano con color, recarga, mover al otro lado y juntar, claro y oscuro.
+
 ## 2026-11-14 · Explorador más ágil (v1.132)
 El usuario notaba lento el explorador (teclado, clic para plegar y desplegar). Lo medí en el 8799 con una copia de su `config.json`. En el servidor, `/api/dir` tarda 1–4 ms con la caché de git, y la primera vez en homeshape unos 2 s por `git status`. En la ventana, con 699 filas, plegar tarda unos 12 ms, desplegar unos 27 ms y `markActive` 1 ms.
 

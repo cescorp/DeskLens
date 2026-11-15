@@ -1,6 +1,15 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.134 · 2026-11-15 · Cerrar grupo pide confirmación
+- «Cerrar el grupo» pregunta antes «¿Seguro de cerrar el grupo «nombre»?» con la lista de sus pestañas; Esc o Cancelar no cierra nada.
+
+## v1.133 · 2026-11-15 · Grupos de pestañas, como en Chrome
+- Las pestañas se juntan solas por proyecto, con una etiqueta de color delante («Atril», «homeshape»…) y una raya del mismo color debajo: se sabe de qué proyecto es cada `vite.config.js` o `.gitignore`. Se puede apagar en ⚙ Ajustes.
+- Clic en la etiqueta: oculta o muestra las pestañas del grupo (plegado se ve «homeshape 2»). Si abres un archivo de un grupo plegado, se despliega solo; Ctrl+Tab salta los grupos plegados.
+- Clic derecho en la etiqueta: cambiar nombre, color (8 colores), mover el grupo al otro lado, desagrupar o cerrar el grupo.
+- Clic derecho en una pestaña: añadirla a un grupo nuevo (con el nombre que quieras, mezclando proyectos), a otro grupo, o quitarla del suyo. Arrastrar una pestaña junto a otras la mete en su grupo; arrastrar la etiqueta mueve el grupo entero.
+
 ## v1.132 · 2026-11-14 · Explorador más ágil
 - Una carpeta que ya abriste antes se despliega al instante con lo que tenía y se pone al día sola un momento después; antes esperaba al servidor (en un repositorio grande, a git).
 - Pasar el ratón por el árbol ya no calcula lo que ocupa cada carpeta: solo se calcula si te quedas encima, una carpeta a la vez y como mucho 1,5 s («ocupa más de…» si es enorme). Antes, recorrer el árbol lanzaba muchos cálculos que hacían esperar a los clics.

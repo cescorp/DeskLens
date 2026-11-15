@@ -622,6 +622,16 @@ body.split .pane:not(.on) #view{opacity:.92}
 .tab.pre span{font-style:italic}
 .tab.on{background:var(--paper);color:var(--ink);box-shadow:0 0 0 1px var(--line);clip-path:inset(-1px -1px 0 -1px)}
 .tab b{font-weight:400;opacity:.45;font-size:12px}.tab b:hover{opacity:1}
+/* grupos de pestañas: etiqueta de color delante y raya del mismo color debajo de cada pestaña del grupo */
+.tgchip{display:flex;align-items:center;gap:5px;align-self:center;flex:none;max-width:150px;margin:0 2px 3px 8px;padding:2px 9px;border-radius:10px;
+  background:var(--g);color:#fff;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;user-select:none}
+.tgchip span{overflow:hidden;text-overflow:ellipsis}
+.tgchip small{font-size:10.5px;font-weight:700;padding:0 5px;border-radius:7px;background:rgba(255,255,255,.28)}
+.tgchip:hover{filter:brightness(1.12)}.tgchip.dl{box-shadow:0 0 0 2px var(--accent)}
+.tab.ing{background:linear-gradient(var(--g),var(--g)) bottom/100% 2px no-repeat}
+.tab.ing:hover{background:linear-gradient(var(--g),var(--g)) bottom/100% 2px no-repeat,var(--hover)}
+.tab.ing.on{background:linear-gradient(var(--g),var(--g)) bottom/100% 2px no-repeat,var(--paper)}
+.gdot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:8px;vertical-align:-1px}
 #tabs button.ic{width:26px;height:26px;margin:0 0 3px 2px}
 /* cabecera del archivo: ← → migas ⋮ */
 #bar{display:flex;gap:2px;align-items:center;padding:4px 8px;background:var(--paper);min-height:40px;flex-wrap:wrap}
@@ -5234,7 +5244,10 @@ let previewTab = null;
 // «Abrir otra ventana» (⚙ Ajustes) empieza vacía, solo con los archivos que la abrieron.
 const NEW_WIN = new URLSearchParams(location.search).has('nueva');
 const tabStore = k => { try { return sessionStorage.getItem(k) ?? (NEW_WIN ? null : localStorage.getItem(k)); } catch { return null; } };
-try { ({ tabs, cur, previewTab = null } = JSON.parse(tabStore('desklens.tabs')) || { tabs: [], cur: null }); } catch {}
+// Grupos de pestañas (como Chrome), por lado: grp = id → { nombre, color, plegado }; tg = ruta → id del grupo hecho a mano
+// ('' = sacada a propósito de su grupo automático). Sin entrada en tg, la pestaña va al grupo de su proyecto (id 'p:' + ruta).
+let grp = {}, tg = {};
+try { ({ tabs, cur, previewTab = null, grp = {}, tg = {} } = JSON.parse(tabStore('desklens.tabs')) || { tabs: [], cur: null }); } catch {}
 
 // ---------- vista dividida ----------
 // panes[i]: estado de cada lado. tabs/cur/previewTab (y editorCM, curFile, pdfCtl, findP) son siempre los del
@@ -5243,7 +5256,7 @@ const panes = [{ el: paneEl }];
 let active = 0, savedSplit = null; // savedSplit: se lee antes de que el arranque vuelva a guardar las pestañas
 try { savedSplit = JSON.parse(tabStore('desklens.split') || 'null'); } catch {}
 const syncPane = () => {
-  Object.assign(panes[active], { tabs, cur, previewTab });
+  Object.assign(panes[active], { tabs, cur, previewTab, grp, tg });
   try { Object.assign(panes[active], { editorCM, curFile, pdfCtl, findP }); } catch {} // aún sin declarar mientras carga el script
 };
 const otherShows = path => panes.some((p, i) => i !== active && p.cur === path);
@@ -5267,7 +5280,7 @@ const dupItems = path => [['◫  Duplicar a la derecha', () => dupTab(path, 'h')
   ['⊟  Duplicar abajo', () => dupTab(path, 'v'), { title: 'La misma pestaña también en un lado debajo (lo escrito sale en los dos)' }]];
 const persist = () => {
   syncPane();
-  const st = p => ({ tabs: p.tabs, cur: p.cur, previewTab: p.previewTab });
+  const st = p => ({ tabs: p.tabs, cur: p.cur, previewTab: p.previewTab, grp: p.grp, tg: p.tg });
   const t = JSON.stringify(st(panes[0])), sp = panes[1] ? JSON.stringify({ ...st(panes[1]), active }) : '';
   // esta ventana · la próxima vez que se abra DeskLens (una ventana nueva aún vacía no borra lo guardado por otra)
   for (const store of [() => sessionStorage, ...(NEW_WIN && !tabs.length ? [] : [() => localStorage])])
@@ -5281,7 +5294,7 @@ function activatePane(i) {
   syncPane();
   panes[active].el.classList.remove('on');
   active = i; paneEl = panes[i].el; paneEl.classList.add('on');
-  ({ tabs, cur, previewTab } = panes[i]);
+  ({ tabs, cur, previewTab, grp = {}, tg = {} } = panes[i]);
   editorCM = panes[i].editorCM || null; curFile = panes[i].curFile || null; pdfCtl = panes[i].pdfCtl || null;
   sel = null;
   const F = document.getElementById('find'); // el cuadro de buscar sigue al lado activo
@@ -5353,13 +5366,14 @@ function setSplit(on, dup = null) {
     // lo que se ve se queda donde está (sin recargar: una web conserva por dónde ibas); el lado nuevo se lleva
     // la pestaña vista justo antes, o cualquier otra; con una sola pestaña empieza vacío
     const move = [...hist].reverse().find(p => p !== cur && tabs.includes(p)) || tabs.find(p => p !== cur) || null;
-    panes.push({ el, tabs: [], cur: null, previewTab: null });
+    panes.push({ el, tabs: [], cur: null, previewTab: null, grp: {}, tg: {} });
     if (dup) { renderTabsOf(0); activatePane(1); openTab(dup, true); return; } // duplicar: el lado nuevo enseña lo mismo
     if (move) { moveTab(move, active, 1); return; }
     renderTabsOf(0); activatePane(1); render();
   } else {
     activatePane(0);
     for (const p of panes[1].tabs) if (!tabs.includes(p)) tabs.push(p);
+    Object.assign(grp, panes[1].grp); Object.assign(tg, panes[1].tg); // sus grupos vienen con ellas
     panes[1].el.remove(); document.getElementById('splitGrip')?.remove();
     panes.pop();
     document.body.classList.remove('split');
@@ -5370,10 +5384,10 @@ function setSplit(on, dup = null) {
 function renderTabsOf(i) {
   if (i === active) return renderTabs();
   syncPane();
-  const keep = { tabs, cur, previewTab, paneEl, active };
-  ({ tabs, cur, previewTab } = panes[i]); paneEl = panes[i].el; active = i;
+  const keep = { tabs, cur, previewTab, grp, tg, paneEl, active };
+  ({ tabs, cur, previewTab, grp = {}, tg = {} } = panes[i]); paneEl = panes[i].el; active = i;
   renderTabs();
-  ({ tabs, cur, previewTab, paneEl, active } = keep);
+  ({ tabs, cur, previewTab, grp, tg, paneEl, active } = keep);
 }
 // El borde entre los dos lados: arrastrar cambia el reparto (15 %–85 %) y se recuerda (el ancho lado a lado y el alto
 // arriba/abajo, cada uno el suyo); doble clic, mitad y mitad.
@@ -5414,6 +5428,7 @@ function openTab(path, pin = false, fromHist = false) {
     previewTab = pin || !usePreview ? null : path;
   } else if (pin && previewTab === path) previewTab = null;
   if (!fromHist && hist[hi] !== path) { hist.splice(hi + 1); hist.push(path); hi = hist.length - 1; }
+  const g = groupOf(path); if (g && grp[g]?.plegado) grp[g].plegado = false; // en un grupo plegado: se despliega (como Chrome)
   cur = path; showSrc = preview = false; persist(); render();
 }
 function pinTab(path) {
@@ -5460,20 +5475,144 @@ async function closeTab(path) {
   }
 }
 
-let dragTab = null; // pestaña que se está arrastrando
+// ---------- grupos de pestañas (como Chrome) ----------
+// Cada pestaña de un proyecto va sola al grupo de su proyecto (⚙ «Agrupar las pestañas por proyecto»); además se pueden
+// hacer grupos a mano, que mandan sobre el automático. Las del mismo grupo van siempre juntas (groupOrder).
+const GCOL = [['Azul marino', '#1f4e79'], ['Verde', '#2e7d32'], ['Ámbar', '#b7791f'], ['Rojo', '#c0392b'],
+  ['Gris', '#6b7280'], ['Turquesa', '#0f8b8d'], ['Café', '#8d6e63'], ['Rosa', '#c2185b']];
+function groupOf(p) {
+  if (p in tg) { const g = tg[p]; return g && (g.startsWith('p:') || grp[g]) ? g : null; } // a mano, o sacada a propósito ('')
+  if (AJ.pestanas_por_proyecto === false || isVirtual(p)) return null;
+  const pr = side.proyectos.find(x => under(p, x.ruta));
+  return pr ? 'p:' + pr.ruta : null;
+}
+// nombre, color y si está plegado; los de proyecto salen del proyecto (color fijo según su ruta) hasta que se cambian
+function gInfo(id) {
+  const g = grp[id] || {};
+  let nombre = g.nombre || 'Grupo', color = g.color || GCOL[0][1];
+  if (id.startsWith('p:')) {
+    const r = id.slice(2); let h = 0; for (const ch of r.toLowerCase()) h = (h * 31 + ch.codePointAt(0)) % 9973;
+    nombre = g.nombre || projLabel(r); color = g.color || GCOL[h % GCOL.length][1];
+  }
+  return { nombre, color, plegado: !!g.plegado };
+}
+const gSet = (id, o) => { grp[id] = { ...grp[id], ...o }; persist(); renderTabs(); };
+const gFolded = p => { const g = groupOf(p); return !!g && gInfo(g).plegado; };
+// Junta las de cada grupo donde está la primera de ellas (en su orden). true si cambió algo.
+function groupOrder() {
+  const seen = new Set(), out = [];
+  for (const p of tabs) {
+    const g = groupOf(p);
+    if (!g) { out.push(p); continue; }
+    if (!seen.has(g)) { seen.add(g); out.push(...tabs.filter(q => groupOf(q) === g)); }
+  }
+  if (out.every((p, i) => p === tabs[i])) return false;
+  tabs.splice(0, tabs.length, ...out); return true;
+}
+// Plegar con la pestaña que se ve dentro: se pasa a otra de fuera (como Chrome); si no hay, se pliega igual
+function gFold(id, fold) {
+  const other = fold && groupOf(cur) === id && tabs.find(p => groupOf(p) !== id && !gFolded(p));
+  grp[id] = { ...grp[id], plegado: fold };
+  other ? openTab(other) : (persist(), renderTabs());
+}
+async function gNew(p) {
+  const n = await ask('Grupo nuevo', 'Nombre del grupo (por ejemplo «Fusión pendiente»).', ['Crear grupo', 'Cancelar'], { input: '' });
+  if (n == null) return;
+  const used = new Set(Object.keys(grp).map(id => gInfo(id).color)), id = 'm' + Date.now().toString(36);
+  grp[id] = { nombre: n.trim() || 'Grupo', color: (GCOL.find(([, c]) => !used.has(c)) || GCOL[0])[1] };
+  tg[p] = id; persist(); renderTabs();
+}
+// Opciones de grupo en el clic derecho de una pestaña
+function gTabItems(p) {
+  const mine = groupOf(p), others = [...new Set(tabs.map(groupOf))].filter(g => g && g !== mine);
+  const join = g => () => { tg[p] = g; persist(); renderTabs(); };
+  return [['▣  Añadir a un grupo nuevo…', () => gNew(p), { title: 'Un grupo con nombre y color, como en Chrome' }],
+    ...others.map(g => [`▣  Añadir a «${gInfo(g).nombre}»`, join(g)]),
+    ...(mine ? [['⊟  Quitar del grupo', () => { tg[p] = ''; persist(); renderTabs(); }, { title: `Sale de «${gInfo(mine).nombre}» y se queda abierta` }]] : []), '-'];
+}
+// Clic derecho en la etiqueta del grupo
+function gMenu(at, id) {
+  const g = gInfo(id), mem = () => tabs.filter(p => groupOf(p) === id);
+  openMenu(at, [{ head: g.nombre },
+    ['✎  Cambiar nombre…', async () => {
+      const n = await ask('Nombre del grupo', 'Cómo se ve este grupo en la barra de pestañas.', ['Guardar', 'Cancelar'], { input: g.nombre });
+      if (n?.trim()) gSet(id, { nombre: n.trim() });
+    }],
+    '-', { head: 'Color' },
+    ...GCOL.map(([n, c]) => [n, () => gSet(id, { color: c }), { html: `<span class="gdot" style="background:${c}"></span>${c === g.color ? '<b>' + n + ' ✓</b>' : n}` }]),
+    '-',
+    ...(panes[1] ? [['⇆  Mover el grupo al otro lado', () => gMove(id), { title: 'Sus pestañas pasan al otro lado de la vista dividida, en el mismo grupo' }]] : []),
+    ['⊟  Desagrupar', () => { for (const p of mem()) tg[p] = ''; persist(); renderTabs(); }, { title: 'Las pestañas se quedan abiertas, sin grupo' }],
+    ['✕  Cerrar el grupo', async () => {
+      const list = mem(), ok = `Cerrar ${list.length} pestaña${list.length === 1 ? '' : 's'}`;
+      if (await ask('Cerrar grupo', `¿Seguro de cerrar el grupo «${g.nombre}»?\n\n${list.map(p => '• ' + tabName(p)).join('\n')}`,
+        [ok, 'Cancelar'], { danger: true }) !== ok) return; // Esc o Cancelar: no se cierra nada
+      for (const p of list) { await closeTab(p); if (tabs.includes(p)) return; }
+    },
+      { title: 'Cierra sus pestañas (si alguna tiene cambios sin guardar, pregunta)' }]]);
+}
+async function gMove(id) {
+  const src = active, dst = 1 - active, info = grp[id];
+  for (const p of tabs.filter(q => groupOf(q) === id)) {
+    const t = tg[p];
+    await moveTab(p, src, dst); // deja activo el otro lado
+    if (active === dst && t !== undefined) tg[p] = t;
+  }
+  if (active === dst && info) gSet(id, { ...info });
+}
+
+// La etiqueta de color de un grupo: clic pliega/despliega · clic derecho: nombre, color, mover, desagrupar, cerrar ·
+// arrastrarla mueve el grupo entero · soltar una pestaña encima la mete en el grupo
+function groupChip(id, gi, T) {
+  const n = tabs.filter(p => groupOf(p) === id).length, c = document.createElement('div');
+  c.className = 'tgchip' + (gi.plegado ? ' fold' : ''); c.style.setProperty('--g', gi.color);
+  c.innerHTML = `<span></span>${gi.plegado ? `<small>${n}</small>` : ''}`; c.firstChild.textContent = gi.nombre;
+  c.title = `${gi.nombre} · ${n} pestaña${n === 1 ? '' : 's'}\nClic: ${gi.plegado ? 'mostrar' : 'ocultar'} sus pestañas · clic derecho: nombre, color, cerrar…\nArrastrar: mover el grupo entero`;
+  c.onclick = () => gFold(id, !gi.plegado);
+  c.oncontextmenu = e => { e.preventDefault(); gMenu({ x: e.clientX, y: e.clientY }, id); };
+  c.draggable = true;
+  c.ondragstart = e => { dragGroup = id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', ''); };
+  c.ondragend = () => { dragGroup = null; T.querySelectorAll('.dl,.dr').forEach(t => t.classList.remove('dl', 'dr')); };
+  c.ondragover = e => { if ((dragTab && groupOf(dragTab) !== id) || (dragGroup && dragGroup !== id)) { e.preventDefault(); c.classList.add('dl'); } };
+  c.ondragleave = () => c.classList.remove('dl');
+  c.ondrop = e => {
+    if (!dragTab && !dragGroup) return;
+    e.preventDefault(); e.stopPropagation(); c.classList.remove('dl');
+    const first = tabs.find(p => groupOf(p) === id), moving = dragGroup ? tabs.filter(q => groupOf(q) === dragGroup) : [dragTab];
+    if (dragTab) tg[dragTab] = id; // pestaña: entra en el grupo, al principio
+    for (const q of moving) tabs.splice(tabs.indexOf(q), 1);
+    tabs.splice(tabs.indexOf(first), 0, ...moving); // grupo: se pone delante de este
+    dragTab = dragGroup = null; persist(); renderTabs();
+  };
+  return c;
+}
+
+let dragTab = null, dragGroup = null; // pestaña o grupo (su etiqueta) que se está arrastrando
 // Ctrl+W cierra la pestaña activa · Ctrl+Tab / Ctrl+Shift+Tab: la siguiente / anterior en el orden de la barra
+// (sin las de grupos plegados)
 addEventListener('keydown', e => {
   if (!e.ctrlKey || e.altKey || !cur || modalOpen()) return;
-  if (e.key === 'Tab') { e.preventDefault(); e.stopPropagation(); const i = tabs.indexOf(cur); if (tabs.length > 1) openTab(tabs[(i + (e.shiftKey ? -1 : 1) + tabs.length) % tabs.length]); }
+  if (e.key === 'Tab') {
+    e.preventDefault(); e.stopPropagation();
+    const vis = tabs.filter(p => p === cur || !gFolded(p)), i = vis.indexOf(cur);
+    if (vis.length > 1) openTab(vis[(i + (e.shiftKey ? -1 : 1) + vis.length) % vis.length]);
+  }
   else if (!e.shiftKey && e.key.toLowerCase() === 'w') { e.preventDefault(); e.stopPropagation(); closeTab(cur); }
 }, true);
 // Barra de pestañas del lado activo: nombre (con ● si hay cambios), cerrar, menú del archivo, arrastrar para
 // reordenar, al chat o al otro lado, y los botones de barra lateral, dividir y panel de IA en los extremos.
 function renderTabs() {
   const T = $('#tabs'); T.innerHTML = '';
+  if (groupOrder()) persist();
+  let lastG = null;
   for (const p of tabs) {
+    const g = groupOf(p), gi = g && gInfo(g);
+    if (g && g !== lastG) T.append(groupChip(g, gi, T)); // la etiqueta, delante de la primera del grupo
+    lastG = g;
+    if (gi?.plegado) continue;
     const name = tabName(p), el = document.createElement('div');
-    el.className = 'tab' + (p === cur ? ' on' : '') + (p === previewTab ? ' pre' : '');
+    el.className = 'tab' + (p === cur ? ' on' : '') + (p === previewTab ? ' pre' : '') + (g ? ' ing' : '');
+    if (g) el.style.setProperty('--g', gi.color);
     el.title = p + (p === previewTab ? '\nVista previa: doble clic para fijarla' : '');
     el.innerHTML = `<span></span><b title="Cerrar">✕</b>`;
     const e = edits.get(p);
@@ -5485,7 +5624,7 @@ function renderTabs() {
     el.oncontextmenu = e => { // las opciones del archivo, con las de la pestaña arriba
       e.preventDefault();
       const close = [['✕  Cerrar pestaña', () => closeTab(p), { title: 'También con clic central en la pestaña' }],
-        ['✕  Cerrar las demás', async () => { for (const q of tabs.filter(q => q !== p)) await closeTab(q); }, { disabled: tabs.length < 2 }], ...dupItems(p), '-'];
+        ['✕  Cerrar las demás', async () => { for (const q of tabs.filter(q => q !== p)) await closeTab(q); }, { disabled: tabs.length < 2 }], ...dupItems(p), '-', ...gTabItems(p)];
       if (isVirtual(p)) return openMenu({ x: e.clientX, y: e.clientY }, [{ head: name }, ...close.slice(0, -1)]);
       nodeMenu({ x: e.clientX, y: e.clientY }, p, false, null, close);
     };
@@ -5497,19 +5636,24 @@ function renderTabs() {
       if (isWeb(p) && panes[1]) e.dataTransfer.setData('text/desklens-path', p); // una web también cambia de lado // soltar en el otro lado la mueve allí
     };
     el.ondragend = () => { dragTab = null; T.querySelectorAll('.dl,.dr').forEach(t => t.classList.remove('dl', 'dr')); };
+    const dropOk = () => (dragTab || dragGroup) && dragTab !== p && !(dragGroup && dragGroup === g) && T.closest('.pane').classList.contains('on');
     el.ondragover = e => {
-      if (!dragTab || dragTab === p || !T.closest('.pane').classList.contains('on')) return; // en el otro lado: lo recoge su barra
+      if (!dropOk()) return; // en el otro lado: lo recoge su barra
       e.preventDefault(); e.dataTransfer.dropEffect = 'move';
       const r = el.getBoundingClientRect(), after = e.clientX > r.left + r.width / 2;
       el.classList.toggle('dr', after); el.classList.toggle('dl', !after);
     };
     el.ondragleave = () => el.classList.remove('dl', 'dr');
+    // soltar una pestaña junto a otra: se pone ahí y entra en su grupo (o sale del suyo si la otra no tiene);
+    // soltar la etiqueta de un grupo: el grupo entero se pone ahí
     el.ondrop = e => {
-      if (!dragTab || dragTab === p || !T.closest('.pane').classList.contains('on')) return;
+      if (!dropOk()) return;
       e.preventDefault(); e.stopPropagation();
-      const after = el.classList.contains('dr');
-      tabs.splice(tabs.indexOf(dragTab), 1); tabs.splice(tabs.indexOf(p) + after, 0, dragTab);
-      dragTab = null; persist(); renderTabs();
+      const after = el.classList.contains('dr'), moving = dragGroup ? tabs.filter(q => groupOf(q) === dragGroup) : [dragTab];
+      if (dragTab && groupOf(dragTab) !== g) tg[dragTab] = g || '';
+      for (const q of moving) tabs.splice(tabs.indexOf(q), 1);
+      tabs.splice(tabs.indexOf(p) + after, 0, ...moving);
+      dragTab = dragGroup = null; persist(); renderTabs();
     };
     T.append(el);
   }
@@ -8884,7 +9028,7 @@ loadSide().finally(async () => {
     const el = newPaneEl();
     $('#panes').append(grip, el); gripWire(grip);
     document.body.classList.add('split');
-    panes.push({ el, tabs: sp.tabs, cur: sp.cur, previewTab: sp.previewTab || null });
+    panes.push({ el, tabs: sp.tabs, cur: sp.cur, previewTab: sp.previewTab || null, grp: sp.grp || {}, tg: sp.tg || {} });
     activatePane(1); await render();
     renderTabsOf(0); // con dos lados, el botón de dividir pasa al segundo
     activatePane(sp.active === 1 ? 1 : 0);
