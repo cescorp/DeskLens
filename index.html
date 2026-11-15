@@ -6135,7 +6135,9 @@ function editorView(V, ed, name, path) {
   const cm = CodeMirror(V, { value: ed.text, lineNumbers: true, matchBrackets: true, indentUnit: AJ.editor_tab || 4, tabSize: AJ.editor_tab || 4, lineWrapping: wrapOn(),
     theme: isDark() ? 'material-darker' : 'default', foldGutter: true, styleActiveLine: { nonEmpty: false }, gutters: ['cm-bp', 'CodeMirror-linenumbers', 'CodeMirror-foldgutter'],
     foldOptions: { rangeFinder: foldFinder, widget: '⋯', minFoldSize: 1 },
-    extraKeys: { 'Shift-Ctrl-[': 'fold', 'Shift-Ctrl-]': 'unfold' } });
+    // se SUMAN a los de siempre (mover/duplicar línea, cursores, Ctrl+D, Esc, Alt+Z…): un extraKeys propio reemplaza
+    // CodeMirror.defaults.extraKeys entero, y así se perdieron entre v1.96 y v1.136
+    extraKeys: { ...CodeMirror.defaults.extraKeys, 'Shift-Ctrl-[': 'fold', 'Shift-Ctrl-]': 'unfold' } });
   // el otro lado edita el mismo archivo: este usa un documento enlazado al suyo (lo escrito sale en los dos, un solo
   // ↶; cada lado con su cursor y su desplazamiento)
   const twin = panes.find((p, i) => i !== active && p.cur === path && p.editorCM?.getWrapperElement().isConnected)?.editorCM;

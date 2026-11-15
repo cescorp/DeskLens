@@ -15,6 +15,17 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-15 · Vuelven los atajos de VS Code al editor (v1.136)
+El usuario notó que ya no se podía mover ni duplicar líneas, ni poner varios cursores (hecho el 2026-11-03, v1.23).
+
+**Causa:** el commit `dd438e1` (2026-11-05, plegar bloques) le dio a `editorView` su propio `extraKeys` (Ctrl+Mayús+[ / ]). En CodeMirror eso reemplaza entero `CodeMirror.defaults.extraKeys`, y con él se perdieron mover, duplicar, cursores, Ctrl+D, Ctrl+Shift+L, Ctrl+Shift+K, Esc (`desklensEsc`) y Alt+Z. Ctrl+F y Ctrl+H seguían funcionando por el atajo general de la ventana. El editor de Reglas no se vio afectado.
+
+**Arreglo:** `extraKeys: { ...CodeMirror.defaults.extraKeys, … }`, el único `extraKeys` propio del código.
+
+Probado en el 8799 con pulsaciones: Alt+↓, Shift+Alt+↓, Ctrl+Shift+K, Ctrl+Alt+↓ (2 cursores), Esc (1 cursor) y Ctrl+D (2 selecciones).
+
+**Regla:** nunca pasar `extraKeys` a un CodeMirror sin sumar `CodeMirror.defaults.extraKeys`.
+
 ## 2026-11-15 · Git: la lista de proyectos se salía por la izquierda (v1.135)
 Captura del usuario: solo la primera vez, la lista de proyectos de Git salía cortada.
 
