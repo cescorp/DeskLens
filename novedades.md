@@ -1,6 +1,19 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.130 · 2026-11-14 · Carpetas en azul marino
+- Los iconos de carpeta del árbol pasan del amarillo del Explorador de Windows al azul marino de DeskLens (el mismo de la línea guía y de fusionar), en tema claro y oscuro.
+
+## v1.129 · 2026-11-14 · Explorador: teclado, iconos, contador y filtro
+- Teclado en el árbol (clic en una fila primero): ↑ ↓ para moverse, → abre una carpeta o entra en ella, ← la cierra o sube a la carpeta madre, Inicio/Fin, AvPág/RePág, Enter abre. Si escribes letras, salta al nombre que empieza así («sca» → «SCAN…»).
+- F2 cambia el nombre en la misma fila: Enter guarda, Esc cancela. Supr envía a la papelera (pregunta antes).
+- Cada tipo de archivo tiene su icono y su color (PDF rojo, Word azul, Excel verde, imagen, código, comprimido…), y las carpetas se ven abiertas o cerradas.
+- Al final de cada carpeta se ve cuántas carpetas y archivos tiene dentro, contados como en YouTube (999 · 1 K · 1,5 K · 1,2 M), o «vacía». Si estrechas la barra lateral, el contador se oculta.
+- Al pasar el ratón: el tamaño y la fecha de cada archivo; en las carpetas, lo que tienen dentro y cuánto ocupan.
+- La línea guía del nivel donde estás se pinta en azul marino.
+- 🔎 arriba o Ctrl+F en el árbol: filtra por nombre, también dentro de carpetas cerradas (sin importar tildes ni mayúsculas). Con ↓ pasas a la lista; Esc lo cierra.
+- Nuevo ajuste «Carpetas compactas» (apagado): una carpeta que solo tiene otra carpeta dentro se muestra junto a ella, «recursos / solo / honda».
+
 ## v1.128 · 2026-11-14 · Fusionar: «Se fusionan sin problemas» en una barra verde y pestaña elegida sin fondo
 - «Se unen solos» pasa a llamarse «✓ Se fusionan sin problemas», con la frase «git los junta automáticamente: no hay nada que elegir».
 - Es una barra con fondo verde suave: se nota que está todo bien, y un clic en cualquier parte de la barra abre o cierra la lista.

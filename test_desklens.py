@@ -675,6 +675,32 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
         except exc:
             pass
 
+    # árbol: contador por carpeta, tamaño de archivos, filtro por nombre (también en carpetas cerradas) y F2
+    arb = proj / "arbol"
+    (arb / "Unidad 1" / ".git").mkdir(parents=True)  # oculta (HIDDEN): no cuenta
+    (arb / "Unidad 1" / "Lección.md").write_text("abc")
+    (arb / "vacía").mkdir()
+    (arb / "SCAN - unidad 3.pdf").write_text("x")
+    assert desklens.dir_counts(arb) == [2, 1] and desklens.dir_counts(arb / "vacía") == [0, 0]
+    assert desklens.dir_counts(arb / "no-existe") is None
+    li = {i["nombre"]: i for i in desklens.list_dir(arb)}
+    assert li["Unidad 1"]["n"] == [0, 1] and li["SCAN - unidad 3.pdf"]["tam"] == 1 and "tam" not in li["Unidad 1"]
+    f = desklens.tree_filter("leccion", [str(arb)])  # sin tilde encuentra «Lección»
+    assert [Path(x["ruta"]).name for x in f["items"]] == ["Lección.md"] and not f["mas"]
+    assert {Path(x["ruta"]).name for x in desklens.tree_filter("UNIDAD", [str(arb)])["items"]} == {"Unidad 1", "SCAN - unidad 3.pdf"}
+    assert desklens.tree_filter("unidad", [str(fuera)])["items"] == []  # fuera de lo añadido: nada
+    assert desklens.tree_filter("a", [str(arb)], limit=1)["mas"]
+    nuevo = desklens.rename_path(arb / "SCAN - unidad 3.pdf", "Unidad 3.pdf")
+    assert Path(nuevo).name == "Unidad 3.pdf" and not (arb / "SCAN - unidad 3.pdf").exists()
+    assert Path(desklens.rename_path(nuevo, "UNIDAD 3.pdf")).name == "UNIDAD 3.pdf"  # solo mayúsculas: se permite
+    for ruta, nombre, exc in ((arb / "UNIDAD 3.pdf", "Unidad 1", FileExistsError), (arb / "vacía", "a/b", ValueError),
+                              (proj, "otro", PermissionError), (arb / "no-existe", "x", FileNotFoundError)):
+        try:
+            desklens.rename_path(ruta, nombre)
+            raise AssertionError(f"debió fallar: {ruta} → {nombre}")
+        except exc:
+            pass
+
     # recuperación: copia atómica de lo no guardado, se lista y se borra
     desklens.RECOVERY_DIR = tmp / "recuperacion"
     desklens.recovery_save({"clave": "nuevo-1", "ruta": None, "titulo": "nuevo 1", "texto": "hola ñ"})

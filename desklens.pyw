@@ -150,6 +150,7 @@ SETTINGS = [
     ("letra_codigo", "Editor y lectura", "Tamaño de letra del código (px)", 13, 9, 28),
     ("pestanas_vista_previa", "Editor y lectura", "Pestaña de vista previa: un clic reemplaza la anterior", True, None, None),
     ("revelar_en_arbol", "Editor y lectura", "Desplegar el árbol hasta el archivo abierto", True, None, None),
+    ("carpetas_compactas", "Editor y lectura", "Carpetas compactas en el árbol: una carpeta que solo tiene otra carpeta dentro se muestra junto a ella («Curriculo / 2do Grado»), con menos clics", False, None, None),
     ("recargar_preguntar", "Editor y lectura", "Preguntar antes de recargar un archivo abierto que cambió en el disco (si no, se recarga solo; con cambios sin guardar siempre se pregunta)", False, None, None),
     ("consola_max_pestanas", "Consola", "Pestañas de consola como máximo (se cierran las terminadas más antiguas; las que siguen corriendo, nunca)", 5, 1, 50),
     ("historial_dias", "Historial de cambios", "Borrar el historial de un archivo tras (días sin editarlo)", 7, 1, 3650),
@@ -435,25 +436,98 @@ def estado():
     return {
         "reiniciar": Path(__file__).stat().st_mtime_ns != CODE_MTIME,
         "avisar_memoria": ajuste("avisar_memoria_ia"),  # sin este ajuste tampoco hay «✅ En orden»
-        "proyectos": [{"ruta": r, **project_label(r, cfg), "avisos": status(r)} for r in cfg["proyectos"]],
+        "compactas": ajuste("carpetas_compactas"),  # va aquí y no en /api/ajustes: el árbol se dibuja antes de leer los ajustes
+        "proyectos": [{"ruta": r, **project_label(r, cfg), "avisos": status(r), "n": dir_counts(r)} for r in cfg["proyectos"]],
         "sueltos": [{"ruta": s, "nombre": Path(s).name, "existe": Path(s).is_file(), "git": git_state(s)}
                     for s in cfg["sueltos"]],
     }
 
 
+def dir_counts(path):
+    """[carpetas, archivos] dentro de una carpeta (sin bajar más ni contar las ocultas de HIDDEN), para el contador
+    del árbol; None si no se puede leer.
+    ponytail: se recuenta en cada /api/dir (y el árbol lo pide cada 4 s); en discos de red lentos, cachear por mtime"""
+    nd = nf = 0
+    try:
+        with os.scandir(path) as it:
+            for e in it:
+                if e.name in HIDDEN:
+                    continue
+                try:
+                    if e.is_dir():
+                        nd += 1
+                    else:
+                        nf += 1
+                except OSError:
+                    pass
+    except OSError:
+        return None
+    return [nd, nf]
+
+
 def list_dir(path):
-    """Contenido de una carpeta para el árbol: sin las carpetas ocultas (HIDDEN), carpetas primero y por nombre."""
+    """Contenido de una carpeta para el árbol: sin las carpetas ocultas (HIDDEN), carpetas primero y por nombre.
+    Carpetas: n = [carpetas, archivos] dentro; archivos: tam en bytes (para el contador y el título al pasar el ratón)."""
     items = []
     for e in Path(path).iterdir():
         if e.name in HIDDEN:
             continue
         try:
-            d = e.is_dir()
+            d, st = e.is_dir(), e.stat()
             items.append({"nombre": e.name, "ruta": str(e), "dir": d, "git": None if d else git_state(e),
-                          "fecha": e.stat().st_mtime})  # para ordenar por fecha de modificación
+                          "fecha": st.st_mtime,  # para ordenar por fecha de modificación
+                          **({"n": dir_counts(e)} if d else {"tam": st.st_size})})
         except OSError:
             pass
     return sorted(items, key=lambda i: (not i["dir"], i["nombre"].lower()))
+
+
+def tree_filter(q, roots, limit=300, seconds=4):
+    """Filtro del árbol (Ctrl+F): archivos y carpetas cuyo nombre lleva todas las palabras de q (sin tildes ni
+    mayúsculas), también dentro de carpetas cerradas. Recorre el disco (no el índice: así sale lo recién creado).
+    mas = True si se cortó por cantidad o por tiempo.
+    ponytail: no entra en node_modules, vendor, .venv… (HEAVY); si hiciera falta, quitarlas de la exclusión"""
+    words, out, t0 = plain_words(q), [], time.monotonic()
+    if not words:
+        return {"items": [], "mas": False}
+    for root in roots:
+        if not allowed(root) or not Path(root).is_dir():
+            continue
+        for d, dirs, files in os.walk(root):
+            dirs[:] = [x for x in dirs if x not in HIDDEN and x not in HEAVY]
+            for name, isdir in [(x, True) for x in dirs] + [(x, False) for x in files]:
+                plain = " ".join(plain_words(name))
+                if all(w in plain for w in words):
+                    p = os.path.join(d, name)
+                    out.append({"ruta": p, "dir": isdir, "raiz": root, **({} if isdir else {"git": git_state(p)})})
+                    if len(out) >= limit:
+                        return {"items": out, "mas": True}
+            if time.monotonic() - t0 > seconds:
+                return {"items": out, "mas": True}
+    return {"items": out, "mas": False}
+
+
+def rename_path(path, name):
+    """F2 en el árbol: nuevo nombre en la misma carpeta. Nunca la carpeta de un proyecto ni sobre algo que ya
+    exista (sí cambiar solo mayúsculas: «a.md» → «A.md»). Un suelto renombrado sigue en la lista con su nombre nuevo."""
+    if not name or any(c in name for c in '\\/:*?"<>|') or name.strip(" .") == "":
+        raise ValueError("Nombre no válido: no puede llevar \\ / : * ? \" < > |")
+    p = Path(path).resolve()
+    if not p.exists():
+        raise FileNotFoundError(f"Ya no existe: {p}")
+    if is_project(p):
+        raise PermissionError("Es la carpeta de un proyecto: su nombre en DeskLens se cambia en ⋮ → «Nombre en DeskLens»")
+    new = p.parent / name
+    if not allowed(new):
+        raise PermissionError("Solo dentro de lo añadido a DeskLens")
+    if new.exists() and not os.path.samefile(new, p):
+        raise FileExistsError("Ya existe uno con ese nombre en esta carpeta")
+    p.rename(new)
+    cfg = load_config()
+    if str(p) in cfg["sueltos"]:
+        cfg["sueltos"][cfg["sueltos"].index(str(p))] = str(new)
+        save_config(cfg)
+    return str(new)
 
 
 # ---------- explorador para añadir (solo nombres: nunca lee contenido fuera de lo añadido) ----------
@@ -4235,6 +4309,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, search(q.get("q", ""), nombre=q.get("nombre") != "0",
                                                   contenido=q.get("contenido") != "0", exacto=q.get("exacto") == "1",
                                                   raices=raices))
+            if url.path == "/api/arbol/filtro":  # cada raíz se comprueba (allowed) dentro de tree_filter
+                return self.send_json(200, tree_filter(q.get("q", ""), [r for r in q.get("raices", "").split("|") if r]))
             if url.path == "/api/indice":
                 return self.send_json(200, idx_status())
             if url.path == "/api/indice/pdf":
@@ -4578,6 +4654,17 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, KeyError, IndexError, zipfile.BadZipFile, ET.ParseError) as e:
                 return self.send_json(400, {"error": str(e)})
             return self.send_json(200, {"nombre": nombre, **r, "tokens": estimate_tokens(r["texto"])})
+        if url == "/api/renombrar":
+            if self.denied(data.get("ruta", "")):
+                return
+            try:
+                return self.send_json(200, {"ruta": rename_path(data["ruta"], str(data.get("nombre", "")).strip())})
+            except FileExistsError as e:
+                return self.send_json(409, {"error": str(e)})
+            except PermissionError as e:
+                return self.send_json(403, {"error": str(e)})
+            except (ValueError, OSError) as e:  # nombre no válido, ya no existe o Windows lo tiene en uso
+                return self.send_json(400, {"error": str(e)})
         if url == "/api/papelera":
             if self.denied(data.get("ruta", "")):
                 return

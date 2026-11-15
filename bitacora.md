@@ -13,7 +13,28 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Rama `publico`, commiteado hasta v1.122** (`16bfb75`: v1.115 historial por línea, v1.116–v1.121 fusiones en pantalla única; `1fc9193`: v1.122 sombreado de coincidencias); v1.123 (freno del índice) en `9478cf7`; v1.124 (Git ágil) y v1.125 (historial de fuera) en el commit siguiente. No está subido a GitHub. `python test_desklens.py` pasa.
 - **Fusionar / Pull / Pull desde = pantalla única** (`mergeOneDialog` en index.html; servidor `git_merge_check` GET `/api/git/fusion`, `git_merge_file` GET `/api/git/fusion/archivo`, `git_merge_apply` POST `/api/git/fusion`). Lista solo problemas (conflicto, ambos, tuyo_nuevo, bloqueado) en una tabla ordenable con un desplegable por archivo (v1.126); las vistas previas van siempre en otro modal (`#dlg2`, `mergeTwoView`): pestañas por opción y dos columnas alineadas «lo que tienes ahora | así quedará» (`sideBySideRows`), barra de marcas (`mgMarks`). «Editar manualmente» se escribe en ese modal y viaja como `textos`.
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
-- **Pendiente / ideas:** Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
+- **Pendiente / ideas:** explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
+
+## 2026-11-14 · Carpetas en azul marino (v1.130)
+A pedido del usuario («más de DeskLens y no de explorador»), `.fi.dir` usa `var(--navy)` (claro #1f4e79 / oscuro #8fb3d9) con el relleno al 16 %, en lugar de #c99a3a. Los colores de los archivos por tipo no cambian.
+
+## 2026-11-14 · Explorador: teclado, iconos, contador, F2, Supr y filtro (v1.129)
+El usuario pidió un árbol más parecido al Explorador de Windows y a VS Code. Aprobó los puntos 1–9 y 12 de la propuesta numerada, descartó el 10 (Ctrl+C/V/X) y dejó para después el 11 (arrastrar para mover; hoy arrastrar = adjuntar al chat).
+
+**Servidor (`desklens.pyw`):**
+- `dir_counts` da `[carpetas, archivos]` sin contar HIDDEN.
+- `list_dir` añade `n` a las carpetas y `tam` a los archivos; `estado()` añade `n` a cada proyecto y `compactas`.
+- `tree_filter` responde GET `/api/arbol/filtro?q=&raices=a|b`. Recorre el disco, sin entrar en HEAVY, con un tope de 300 resultados o 4 s (`mas`).
+- `rename_path` responde POST `/api/renombrar`. Nunca renombra la carpeta de un proyecto ni pisa algo existente (salvo un cambio solo de mayúsculas) y pone al día los sueltos.
+- Nuevo ajuste `carpetas_compactas`, en False por defecto.
+
+**Interfaz (`index.html`):**
+- `fileIcon` (SVG por familia, `FI_FAM`), `fmtCount` (estilo YouTube, trunca), `dirCount` (`.dcnt`; `.cnt` ya existía en otra parte) y `dirTamTitle` (`/api/carpeta/tam` al pasar el ratón, caché de 1 min).
+- Teclado: `.sidescroll` con tabindex 0 y su keydown (`treeRows`, `kcur`, `treeMarks` → `.kcur` y `.kact` en azul marino), `renameInline` (cierra las pestañas de lo renombrado y las reabre con la ruta nueva).
+- Filtro: `#tfbox`/`#tfilt` + `treeFilterRun`. Se dibuja aparte; `toggle` en `#tfilt` solo pliega.
+- `compactChain` + `data-chain`: `newInline` busca la carpeta por la cadena.
+
+Probado en el 8799 con un «Curriculo» de ejemplo: flechas, «sca», F2, Supr (con Esc), filtro, compactas, barra a 210 px y títulos. Pendiente: no está probado con el teclado de Edge en la app real, y el historial de cambios de un archivo no sigue al renombrarlo.
 
 ## 2026-11-14 · Fusionar: barra verde «✓ Se fusionan sin problemas» (v1.128)
 Captura del usuario: «Se unen solos» no se entendía. En `mergeOneDialog` el `summary` de `.mgsolos` es ahora una barra flex a todo lo ancho (fondo verde al 12 %, borde verde, ▸/▾ en verde; hover al 19 %; con la lista abierta, la lista queda enmarcada debajo) con «✓ Se fusionan sin problemas (N)» y «git los junta automáticamente: no hay nada que elegir»; el resumen de arriba dice «N se fusionan sin problemas». Probado en el 8799 (rama `cesare`) con clic real en el extremo derecho de la barra, claro y oscuro. Después, a pedido del usuario, `.mgtabs button.on` sin fondo verde (`var(--paper)`): solo borde y título en verde. También columna «#» en `mergeTable` (n.º en el orden que se ve, también al ordenar; los `nth-child` del CSS se corrieron uno) y en la lista de `.mgsolos` (`.mgfile` con una columna más). Luego: `mergeSoloView` deja la columna única (`mgCol`) y usa `mgSbs` (pieza nueva, también en `mergeTwoView`): base (tu último commit; estos archivos no tienen cambios sin commit) | resultado, con frase según A/D o `resultado == llega` (solo cambió la otra rama) o no (git junta las dos). `mgMarks`: barra a 30 px, raya `mod` (rojo|verde) para filas con las dos mitades, recuadro `.vp` del trozo visible (se mueve con el scroll) y clic/arrastre con pointer capture. Probado en el 8799 con un archivo de 300 líneas cambiado en las dos ramas (rama `larga` hecha a mano en el repositorio de prueba).

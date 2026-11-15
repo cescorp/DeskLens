@@ -291,6 +291,28 @@ aside h2{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppe
 .gd[data-g=ignorado]{background:#9a9a9a;border-color:#9a9a9a}
 .node .ib{display:none;width:16px;height:16px;padding:0;margin:0 0 0 2px;flex:none;border:1px solid var(--muted);border-radius:50%;background:none;color:var(--muted);font:italic 600 10px/14px Georgia,serif;cursor:pointer}
 .node:hover .ib{display:inline-block}.node:hover .gd{display:none}.node .ib:hover{border-color:var(--accent);color:var(--accent)}
+/* iconos por tipo: hoja con el color de su familia; carpeta abierta o cerrada */
+.node .fi{display:inline-flex;flex:none;width:16px;height:16px}
+.fi svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.1;stroke-linejoin:round;stroke-linecap:round}
+.fi .hoja{fill:color-mix(in srgb,currentColor 14%,transparent)}
+.fi.dir{color:var(--navy)}.fi.dir path{fill:color-mix(in srgb,currentColor 16%,transparent)} /* azul marino de DeskLens (el de fusionar), no el amarillo de Windows */
+.fi.dir .open,.node.open>.fi.dir .shut{display:none}.node.open>.fi.dir .open{display:inline}
+/* «3 📁 12 📄» al final de cada carpeta; con la barra estrecha se oculta */
+aside{container-type:inline-size}
+.node .dcnt{flex:none;display:inline-flex;align-items:center;margin-left:6px;font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums}
+.node .dcnt svg{width:11px;height:11px;margin:0 4px 0 2px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round}
+@container (max-width:230px){.node .dcnt{display:none}}
+/* teclado: fila del cursor (con el árbol enfocado) y línea guía de su nivel en azul marino */
+.sidescroll:focus{outline:none}
+.sidescroll:focus .node.kcur{box-shadow:inset 0 0 0 1px var(--navy);background:var(--navybg);color:var(--ink)}
+.kids.kact{border-left-color:var(--navy)}
+.node input.rnin{flex:1;min-width:0;font:inherit;font-size:13px;padding:0 4px;border:1px solid var(--navy);border-radius:3px;background:var(--paper);color:var(--ink)}
+/* Ctrl+F: árbol filtrado (#tfilt) en lugar del normal */
+#tfbox{padding:0 4px 6px}
+#tfbox input{width:100%;font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--navy);border-radius:6px;background:var(--paper);color:var(--ink)}
+#tfbox small{display:block;margin:3px 2px 0;font-size:11px;color:var(--faint)}
+#tfilt,body.tfilt :is(#projects,#loose,.sidescroll>h2){display:none}body.tfilt #tfilt{display:block}
+.node.hit .n{color:var(--ink);font-weight:600}
 /* buscador */
 .sidesearch{position:relative;padding:0 4px 6px}
 .sidesearch input{width:100%;font:inherit;font-size:13px;padding:5px 80px 5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink)}
@@ -301,7 +323,7 @@ aside h2{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppe
 .stog svg{width:14px;height:14px}
 .stog button.on{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 /* dos vistas en la barra lateral, como en VS Code: 📁 Explorador · 🔍 Buscar (cada una guarda lo suyo) */
-body:not(.vsearch) :is(#stop,#results),body:not(.vgit) #gitv,body:is(.vsearch,.vgit) :is(#sidetools,.sidescroll>h2,#projects,#loose){display:none}
+body:not(.vsearch) :is(#stop,#results),body:not(.vgit) #gitv,body:is(.vsearch,.vgit) :is(#sidetools,.sidescroll>h2,#projects,#loose,#tfbox,#tfilt){display:none!important}
 body:not(.noside):not(.vsearch):not(.vgit) #ribbon [data-v=e],body.vsearch:not(.noside) #ribbon [data-v=b],body.vgit:not(.noside) #ribbon [data-v=g]{color:var(--accent);box-shadow:inset 2px 0 var(--accent)}
 /* vista Git (como el control de código de VS Code): repo, rama, mensaje, commit y listas de archivos */
 #gitv{display:flex;flex-direction:column;gap:6px;padding:0 8px 8px}
@@ -1176,6 +1198,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="gnote" id="gChecked"></div>
       <div id="glist"></div>
     </div>
+    <div id="tfbox" hidden><input id="tfq" placeholder="Filtrar el árbol por nombre…" autocomplete="off" spellcheck="false"><small id="tfn"></small></div>
+    <div id="tfilt"></div>
     <h2>Proyectos</h2>
     <div id="projects"></div>
     <h2>📌 Sueltos</h2>
@@ -1348,9 +1372,9 @@ async function loadSide() {
   const pending = [];
   for (const p of st.proyectos) {
     const box = document.createElement('div'); box.className = 'proj';
-    const root = nodeEl(p.nombre, p.ruta, true, p.ruta); box.append(root);
+    const root = nodeEl(p.nombre, p.ruta, true, p.ruta, undefined, { n: p.n }); box.append(root);
     if (p.lugar) root.querySelector('.n').after(Object.assign(document.createElement('span'), { className: 'plug', textContent: p.lugar }));
-    if (p.nombre !== p.carpeta) root.title = `${p.ruta}\n(en DeskLens: «${p.nombre}»; la carpeta se llama «${p.carpeta}»)`;
+    if (p.nombre !== p.carpeta) root.title += `\n(en DeskLens: «${p.nombre}»; la carpeta se llama «${p.carpeta}»)`;
     const b = document.createElement('div'); b.className = 'badges';
     if (!p.avisos.length && st.avisar_memoria) b.innerHTML = '<span class="ok">✅ En orden</span>';
     for (const a of p.avisos) {
@@ -1384,12 +1408,16 @@ const GIT_TXT = { limpio: 'Git: sin cambios', modificado: 'Git: modificado', nue
   conflicto: 'Git: conflicto', ignorado: 'Git: ignorado (.gitignore)', sin_git: 'No está en git' };
 // Una fila del árbol: nombre (con la extensión siempre visible), 🔒 si es sensible, punto de git que
 // cambia a (i) al pasar el ratón y ⋮/✕ para proyectos y sueltos. Clic: abrir · doble clic: fijar · arrastrar: al chat.
-function nodeEl(name, path, isDir, removable, git) {
+// it: lo que trae /api/dir (n = [carpetas, archivos] dentro, tam, fecha) para el contador y el título
+function nodeEl(name, path, isDir, removable, git, it = {}) {
   const el = document.createElement('div');
   const k = kind(name);
-  el.className = 'node' + (isDir && tree.get(path) ? ' open' : ''); el.dataset.path = path; el.title = path;
-  el.innerHTML = `<span class="chev">${isDir ? '›' : ''}</span><span class="n"></span>` +
-    (k.lock && !isDir ? '<span title="Archivo sensible">🔒</span>' : '') +
+  el.className = 'node' + (isDir && tree.get(path) ? ' open' : ''); el.dataset.path = path; el.dataset.dir = isDir ? '1' : '';
+  el.title = path + (it.fecha ? `\n${isDir ? '' : fmtSize(it.tam || 0) + ' · '}modificado ${new Date(it.fecha * 1000).toLocaleString('es')}` : '')
+    + (it.n ? `\n${it.n[0]} carpeta${it.n[0] === 1 ? '' : 's'} · ${it.n[1]} archivo${it.n[1] === 1 ? '' : 's'}` : '');
+  if (isDir) el.onmouseenter = () => dirTamTitle(el); // lo que ocupa: se calcula solo al pasar el ratón
+  el.innerHTML = `<span class="chev">${isDir ? '›' : ''}</span>${fileIcon(name, isDir)}<span class="n"></span>` +
+    (k.lock && !isDir ? '<span title="Archivo sensible">🔒</span>' : '') + (isDir ? dirCount(it.n) : '') +
     // archivos: punto con el estado de git; al pasar el ratón se cambia por (i) = información
     (!isDir ? `<span class="gd" data-g="${git || 'sin_git'}" title="${GIT_TXT[git || 'sin_git']}"></span><button class="ib" title="Información del archivo">i</button>` : '') +
     (removable ? (isDir ? '<span class="x" title="Opciones del proyecto">⋮</span>' : '<span class="x" title="Quitar de DeskLens">✕</span>') : '');
@@ -1399,6 +1427,8 @@ function nodeEl(name, path, isDir, removable, git) {
   const remove = async () => await ask('Quitar de DeskLens', `¿Quitar «${name}» de DeskLens?\nNo se borra nada del disco.`, ['Quitar', 'Cancelar'], { danger: true }) === 'Quitar' && api('/api/quitar', { ruta: removable }).then(loadSide);
   el.oncontextmenu = e => { e.preventDefault(); nodeMenu({ x: e.clientX, y: e.clientY }, path, isDir, git); };
   el.onclick = e => {
+    if (e.target.tagName === 'INPUT') return; // escribiendo el nombre nuevo (F2)
+    kcur = path; treeMarks(); // el cursor del teclado sigue al clic
     if (e.target.classList.contains('ib')) return nodeMenu(e.target, path, isDir, git);
     if (e.target.classList.contains('x')) {
       if (!isDir) return remove();
@@ -1421,6 +1451,212 @@ function nodeEl(name, path, isDir, removable, git) {
     el.ondragstart = e => { e.dataTransfer.setData('text/desklens-path', path); e.dataTransfer.effectAllowed = 'copy'; };
   }
   return el;
+}
+// Iconos del árbol: una hoja con el color de su familia y un dibujo dentro (texto, código, tabla, imagen…); carpetas, abierta o cerrada
+const FI_FAM = [
+  ['doc', '#d93025', 'pdf'], ['doc', '#3b82f6', 'md markdown'], ['doc', '#7b8794', 'txt log nfo'],
+  ['doc', '#2b579a', 'doc docx odt rtf'], ['tab', '#217346', 'xls xlsx xlsm ods csv tsv'], ['doc', '#d24726', 'ppt pptx odp'],
+  ['img', '#0f9d8a', 'png jpg jpeg gif webp bmp ico svg tif tiff heic'], ['zip', '#8d6e63', 'zip rar 7z gz tar bz2 xz'],
+  ['media', '#c2185b', 'mp3 wav ogg flac m4a aac mp4 mkv avi mov webm'],
+  ['code', '#3572a5', 'py pyw ipynb'], ['code', '#c99a00', 'js mjs cjs jsx'], ['code', '#3178c6', 'ts tsx'],
+  ['code', '#e44d26', 'html htm vue'], ['code', '#2965f1', 'css scss sass less'], ['code', '#8a6d00', 'json yaml yml toml xml ini cfg conf env'],
+  ['code', '#777bb4', 'php'], ['code', '#b0632a', 'sql db sqlite'], ['code', '#4d8a4d', 'sh bat cmd ps1 psm1'],
+  ['code', '#6d6d6d', 'java c cpp h hpp cs go rs rb kt swift vb lua r dart'],
+];
+const FI = Object.fromEntries(FI_FAM.flatMap(([f, c, exts]) => exts.split(' ').map(x => [x, [f, c]])));
+const FI_IN = { // dibujo dentro de la hoja (viewBox 16×16)
+  doc: '<path d="M5.5 8h5M5.5 10.2h5M5.5 12.4h3"/>', code: '<path d="m6.6 8.3-1.9 2 1.9 2M9.4 8.3l1.9 2-1.9 2"/>',
+  tab: '<path d="M5 8h6v4.6H5zM5 10.3h6M8 8v4.6"/>', img: '<path d="m4.8 12.6 2.3-2.8 1.6 1.8 1-1.1 1.6 2.1z" fill="currentColor" stroke="none"/><circle cx="10.2" cy="7.6" r=".9" fill="currentColor" stroke="none"/>',
+  zip: '<path d="M8 3v1.2M8 5.4v1.2M8 7.8V9"/><rect x="7" y="9.6" width="2" height="2.6" rx=".4"/>',
+  media: '<path d="M6.6 8v4.6l3.8-2.3z" fill="currentColor" stroke="none"/>',
+};
+function fileIcon(name, isDir) {
+  if (isDir) return '<i class="fi dir"><svg viewBox="0 0 16 16"><path class="shut" d="M1.5 4.5v8.5h13v-7H8L6.5 4.5z"/><path class="open" d="M1.5 13V4h4.3L7.3 5.5H12.5v1.8M1.5 13l2.1-5.6h11l-2.1 5.6z"/></svg></i>';
+  const [fam, col] = FI[kind(name).ext] || ['', '#8a94a3'];
+  return `<i class="fi" style="color:${col}"><svg viewBox="0 0 16 16"><path class="hoja" d="M3.5 1.5h6l3 3v10h-9z"/>${FI_IN[fam] || ''}</svg></i>`;
+}
+// Contador como YouTube: 999 tal cual; desde mil, 1 K · 1,5 K · 12 K; desde un millón, 1,2 M (se trunca, no se redondea)
+const fmtCount = n => {
+  if (n < 1000) return String(n);
+  const [v, u] = n < 1e6 ? [n / 1e3, 'K'] : [n / 1e6, 'M'];
+  return (v < 10 ? Math.floor(v * 10) / 10 : Math.floor(v)).toLocaleString('es') + ' ' + u;
+};
+const MINI = { d: '<svg viewBox="0 0 16 16"><path d="M1.5 4.5v8.5h13v-7H8L6.5 4.5z"/></svg>', f: '<svg viewBox="0 0 16 16"><path d="M3.5 1.5h6l3 3v10h-9z"/></svg>' };
+// «3 📁 12 📄» al final de la fila de una carpeta (se oculta con la barra estrecha: ver @container en el CSS)
+function dirCount(n) {
+  if (!n) return '';
+  if (!n[0] && !n[1]) return '<span class="dcnt">vacía</span>';
+  return `<span class="dcnt">${n[0] ? fmtCount(n[0]) + MINI.d : ''}${n[1] ? fmtCount(n[1]) + MINI.f : ''}</span>`;
+}
+// Lo que ocupa una carpeta (con subcarpetas) se añade a su título la primera vez que se pasa el ratón; se recuerda 1 min
+const dirTam = new Map();
+async function dirTamTitle(el) {
+  const p = el.dataset.path, c = dirTam.get(p);
+  if (el.dataset.tam) return; el.dataset.tam = '1';
+  let s = c && Date.now() - c.t < 60000 ? c.s : null;
+  if (!s) { try { s = await api('/api/carpeta/tam?ruta=' + encodeURIComponent(p)); dirTam.set(p, { s, t: Date.now() }); } catch { return; } }
+  el.title += `\nOcupa ${fmtSize(s.tam)} (${fmtCount(s.archivos)} archivo${s.archivos === 1 ? '' : 's'} con las subcarpetas)`;
+}
+
+// ---------- teclado en el árbol (como VS Code y el Explorador de Windows) ----------
+// ↑↓ mover · → abrir carpeta / bajar a su primer hijo · ← cerrar / subir a la carpeta madre · Inicio/Fin · AvPág/RePág
+// Enter abrir (pestaña fija) · F2 renombrar · Supr a la papelera · escribir letras: salta al nombre que empieza así · Ctrl+F filtrar
+let kcur = null, typed = '', typedAt = 0;
+const SS = $('.sidescroll');
+const fold = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+// filas que se ven ahora (las carpetas cerradas, los .bak ocultos y la vista filtrada cuentan)
+const treeRows = () => [...document.querySelectorAll(document.body.classList.contains('tfilt') ? '#tfilt .node' : '#projects .node, #loose .node')]
+  .filter(n => n.offsetParent && !n.classList.contains('newrow'));
+const isProject = p => side.proyectos.some(x => x.ruta === p);
+// Fila del cursor (con el árbol enfocado) y la línea guía de su nivel en azul marino; sin foco, la del archivo abierto
+function treeMarks() {
+  document.querySelectorAll('aside .kcur, aside .kact').forEach(x => x.classList.remove('kcur', 'kact'));
+  const rows = treeRows(), focused = document.activeElement === SS;
+  const k = (focused && rows.find(n => n.dataset.path === kcur)) || rows.find(n => n.dataset.path === cur) || rows.find(n => n.dataset.path === kcur);
+  if (k && k.dataset.path === kcur) k.classList.add('kcur');
+  k?.closest('.kids')?.classList.add('kact');
+}
+SS.tabIndex = 0;
+SS.onfocus = SS.onblur = () => treeMarks();
+SS.addEventListener('keydown', async e => {
+  if (e.target !== SS || document.body.matches('.vsearch, .vgit') || e.altKey || e.metaKey) return;
+  if (e.ctrlKey) { if (!e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); e.stopPropagation(); treeFilterOpen(); } return; }
+  const rows = treeRows(); if (!rows.length) return;
+  const i = rows.findIndex(n => n.dataset.path === kcur), el = rows[i], isDir = el?.dataset.dir === '1';
+  const go = j => { const n = rows[Math.max(0, Math.min(rows.length - 1, j))]; kcur = n.dataset.path; treeMarks(); n.scrollIntoView({ block: 'nearest' }); };
+  const page = Math.max(1, Math.floor(SS.clientHeight / (rows[0].offsetHeight || 24)) - 1);
+  const keys = {
+    ArrowDown: () => go(i < 0 ? 0 : i + 1), ArrowUp: () => go(i < 0 ? 0 : i - 1),
+    Home: () => go(0), End: () => go(rows.length - 1), PageDown: () => go(i + page), PageUp: () => go(i - page),
+    ArrowRight: () => !el ? go(0) : !isDir ? 0 : !el.classList.contains('open') ? toggle(el)
+      : kidsOf(el)?.contains(rows[i + 1]) && go(i + 1), // abierta: al primer hijo (si tiene)
+    ArrowLeft: () => {
+      if (!el) return go(0);
+      if (isDir && el.classList.contains('open')) return toggle(el);
+      let up = el.closest('.kids')?.previousElementSibling; if (up?.classList.contains('badges')) up = up.previousElementSibling;
+      if (up?.classList.contains('node')) go(rows.indexOf(up));
+    },
+    Enter: () => el && (isDir ? toggle(el) : openTab(el.dataset.path, true)),
+    F2: () => el && renameInline(el),
+    Delete: async () => {
+      if (!el || isProject(el.dataset.path)) return;
+      await trashPath(el.dataset.path, isDir);
+      const r = treeRows(); kcur = r[Math.min(i, r.length - 1)]?.dataset.path; treeMarks(); SS.focus();
+    },
+    Escape: () => { typed = ''; },
+  };
+  if (keys[e.key]) { e.preventDefault(); e.stopPropagation(); return keys[e.key](); }
+  if (e.key.length !== 1 || (e.key === ' ' && !typed)) return;
+  // escribir para saltar: «sca» → la siguiente fila cuyo nombre empieza así (sin tildes ni mayúsculas)
+  e.preventDefault(); e.stopPropagation();
+  typed = (Date.now() - typedAt < 800 ? typed : '') + e.key; typedAt = Date.now();
+  const want = fold(typed), from = typed.length === 1 ? i + 1 : Math.max(i, 0);
+  for (let k = 0; k < rows.length; k++) {
+    const n = rows[(from + k) % rows.length];
+    if (fold(n.querySelector('.n').textContent).startsWith(want)) return go(rows.indexOf(n));
+  }
+});
+// F2: el nombre se escribe en la misma fila (Enter guarda, Esc cancela; clic fuera guarda si cambió). Las pestañas
+// abiertas de lo renombrado se cierran (si hay cambios sin guardar, pregunta) y se reabren con la ruta nueva.
+// La carpeta de un proyecto no se renombra en el disco: se cambia su nombre en DeskLens.
+async function renameInline(el) {
+  const path = el.dataset.path;
+  if (isProject(path)) return renameProject(path);
+  const old = path.split(/[\\/]/).pop(), n = el.querySelector('.n');
+  const input = Object.assign(document.createElement('input'), { value: old, spellcheck: false, className: 'rnin' });
+  n.replaceWith(input); input.focus();
+  const dot = el.dataset.dir ? -1 : old.lastIndexOf('.'); input.setSelectionRange(0, dot > 0 ? dot : old.length); // sin la extensión
+  let done = false;
+  const back = () => { input.replaceWith(n); SS.focus(); };
+  const finish = async ok => {
+    if (done) return; done = true;
+    const nombre = input.value.trim();
+    if (!ok || !nombre || nombre === old) return back();
+    const open = tabs.filter(t => under(t, path)), was = cur;
+    for (const t of open) { await closeTab(t); if (tabs.includes(t)) return back(); } // canceló al guardar
+    let r;
+    try { r = (await api('/api/renombrar', { ruta: path, nombre })).ruta; }
+    catch (err) { back(); for (const t of open) openTab(t, true); return ask('No se pudo renombrar', err.message, ['Entendido']); }
+    const to = t => r + t.slice(path.length); // la misma ruta, con el nombre nuevo
+    for (const [k, v] of [...tree]) if (under(k, path)) { tree.delete(k); tree.set(to(k), v); } // sus carpetas abiertas siguen abiertas
+    if (selDir && under(selDir, path)) selDir = to(selDir);
+    kcur = r; await loadSide(); SS.focus();
+    for (const t of [...open.filter(t => t !== was), ...open.filter(t => t === was)]) openTab(to(t), true); // la que veías, al final
+    flash(`✓ «${old}» ahora se llama «${nombre}»`);
+  };
+  input.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); };
+  input.onblur = () => finish(true);
+}
+
+// ---------- Ctrl+F en el árbol: filtrar por nombre, también dentro de carpetas cerradas ----------
+// La lista sale del disco (/api/arbol/filtro) y se dibuja aparte (#tfilt) con sus carpetas abiertas; el árbol normal
+// no se toca y vuelve tal cual al cerrar el filtro (Esc).
+let tfTimer, tfSeq = 0;
+const plainW = s => fold(s).match(/[a-z0-9]+/g) || [];
+function treeFilterOpen() {
+  if (document.body.matches('.vsearch, .vgit')) return;
+  $('#tfbox').hidden = false; const q = $('#tfq'); q.focus(); q.select();
+}
+function treeFilterClose() {
+  $('#tfq').value = ''; $('#tfbox').hidden = true; $('#tfn').textContent = '';
+  document.body.classList.remove('tfilt'); $('#tfilt').innerHTML = ''; SS.focus(); treeMarks();
+}
+async function treeFilterRun() {
+  const q = $('#tfq').value.trim(), seq = ++tfSeq, F = $('#tfilt'), N = $('#tfn');
+  if (!q) { document.body.classList.remove('tfilt'); F.innerHTML = ''; N.textContent = ''; return treeMarks(); }
+  N.textContent = 'Buscando…';
+  let r;
+  try { r = await api('/api/arbol/filtro?q=' + encodeURIComponent(q) + '&raices=' + encodeURIComponent(side.proyectos.map(p => p.ruta).join('|'))); }
+  catch (e) { N.textContent = '⚠️ ' + e.message; return; }
+  if (seq !== tfSeq) return; // ya se escribió otra cosa
+  const words = plainW(q), loose = side.sueltos.filter(s => { const p = plainW(s.nombre).join(' '); return words.every(w => p.includes(w)); });
+  const box = document.createElement('div');
+  for (const p of side.proyectos) {
+    const mine = r.items.filter(x => x.raiz === p.ruta); if (!mine.length) continue;
+    const root = { ruta: p.ruta, kids: new Map() };
+    for (const x of mine) { // cada resultado cuelga de sus carpetas (que se ven abiertas)
+      let n = root;
+      for (const part of x.ruta.slice(p.ruta.replace(/[\\/]$/, '').length + 1).split(/[\\/]/)) {
+        if (!n.kids.has(part)) n.kids.set(part, { nombre: part, ruta: pjoin(n.ruta, part), dir: true, kids: new Map() });
+        n = n.kids.get(part);
+      }
+      Object.assign(n, { dir: x.dir, git: x.git, hit: true });
+    }
+    const draw = (n, into) => {
+      for (const c of sortItems([...n.kids.values()], n.ruta)) {
+        const el = nodeEl(c.nombre, c.ruta, c.dir, undefined, c.git); if (c.hit) el.classList.add('hit');
+        into.append(el);
+        if (c.dir && c.kids.size) { el.classList.add('open'); const k = Object.assign(document.createElement('div'), { className: 'kids' }); into.append(k); draw(c, k); }
+      }
+    };
+    const pr = document.createElement('div'); pr.className = 'proj';
+    const top = nodeEl(p.nombre, p.ruta, true); top.classList.add('open');
+    const k = Object.assign(document.createElement('div'), { className: 'kids' });
+    pr.append(top, k); draw(root, k); box.append(pr);
+  }
+  if (loose.length) {
+    box.append(Object.assign(document.createElement('h2'), { textContent: '📌 Sueltos' }));
+    for (const s of loose) { const el = nodeEl(s.nombre, s.ruta, false, undefined, s.git); el.classList.add('hit'); box.append(el); }
+  }
+  const total = r.items.length + loose.length;
+  N.textContent = !total ? 'Nada con ese nombre' : `${total}${r.mas ? '+' : ''} resultado${total === 1 ? '' : 's'}` + (r.mas ? ' · hay más: escribe algo más concreto' : '') + ' · Esc: cerrar';
+  F.replaceChildren(...box.childNodes); document.body.classList.add('tfilt'); markActive();
+}
+$('#tfq').oninput = () => { clearTimeout(tfTimer); tfTimer = setTimeout(treeFilterRun, 250); };
+$('#tfq').onkeydown = e => {
+  if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); treeFilterClose(); }
+  if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); SS.focus(); kcur = treeRows()[0]?.dataset.path; treeMarks(); } // a la lista, con el teclado
+};
+// Carpetas compactas (⚙ Ajustes): una carpeta con una sola subcarpeta (y ningún archivo) se dibuja junto a ella,
+// «a / b / c», como en VS Code. La fila es la carpeta más honda; data-chain guarda las de en medio.
+async function compactChain(i) {
+  const names = [i.nombre], chain = [i.ruta];
+  while (i.n?.[0] === 1 && i.n[1] === 0 && names.length < 8) {
+    const sub = (await api('/api/dir?ruta=' + encodeURIComponent(i.ruta)).catch(() => []))[0];
+    if (!sub?.dir) break;
+    i = sub; names.push(i.nombre); chain.push(i.ruta);
+  }
+  return { ...i, nombre: names.join(' / '), chain };
 }
 
 // (i) y clic derecho: acciones del archivo o carpeta; las de copiar dicen en el título qué se copia
@@ -2281,7 +2517,9 @@ function authorColor(c) {
   return `hsl(${hue} 65% ${isDark() ? 68 : 42}%)`;
 }
 
-function toggle(el) { tree.set(el.dataset.path, !tree.get(el.dataset.path)); tree.get(el.dataset.path) ? expand(el) : collapse(el); syncFold(); }
+function toggle(el) {
+  if (el.closest('#tfilt')) { kidsOf(el).hidden = !el.classList.toggle('open'); return; } // vista filtrada: solo se pliega lo que ya se ve
+  tree.set(el.dataset.path, !tree.get(el.dataset.path)); tree.get(el.dataset.path) ? expand(el) : collapse(el); syncFold(); }
 // Orden del árbol por proyecto (⋮ del proyecto): 'alfa-asc' | 'alfa-desc' | 'fecha-asc' | 'fecha-desc'; las carpetas siempre antes
 const sortMap = () => { try { return JSON.parse(LS('desklens.orden') || '{}'); } catch { return {}; } };
 function sortOf(ruta) {
@@ -2309,7 +2547,7 @@ function kidsOf(el) { // en un proyecto, entre el nodo y sus hijos están los av
   return k?.classList.contains('badges') ? k.nextElementSibling : k;
 }
 function collapse(el) { kidsOf(el).innerHTML = ''; el.classList.remove('open'); }
-const dirSig = items => items.map(i => i.nombre + (i.dir ? '/' : '') + ':' + (i.git || '')).join('|'); // qué hay y en qué orden
+const dirSig = items => items.map(i => i.nombre + (i.dir ? '/' + (i.n || '') : '') + ':' + (i.git || '')).join('|'); // qué hay, en qué orden y cuánto en cada carpeta
 // Despliega una carpeta del árbol con su orden (por proyecto). `sig` guarda qué había, para que el repaso
 // periódico (treePoll) solo vuelva a dibujarla si algo cambió.
 async function expand(el) {
@@ -2320,8 +2558,10 @@ async function expand(el) {
     el.dataset.sig = dirSig(items);
     // se arma aparte y se cambia de una vez: al refrescar, las subcarpetas abiertas no parpadean
     const box = document.createElement('div'), pending = [];
-    for (const i of items) {
-      const n = nodeEl(i.nombre, i.ruta, i.dir, undefined, i.git); box.append(n);
+    for (let i of items) {
+      if (i.dir && side.compactas) i = await compactChain(i);
+      const n = nodeEl(i.nombre, i.ruta, i.dir, undefined, i.git, i); box.append(n);
+      if (i.chain?.length > 1) n.dataset.chain = i.chain.join('|');
       if (i.dir) { box.append(Object.assign(document.createElement('div'), { className: 'kids' })); if (tree.get(i.ruta)) pending.push(expand(n)); }
     }
     await Promise.all(pending);
@@ -2352,7 +2592,7 @@ function markActive() {
     n.classList.toggle('tab-pre', p === previewTab);
     n.classList.toggle('seldir', p === selDir);
   });
-  syncFold(); scopeFollow();
+  syncFold(); scopeFollow(); treeMarks();
 }
 // «En: Archivo abierto»: al pasar a un archivo de otro proyecto, la búsqueda se repite allí.
 function scopeFollow() {
@@ -2389,9 +2629,11 @@ const targetDir = () => selDir || (cur && !isVirtual(cur) ? cur.replace(/[\\/][^
 async function newInline(type, dir = targetDir()) {
   if (!dir) return ask('Nuevo', 'Añade primero un proyecto: lo nuevo se crea dentro de él.', ['Entendido']);
   if (document.body.classList.contains('noside')) toggleSide();
+  if (document.body.classList.contains('tfilt')) treeFilterClose(); // lo nuevo se escribe en el árbol normal
   document.body.classList.remove('vsearch', 'vgit'); LS('desklens.vista', '');
   tree.set(dir, true); await loadSide();
-  const node = [...document.querySelectorAll('aside .node')].find(n => n.dataset.path === dir);
+  const all = [...document.querySelectorAll('#projects .node')];
+  const node = all.find(n => n.dataset.path === dir) || all.find(n => n.dataset.chain?.split('|').includes(dir)); // carpeta compacta
   const kids = node && kidsOf(node);
   if (!kids) return ask('Nuevo', 'Esa carpeta no está dentro de un proyecto de DeskLens.', ['Entendido']);
   const row = document.createElement('div'); row.className = 'node newrow';
@@ -8545,6 +8787,8 @@ $('#sidetools').append(
   iconBtn('filePlus', 'Nuevo archivo (en la carpeta elegida) · Ctrl+N: "nuevo 1" sin guardar', () => newInline('archivo')),
   iconBtn('folderPlus', 'Nueva carpeta (en la carpeta elegida)', () => newInline('carpeta')),
   iconBtn('plus', 'Añadir proyecto o archivos sueltos', openExplorer),
+  iconBtn('search', 'Filtrar el árbol por nombre (también dentro de carpetas cerradas) · Ctrl+F con el árbol enfocado',
+    () => $('#tfbox').hidden ? treeFilterOpen() : treeFilterClose()),
   Object.assign(iconBtn('collapse', 'Plegar todo', () => treeOpen() ? (tree.clear(), loadSide()) : treeExpandAll()), { id: 'treeFold' }),
   (b => { b.className = 'ic bakbtn'; b.textContent = '.bak'; return b; })(iconBtn('', 'Mostrar u ocultar las copias de seguridad (.bak)', () => {
     LS('desklens.bak', document.body.classList.toggle('showbak') ? '1' : '');
