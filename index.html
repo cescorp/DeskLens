@@ -266,7 +266,9 @@ dialog#dlg.news{width:min(1000px,calc(100vw - 32px));height:min(640px,calc(100vh
 /* barra lateral */
 aside{position:relative;display:grid;grid-template-rows:minmax(0,1fr);background:var(--side);border-right:1px solid var(--line);min-width:0;min-height:0}
 .sidescroll{overflow:auto;padding:0 8px 12px;min-height:0}
-.sidetools{display:flex;justify-content:center;gap:2px;padding:8px 0;position:sticky;top:0;background:var(--side);z-index:1}
+.sidetools{display:flex;gap:0;margin-left:auto;opacity:0;transition:opacity .12s}
+aside:hover .sidetools,.sidetools:focus-within,body.showbak .sidetools .bakbtn{opacity:1}
+.sidetools button.ic{width:22px;height:22px;border-radius:3px}.sidetools button.ic svg{width:14px;height:14px}
 aside h2{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--faint);margin:12px 8px 4px}
 .node{display:flex;align-items:center;gap:4px;padding:3px 6px;border-radius:4px;cursor:pointer;white-space:nowrap;color:var(--muted);font-size:13px;user-select:none}
 .node:hover{background:var(--hover);color:var(--ink)}
@@ -311,8 +313,41 @@ aside{container-type:inline-size}
 #tfbox{padding:0 4px 6px}
 #tfbox input{width:100%;font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--navy);border-radius:6px;background:var(--paper);color:var(--ink)}
 #tfbox small{display:block;margin:3px 2px 0;font-size:11px;color:var(--faint)}
-#tfilt,body.tfilt :is(#projects,#loose,.sidescroll>h2){display:none}body.tfilt #tfilt{display:block}
+#tfilt,body.tfilt :is(#projects,#loose,#hL){display:none}body.tfilt #tfilt{display:block}
 .node.hit .n{color:var(--ink);font-weight:600}
+/* ---- árbol con estilo de explorador de escritorio (Windows 11 / VS Code), no de página web ---- */
+aside{font-family:"Segoe UI Variable Text","Segoe UI",system-ui,-apple-system,sans-serif}
+.sidescroll{padding-top:0;scrollbar-width:thin;scrollbar-color:transparent transparent}
+.sidescroll:hover{scrollbar-color:color-mix(in srgb,var(--muted) 45%,transparent) transparent}
+/* encabezado de sección: barra fija arriba, plegable, con los botones a la derecha */
+aside h2.tsec{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:2px;height:26px;margin:0 -8px;padding:0 4px 0 6px;
+  background:var(--side);border-top:1px solid var(--line);font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--ink);cursor:pointer;user-select:none}
+aside h2#hP{border-top-color:transparent}
+.tsec .tw{display:inline-block;width:14px;text-align:center;color:var(--muted);transform:rotate(90deg);transition:transform .1s}
+.tsec .tl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.foldP #hP .tw,body.foldL #hL .tw{transform:none}
+body.foldP:not(.tfilt) #projects,body.foldP #tfilt,body.foldL #loose{display:none}
+/* filas: 22 px, nombres en negro, sin esquinas; el fondo de hover y del abierto va de borde a borde (::before
+   sale hacia la izquierda y lo recorta el desplazamiento del panel) */
+:is(#projects,#loose,#tfilt) .node{height:22px;padding:0 6px 0 4px;border-radius:0;color:var(--ink);font-size:13px;position:relative;isolation:isolate}
+:is(#projects,#loose,#tfilt) .node::before{content:'';position:absolute;z-index:-1;inset:0 -8px 0 -400px;pointer-events:none}
+:is(#projects,#loose,#tfilt) .node:hover{background:none}
+:is(#projects,#loose,#tfilt) .node:hover::before{background:var(--hover)}
+/* abierto: fondo azul marino suave y raya de 2 px en el borde izquierdo del panel (el panel empieza a 44 px, tras la cinta;
+   el degradado va fijo a la ventana para que la raya caiga en el borde aunque la fila esté sangrada) */
+:is(#projects,#loose,#tfilt) .node.on{background:none}
+:is(#projects,#loose,#tfilt) .node.on::before{background:linear-gradient(90deg,var(--navy) 0 46px,var(--navybg) 46px) fixed}
+.sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur{background:none;box-shadow:none}
+.sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur::before{box-shadow:inset 0 1px 0 var(--navy),inset 0 -1px 0 var(--navy)} /* arriba y abajo: los lados quedan fuera, de borde a borde */
+.sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur:not(.on)::before{background:var(--navybg)}
+:is(#projects,#loose,#tfilt) .node.seldir:not(.on){box-shadow:inset 2px 0 0 var(--navy)}
+/* proyectos: en negrita y separados por una línea fina */
+#projects .proj+.proj{border-top:1px solid var(--line);margin-top:2px;padding-top:2px}
+.proj>.node .n{font-weight:600}
+/* líneas guía casi invisibles; la del nivel donde estás, azul marino */
+:is(#projects,#tfilt) .kids{border-left-color:color-mix(in srgb,var(--line) 55%,transparent)}
+:is(#projects,#tfilt) .kids.kact{border-left-color:var(--navy)}
+#loose>.ok,#projects>.ok{padding:4px 8px}
 /* buscador */
 .sidesearch{position:relative;padding:0 4px 6px}
 .sidesearch input{width:100%;font:inherit;font-size:13px;padding:5px 80px 5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink)}
@@ -323,7 +358,7 @@ aside{container-type:inline-size}
 .stog svg{width:14px;height:14px}
 .stog button.on{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
 /* dos vistas en la barra lateral, como en VS Code: 📁 Explorador · 🔍 Buscar (cada una guarda lo suyo) */
-body:not(.vsearch) :is(#stop,#results),body:not(.vgit) #gitv,body:is(.vsearch,.vgit) :is(#sidetools,.sidescroll>h2,#projects,#loose,#tfbox,#tfilt){display:none!important}
+body:not(.vsearch) :is(#stop,#results),body:not(.vgit) #gitv,body:is(.vsearch,.vgit) :is(#hP,#hL,#projects,#loose,#tfbox,#tfilt){display:none!important}
 body:not(.noside):not(.vsearch):not(.vgit) #ribbon [data-v=e],body.vsearch:not(.noside) #ribbon [data-v=b],body.vgit:not(.noside) #ribbon [data-v=g]{color:var(--accent);box-shadow:inset 2px 0 var(--accent)}
 /* vista Git (como el control de código de VS Code): repo, rama, mensaje, commit y listas de archivos */
 #gitv{display:flex;flex-direction:column;gap:6px;padding:0 8px 8px}
@@ -1180,7 +1215,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 <nav id="ribbon"></nav>
 <aside>
   <div class="sidescroll">
-    <div class="sidetools" id="sidetools"></div>
     <div class="stop" id="stop">
       <div class="shead"><h2>Buscar</h2><span id="sbtns"></span></div>
       <div class="sidesearch"><input id="sideQ" placeholder="Buscar…" autocomplete="off" spellcheck="false"><span class="stog" id="stog"></span></div>
@@ -1198,11 +1232,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="gnote" id="gChecked"></div>
       <div id="glist"></div>
     </div>
+    <h2 class="tsec" id="hP" data-fold="P"><span class="tw">›</span><span class="tl">Proyectos</span><span class="sidetools" id="sidetools"></span></h2>
     <div id="tfbox" hidden><input id="tfq" placeholder="Filtrar el árbol por nombre…" autocomplete="off" spellcheck="false"><small id="tfn"></small></div>
     <div id="tfilt"></div>
-    <h2>Proyectos</h2>
     <div id="projects"></div>
-    <h2>📌 Sueltos</h2>
+    <h2 class="tsec" id="hL" data-fold="L"><span class="tw">›</span><span class="tl">📌 Sueltos</span></h2>
     <div id="loose"></div>
   </div>
   <div class="rs" data-var="--sideW" data-def="260" title="Arrastra para cambiar el ancho · doble clic: ancho original"></div>
@@ -8793,6 +8827,13 @@ $('#sidetools').append(
   (b => { b.className = 'ic bakbtn'; b.textContent = '.bak'; return b; })(iconBtn('', 'Mostrar u ocultar las copias de seguridad (.bak)', () => {
     LS('desklens.bak', document.body.classList.toggle('showbak') ? '1' : '');
   })));
+// «▾ PROYECTOS» y «▾ SUELTOS»: clic en la barra (no en sus botones) pliega o despliega la sección; se recuerda
+for (const k of (LS('desklens.secciones') || '').split('')) document.body.classList.add('fold' + k);
+document.querySelectorAll('aside h2.tsec').forEach(h => h.onclick = e => {
+  if (e.target.closest('button')) return;
+  document.body.classList.toggle('fold' + h.dataset.fold);
+  LS('desklens.secciones', ['P', 'L'].filter(k => document.body.classList.contains('fold' + k)).join(''));
+});
 addEventListener('keydown', e => {
   if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); nav(-1); }
   if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); nav(1); }

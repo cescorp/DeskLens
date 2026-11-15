@@ -1,6 +1,12 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.131 · 2026-11-14 · El árbol con aspecto de explorador
+- Letra de Windows (Segoe UI), nombres en negro y filas más compactas, sin esquinas redondeadas.
+- El archivo abierto se marca de borde a borde con un fondo azul marino suave y una raya azul marino a la izquierda; la carpeta elegida ya no lleva la raya morada.
+- «▾ PROYECTOS» y «▾ SUELTOS» son barras que se quedan arriba al desplazarse y se pliegan con un clic. Los botones (nuevo archivo, nueva carpeta, añadir, filtrar, plegar, .bak) van a la derecha de «PROYECTOS» y aparecen al pasar el ratón por el panel.
+- Proyectos en negrita y separados por una línea fina; líneas guía más suaves; barra de desplazamiento fina que solo se ve al pasar el ratón.
+
 ## v1.130 · 2026-11-14 · Carpetas en azul marino
 - Los iconos de carpeta del árbol pasan del amarillo del Explorador de Windows al azul marino de DeskLens (el mismo de la línea guía y de fusionar), en tema claro y oscuro.
 

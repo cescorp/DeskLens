@@ -15,6 +15,21 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-14 · El árbol con aspecto de explorador (v1.131)
+El usuario quería «más de explorador y no de página web», cambiando solo colores y estilo. Aprobó los puntos 1–10 de la propuesta; el 11 (estado de git pintado en el nombre con M/U, como VS Code) quedó fuera porque solo respondió «ok».
+
+Qué cambió:
+- El `aside` usa Segoe UI.
+- Las filas del árbol (`:is(#projects,#loose,#tfilt) .node`) miden 22 px, sin esquinas y con el nombre en `--ink`.
+- El hover y el abierto se pintan en `::before`, que sale 400 px a la izquierda (lo recorta `.sidescroll`) para ir de borde a borde.
+- La raya de 2 px del abierto es un degradado con `fixed`: depende de que el panel empiece a 44 px, tras la cinta.
+- `.kcur` muestra líneas arriba y abajo; `seldir` va en azul marino.
+- `#sidetools` ya no es una barra propia: está dentro de `h2#hP.tsec` y se ve con `aside:hover`.
+- `h2.tsec` (`#hP`, `#hL`) es fija y plegable con `body.foldP`/`foldL`, guardado en `desklens.secciones`.
+- La regla de las vistas Buscar/Git oculta `#hP` y `#hL`; el filtro oculta `#hL`.
+
+Probado en el 8799, en claro y en oscuro.
+
 ## 2026-11-14 · Carpetas en azul marino (v1.130)
 A pedido del usuario («más de DeskLens y no de explorador»), `.fi.dir` usa `var(--navy)` (claro #1f4e79 / oscuro #8fb3d9) con el relleno al 16 %, en lugar de #c99a3a. Los colores de los archivos por tipo no cambian.
 
