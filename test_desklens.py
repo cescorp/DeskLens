@@ -703,6 +703,7 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     lec = arb / "Unidad 1" / "Lección.md"
     desklens.idx_update(lec)  # proyecto indexado: el filtro sale del índice, con su carpeta
     root = str(desklens.project_of(lec))
+    desklens.tf_names(wait=True)  # al buscar se usaría la lista anterior mientras se rehace en otro hilo
     got = {Path(x["ruta"]).name: x["dir"] for x in desklens.tree_filter("unidad 1", [root])["items"]}
     assert got.get("Unidad 1") is True and ".git" not in got, got
     assert [Path(x["ruta"]).name for x in desklens.tree_filter("leccion", [root])["items"]] == ["Lección.md"]

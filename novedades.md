@@ -1,6 +1,10 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.141 · 2026-11-16 · El filtro del explorador ya no se queda «Buscando…»
+- A veces el filtro tardaba unos 7 segundos: cada vez que cambiaba algo en el índice, rehacía su lista de nombres antes de responder. Ahora responde al momento con la lista que tenía y la pone al día por detrás.
+- Los archivos internos de git (`.git`) ya no entran al índice cuando cambian (antes el vigilante los añadía cada vez que git traía cambios).
+
 ## v1.140 · 2026-11-16 · Ctrl+Shift+F desde el buscador Ctrl+F
 - Con el buscador Ctrl+F abierto, Ctrl+Shift+F ya no se queda bloqueado: abre 🔍 Buscar con el mismo texto y busca en todos los proyectos. Sin el buscador abierto, lleva el texto seleccionado (si es de una línea).
 

@@ -483,18 +483,13 @@ def list_dir(path):
     return sorted(items, key=lambda i: (not i["dir"], i["nombre"].lower()))
 
 
-_tf_cache = {"key": None, "roots": {}}
+_tf_cache = {"key": None, "roots": None, "rehaciendo": False}
 
 
-def tf_names():
-    """Nombres del índice para el filtro del árbol: {raíz: [(ruta, es_carpeta, nombre_plano)]}, con las carpetas
-    sacadas de las rutas de sus archivos y sin lo que hay bajo HIDDEN o HEAVY. Se rehace solo si el índice cambió
-    (cuántos archivos y el último indexado): con 200 000 archivos la primera vez tarda ~1 s, luego nada."""
+def _tf_build(key):
+    """Arma la lista de tf_names desde el índice (con 200 000 archivos, ~3 s)."""
     c = idx_conn()
     try:
-        key = c.execute("select count(*), max(indexed) from files").fetchone()
-        if key == _tf_cache["key"]:
-            return _tf_cache["roots"]
         out, seen = {}, set()
         for path, root, plain in c.execute("select path, root, plain from files"):
             parts = re.split(r"[\\/]", path[len(root):].lstrip("\\/"))
@@ -511,7 +506,34 @@ def tf_names():
     finally:
         c.close()
     _tf_cache.update(key=key, roots=out)
-    return out
+
+
+def tf_names(wait=False):
+    """Nombres del índice para el filtro del árbol: {raíz: [(ruta, es_carpeta, nombre_plano)]}, con las carpetas
+    sacadas de las rutas de sus archivos y sin lo que hay bajo HIDDEN o HEAVY. Si el índice cambió (cuántos archivos
+    y el último indexado) se rehace en otro hilo y mientras tanto se responde con la lista anterior: un cambio en un
+    archivo no hace esperar al filtro. Solo la primera vez (o con wait) se espera a armarla."""
+    c = idx_conn()
+    try:
+        key = c.execute("select count(*), max(indexed) from files").fetchone()
+    finally:
+        c.close()
+    if key == _tf_cache["key"]:
+        return _tf_cache["roots"]
+    if _tf_cache["roots"] is None or wait:
+        _tf_build(key)
+    elif not _tf_cache["rehaciendo"]:
+        _tf_cache["rehaciendo"] = True
+
+        def rebuild():
+            try:
+                _tf_build(key)
+            except sqlite3.Error:
+                pass
+            finally:
+                _tf_cache["rehaciendo"] = False
+        threading.Thread(target=rebuild, daemon=True).start()
+    return _tf_cache["roots"]
 
 
 def tree_filter(q, roots, limit=300, seconds=4):
@@ -2683,7 +2705,7 @@ def idx_pass():
         c.close()
     idx_state.update(fase="al día", actual="", fin=time.time())
     try:
-        tf_names()  # deja listo el filtro del árbol (la primera vez, ~1 s con 200 000 archivos)
+        tf_names(wait=True)  # deja listo el filtro del árbol (~3 s con 200 000 archivos), aquí y no al buscar
     except sqlite3.Error:
         pass
 
@@ -2780,7 +2802,8 @@ def watch_flush():
         for p, t in list(_pending.items()):
             if now - t >= quiet and _pending.get(p) == t:
                 del _pending[p]
-                if not os.path.normcase(p).startswith(own) and os.path.isfile(p):
+                # .git: la base interna de git (FETCH_HEAD, index…) no se indexa, igual que en idx_targets
+                if not os.path.normcase(p).startswith(own) and ".git" not in Path(p).parts and os.path.isfile(p):
                     idx_update(p, hist=True)
 
 
