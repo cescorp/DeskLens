@@ -1,6 +1,17 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.139 · 2026-11-16 · Filtro del explorador al instante
+- El filtro del árbol (Ctrl+F en el explorador) busca en el índice en vez de recorrer el disco: en un proyecto de 200 000 archivos pasa de 4 s o más a menos de medio segundo.
+- Una ✕ al final del campo lo borra y vuelve el árbol entero.
+- En 🔍 Buscar, los resultados se agrupan con el nombre que le diste al proyecto en DeskLens, no con el de la carpeta.
+
+## v1.138 · 2026-11-15 · Guardar un «nuevo» más cómodo
+- El nombre y la extensión van por separado: la extensión es una lista con todas las de texto (.txt, .md, .csv, .json, .py, .html, .sql…) y .docx/.pdf aparte. Por defecto, .txt. Si escribes «informe.md» en el nombre, la lista pasa sola a .md.
+- La carpeta se elige en una lista con buscador (escribe para filtrar; ↑↓ y Enter).
+- Nuevo botón «Examinar…»: abre un explorador de carpetas (lugares, proyectos, unidades, «Subir») para guardar en cualquier carpeta. Si está fuera de tus proyectos, el archivo queda añadido como suelto.
+- Debajo se ve la ruta completa con la que se guardará.
+
 ## v1.137 · 2026-11-15 · Commits que llegan, numerados
 - En Fusionar / Pull, la lista «Commits que llegan» lleva delante el número de fila (1 = el más reciente), como las otras dos listas. Si hay más de los que se muestran, la última línea dice cuáles faltan («… y 14 más (del 21 al 34)»).
 

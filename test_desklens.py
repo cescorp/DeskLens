@@ -275,6 +275,15 @@ with tempfile.TemporaryDirectory() as tmp:
         pass
     assert Path(desklens.create_file(fuera, "junto.md", "x")).name == "junto.md"  # junto a un suelto: queda como suelto
     assert any(s.endswith("junto.md") for s in desklens.load_config()["sueltos"])
+    libre_dir = Path(tempfile.mkdtemp())  # carpeta que no es de DeskLens: solo con «Examinar…» (libre)
+    try:
+        desklens.create_file(libre_dir, "a.txt", "x")
+        raise AssertionError("debió negarse fuera de DeskLens")
+    except PermissionError:
+        pass
+    assert Path(desklens.create_file(libre_dir, "a.txt", "x", libre=True)).read_text(encoding="utf-8") == "x"
+    assert any(s.endswith("a.txt") for s in desklens.load_config()["sueltos"])
+    shutil.rmtree(libre_dir, ignore_errors=True)
     # cambios de formato/texto en un Word: todo o nada, conserva el resto, .bak, el visor y Word lo leen
     wd = desklens.create_file(proj, "tema.docx", "", "<h1>Título del tema</h1><p>El <strong>arca</strong> y el arca otra vez.</p>")
     r = desklens.docx_apply(wd, [{"buscar": "Título del tema", "color": "rojo", "tamano": 20},
@@ -691,6 +700,12 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     assert {Path(x["ruta"]).name for x in desklens.tree_filter("UNIDAD", [str(arb)])["items"]} == {"Unidad 1", "SCAN - unidad 3.pdf"}
     assert desklens.tree_filter("unidad", [str(fuera)])["items"] == []  # fuera de lo añadido: nada
     assert desklens.tree_filter("a", [str(arb)], limit=1)["mas"]
+    lec = arb / "Unidad 1" / "Lección.md"
+    desklens.idx_update(lec)  # proyecto indexado: el filtro sale del índice, con su carpeta
+    root = str(desklens.project_of(lec))
+    got = {Path(x["ruta"]).name: x["dir"] for x in desklens.tree_filter("unidad 1", [root])["items"]}
+    assert got.get("Unidad 1") is True and ".git" not in got, got
+    assert [Path(x["ruta"]).name for x in desklens.tree_filter("leccion", [root])["items"]] == ["Lección.md"]
     nuevo = desklens.rename_path(arb / "SCAN - unidad 3.pdf", "Unidad 3.pdf")
     assert Path(nuevo).name == "Unidad 3.pdf" and not (arb / "SCAN - unidad 3.pdf").exists()
     assert Path(desklens.rename_path(nuevo, "UNIDAD 3.pdf")).name == "UNIDAD 3.pdf"  # solo mayúsculas: se permite

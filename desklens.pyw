@@ -483,16 +483,61 @@ def list_dir(path):
     return sorted(items, key=lambda i: (not i["dir"], i["nombre"].lower()))
 
 
+_tf_cache = {"key": None, "roots": {}}
+
+
+def tf_names():
+    """Nombres del índice para el filtro del árbol: {raíz: [(ruta, es_carpeta, nombre_plano)]}, con las carpetas
+    sacadas de las rutas de sus archivos y sin lo que hay bajo HIDDEN o HEAVY. Se rehace solo si el índice cambió
+    (cuántos archivos y el último indexado): con 200 000 archivos la primera vez tarda ~1 s, luego nada."""
+    c = idx_conn()
+    try:
+        key = c.execute("select count(*), max(indexed) from files").fetchone()
+        if key == _tf_cache["key"]:
+            return _tf_cache["roots"]
+        out, seen = {}, set()
+        for path, root, plain in c.execute("select path, root, plain from files"):
+            parts = re.split(r"[\\/]", path[len(root):].lstrip("\\/"))
+            if any(x in HIDDEN or x in HEAVY for x in parts[:-1]):
+                continue
+            rows = out.setdefault(str(Path(root)), [])
+            rows.append((path, False, plain))
+            d = root
+            for x in parts[:-1]:
+                d = os.path.join(d, x)
+                if d not in seen:
+                    seen.add(d)
+                    rows.append((d, True, " ".join(plain_words(x))))
+    finally:
+        c.close()
+    _tf_cache.update(key=key, roots=out)
+    return out
+
+
 def tree_filter(q, roots, limit=300, seconds=4):
     """Filtro del árbol (Ctrl+F): archivos y carpetas cuyo nombre lleva todas las palabras de q (sin tildes ni
-    mayúsculas), también dentro de carpetas cerradas. Recorre el disco (no el índice: así sale lo recién creado).
-    mas = True si se cortó por cantidad o por tiempo.
+    mayúsculas), también dentro de carpetas cerradas. Un proyecto ya indexado se busca en el índice (tf_names: al
+    instante; lo nuevo entra al guardar o por el vigilante, y lo borrado se descarta al comprobar que existe); lo
+    demás (aún sin índice, o una subcarpeta) recorriendo el disco. mas = True si se cortó por cantidad o por tiempo.
+    ponytail: con el índice no salen las carpetas vacías (no tienen archivos que las nombren)
     ponytail: no entra en node_modules, vendor, .venv… (HEAVY); si hiciera falta, quitarlas de la exclusión"""
     words, out, t0 = plain_words(q), [], time.monotonic()
     if not words:
         return {"items": [], "mas": False}
+    try:
+        idx = tf_names()
+    except sqlite3.Error:
+        idx = {}
     for root in roots:
         if not allowed(root) or not Path(root).is_dir():
+            continue
+        rows = idx.get(str(Path(root)))
+        if rows is not None:
+            for path, isdir, plain in rows:
+                if all(w in plain for w in words) and os.path.exists(path):
+                    out.append({"ruta": path, "dir": isdir, "raiz": root, **({} if isdir else {"git": git_state(path)})})
+                    if len(out) >= limit:
+                        return {"items": out, "mas": True}
             continue
         for d, dirs, files in os.walk(root):
             dirs[:] = [x for x in dirs if x not in HIDDEN and x not in HEAVY]
@@ -1649,8 +1694,9 @@ NOT_CREATABLE = {".xlsx", ".xls", ".xlsm", ".pptx", ".ppt", ".doc", ".odt", ".od
                  ".mp4", ".wav", ".epub"}
 
 
-def create_file(folder, name, text, html=None):
-    """Crea un archivo nuevo (nunca sobrescribe) dentro de una carpeta añadida a DeskLens.
+def create_file(folder, name, text, html=None, libre=False):
+    """Crea un archivo nuevo (nunca sobrescribe) dentro de una carpeta añadida a DeskLens; con `libre`
+    (carpeta elegida a mano con «Examinar…») en cualquier carpeta, y el archivo queda añadido como suelto.
     .docx y .pdf se generan desde el HTML del Markdown; el resto se guarda como texto UTF-8."""
     if not name or any(c in name for c in '\\/:*?"<>|') or name in (".", ".."):
         raise ValueError("Nombre de archivo no válido")
@@ -1659,7 +1705,8 @@ def create_file(folder, name, text, html=None):
     if ext in NOT_CREATABLE:
         raise ValueError(f"DeskLens no puede crear archivos {ext}. Pide .docx, .pdf, .md, .txt, .csv o .html.")
     in_project = allowed(p)
-    if not in_project and not any(Path(s).resolve().parent == p.parent for s in load_config()["sueltos"]):
+    if not in_project and not (libre and p.parent.is_dir()) and not any(
+            Path(s).resolve().parent == p.parent for s in load_config()["sueltos"]):
         raise PermissionError("Carpeta no añadida a DeskLens")
     if p.exists():
         raise FileExistsError(str(p))
@@ -2635,6 +2682,10 @@ def idx_pass():
     finally:
         c.close()
     idx_state.update(fase="al día", actual="", fin=time.time())
+    try:
+        tf_names()  # deja listo el filtro del árbol (la primera vez, ~1 s con 200 000 archivos)
+    except sqlite3.Error:
+        pass
 
 
 def indexer():
@@ -4735,7 +4786,8 @@ class Handler(BaseHTTPRequestHandler):
         if url == "/api/crear":
             try:
                 return self.send_json(200, {"ruta": create_file(data.get("carpeta", ""), data.get("nombre", "").strip(),
-                                                                 data.get("texto", ""), data.get("html"))})
+                                                                 data.get("texto", ""), data.get("html"),
+                                                                 bool(data.get("libre")))})
             except FileExistsError:
                 return self.send_json(409, {"error": "Ya existe un archivo con ese nombre"})
             except PermissionError as e:

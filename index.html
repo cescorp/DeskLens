@@ -312,6 +312,7 @@ aside{container-type:inline-size}
 /* Ctrl+F: árbol filtrado (#tfilt) en lugar del normal */
 #tfbox{padding:0 4px 6px}
 #tfbox input{width:100%;font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--navy);border-radius:6px;background:var(--paper);color:var(--ink)}
+.tfin{position:relative}#tfbox .tfin input{padding-right:26px}#tfx{position:absolute;right:3px;top:50%;transform:translateY(-50%);border:0;background:none;color:var(--muted);cursor:pointer;padding:2px 6px;border-radius:4px;font-size:12px}#tfx:hover{background:color-mix(in srgb,var(--ink) 10%,transparent);color:var(--ink)}
 #tfbox small{display:block;margin:3px 2px 0;font-size:11px;color:var(--faint)}
 #tfilt,body.tfilt :is(#projects,#loose,#hL){display:none}body.tfilt #tfilt{display:block}
 .node.hit .n{color:var(--ink);font-weight:600}
@@ -1161,6 +1162,17 @@ dialog#dlg.sets.win{width:min(760px,calc(100vw - 32px));height:fit-content;max-h
 .himgs{display:flex;gap:12px;flex-wrap:wrap}.himgs figure{margin:0;flex:1 1 200px}.himgs img{max-width:100%;max-height:300px;border:1px solid var(--line);background:repeating-conic-gradient(#8881 0 25%,transparent 0 50%) 0 0/12px 12px}
 .himgs figcaption{font-size:12px;color:var(--muted)}.hthumb{border:1px solid var(--line);margin-top:8px;max-width:100%}
 .hfoot{display:flex;gap:8px;align-items:center;padding:12px 16px;border-top:1px solid var(--line)}.hfoot .ok{margin-right:auto}
+.uname{display:flex;gap:6px}.uname input{flex:1}.uname select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
+.udir{display:flex;gap:6px;align-items:flex-start}.ucombo{flex:1;min-width:0;border:1px solid var(--line);border-radius:6px;background:var(--bg)}
+.fld .ucombo input{width:100%;box-sizing:border-box;border:0;border-bottom:1px solid var(--line);border-radius:6px 6px 0 0}
+#uList{max-height:170px;overflow:auto;color:var(--ink)}#uList>div{padding:5px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#uList>div:hover,#uList>div.act{background:color-mix(in srgb,var(--ink) 7%,transparent)}#uList>div.on{font-weight:600}#uList>div.on::after{content:'  ✓';color:#2f9e44}
+dialog#dlg2.pick{width:min(640px,92vw);height:70vh}dialog#dlg2.pick>header,dialog#dlg2.pick>footer{display:flex;gap:8px;align-items:center;padding:10px 16px}
+dialog#dlg2.pick>header{border-bottom:1px solid var(--line)}dialog#dlg2.pick>footer{border-top:1px solid var(--line)}dialog#dlg2.pick .sp{flex:1}
+.pkbar{display:flex;gap:8px;align-items:center;padding:8px 16px;font-size:13px}.pkpath{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pkbody{flex:1;display:grid;grid-template-columns:170px 1fr;min-height:0;border-top:1px solid var(--line)}
+.pkside,.pklist{overflow:auto;padding:6px}.pkside{border-right:1px solid var(--line);font-size:12.5px}.pkside h4{margin:8px 6px 2px;font-size:11px;color:var(--muted)}
+.pkside a,.pklist a{display:block;padding:4px 8px;border-radius:5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pkside a:hover,.pklist a:hover{background:color-mix(in srgb,var(--ink) 7%,transparent)}
 .fld{display:grid;gap:4px;margin:10px 0;font-size:13px;color:var(--muted)}
 .fld input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:6px 8px}
 .frow{display:flex;gap:8px;align-items:center;padding:3px 0}
@@ -1251,7 +1263,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div id="glist"></div>
     </div>
     <h2 class="tsec" id="hP" data-fold="P"><span class="tw">›</span><span class="tl">Proyectos</span><span class="sidetools" id="sidetools"></span></h2>
-    <div id="tfbox" hidden><input id="tfq" placeholder="Filtrar el árbol por nombre…" autocomplete="off" spellcheck="false"><small id="tfn"></small></div>
+    <div id="tfbox" hidden><div class="tfin"><input id="tfq" placeholder="Filtrar el árbol por nombre…" autocomplete="off" spellcheck="false"><button id="tfx" title="Borrar el filtro" hidden>✕</button></div><small id="tfn"></small></div>
     <div id="tfilt"></div>
     <div id="projects"></div>
     <h2 class="tsec" id="hL" data-fold="L"><span class="tw">›</span><span class="tl">📌 Sueltos</span></h2>
@@ -1662,7 +1674,7 @@ function treeFilterOpen() {
   $('#tfbox').hidden = false; const q = $('#tfq'); q.focus(); q.select();
 }
 function treeFilterClose() {
-  $('#tfq').value = ''; $('#tfbox').hidden = true; $('#tfn').textContent = '';
+  $('#tfq').value = ''; $('#tfx').hidden = true; $('#tfbox').hidden = true; $('#tfn').textContent = '';
   document.body.classList.remove('tfilt'); $('#tfilt').innerHTML = ''; SS.focus(); treeMarks();
 }
 async function treeFilterRun() {
@@ -1706,7 +1718,8 @@ async function treeFilterRun() {
   N.textContent = !total ? 'Nada con ese nombre' : `${total}${r.mas ? '+' : ''} resultado${total === 1 ? '' : 's'}` + (r.mas ? ' · hay más: escribe algo más concreto' : '') + ' · Esc: cerrar';
   F.replaceChildren(...box.childNodes); document.body.classList.add('tfilt'); markActive();
 }
-$('#tfq').oninput = () => { clearTimeout(tfTimer); tfTimer = setTimeout(treeFilterRun, 250); };
+$('#tfq').oninput = () => { $('#tfx').hidden = !$('#tfq').value; clearTimeout(tfTimer); tfTimer = setTimeout(treeFilterRun, 150); };
+$('#tfx').onclick = () => { const q = $('#tfq'); q.value = ''; q.oninput(); q.focus(); }; // ✕: vacía el campo y vuelve el árbol entero
 $('#tfq').onkeydown = e => {
   if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); treeFilterClose(); }
   if (e.key === 'ArrowDown' || e.key === 'Enter') { e.preventDefault(); SS.focus(); kcur = treeRows()[0]?.dataset.path; treeMarks(); } // a la lista, con el teclado
@@ -4691,7 +4704,7 @@ function drawResults() {
   const projs = new Map(); shown.forEach(f => (projs.get(f.raiz) || projs.set(f.raiz, []).get(f.raiz)).push(f));
   for (const [raiz, list] of projs) {
     const P = document.createElement('div'); P.className = 'sproj' + (sfold.has(raiz) ? ' fold' : '');
-    const h = rowEl(raiz.split(/[\\/]/).filter(Boolean).pop(), list.length, raiz);
+    const h = rowEl(projLabel(raiz), list.length, raiz); // el nombre en DeskLens, no el de la carpeta
     h.onclick = () => { foldKey(raiz); P.classList.toggle('fold'); syncFold(); };
     const K = document.createElement('div'); K.className = 'spk';
     list.forEach(f => K.append(fileResult(f)));
@@ -6547,24 +6560,67 @@ function newUntitled(texto = '') {
   backupNow(path);
   return path;
 }
-// "nuevo 1" → Guardar: elige nombre y carpeta; se crea con la lógica de siempre (nunca sobrescribe)
+// Extensiones de texto para «Guardar» (las de TEXT_EXT del servidor); .docx y .pdf se convierten desde Markdown.
+const SAVE_EXT = [['.txt', 'Texto'], ['.md', 'Markdown'], ['.csv', 'CSV'], ['.tsv', 'TSV'], ['.json', 'JSON'], ['.yaml', 'YAML'],
+  ['.yml', 'YAML'], ['.xml', 'XML'], ['.html', 'HTML'], ['.htm', 'HTML'], ['.ini', 'INI'], ['.log', 'Log'], ['.py', 'Python'],
+  ['.js', 'JavaScript'], ['.ts', 'TypeScript'], ['.php', 'PHP'], ['.sql', 'SQL'], ['.bat', 'Script'], ['.cmd', 'Script'],
+  ['.ps1', 'PowerShell'], ['.rst', 'reStructuredText'], ['.tex', 'LaTeX'], ['.markdown', 'Markdown']];
+// "nuevo 1" → Guardar: nombre + extensión (.txt por defecto), carpeta con buscador o «Examinar…»; nunca sobrescribe.
+// Una carpeta elegida con «Examinar…» fuera de los proyectos se manda como `libre` y el archivo queda como suelto.
 async function saveUntitled(path) {
   const ed = edits.get(path), folders = [...new Set([targetDir(), ...side.proyectos.map(p => p.ruta)].filter(Boolean))];
-  if (!folders.length) return ask('Guardar', 'Añade primero un proyecto: el archivo se guarda en una de sus carpetas.', ['Entendido']);
   const d = $('#dlg');
+  let dir = folders[0] || '', libre = false, act = 0;
   d.className = 'wide'; d.oninput = d.onchange = null; d.onclose = null;
   d.innerHTML = `<b>Guardar "${esc(ed.f.nombre)}"</b>
-    <label class="fld">Nombre <input id="uName" value="nuevo.md" spellcheck="false"></label>
-    <label class="fld">Carpeta <select id="uDir"></select></label>
-    <p class="ok">El formato sale de la extensión: .md, .txt, .py, .csv, .html… (.docx y .pdf se convierten desde Markdown).</p>
+    <div class="fld">Nombre<div class="uname"><input id="uName" value="nuevo" spellcheck="false"><select id="uExt">
+      ${SAVE_EXT.map(([e, t]) => `<option value="${e}">${e}  ·  ${t}</option>`).join('')}
+      <optgroup label="Se convierten desde Markdown"><option value=".docx">.docx  ·  Word</option><option value=".pdf">.pdf  ·  PDF</option></optgroup></select></div></div>
+    <div class="fld">Carpeta<div class="udir"><div class="ucombo"><input id="uFind" placeholder="🔍 Buscar carpeta…" spellcheck="false"><div id="uList"></div></div>
+      <button id="uBrowse">Examinar…</button></div></div>
+    <p class="ok" id="uWhere"></p>
     <div class="exp-actions"><button class="primary" id="uOk">Guardar</button><button id="uNo">Cancelar</button></div>`;
-  for (const f of folders) $('#uDir').append(new Option(f, f));
+  const name = () => $('#uName').value.trim() + $('#uExt').value;
+  const where = () => {
+    $('#uWhere').textContent = dir ? 'Se guardará como: ' + pjoin(dir, name()) + (libre ? '   (quedará añadido como suelto)' : '') : 'Elige una carpeta.';
+    $('#uOk').disabled = !dir || !$('#uName').value.trim();
+  };
+  const shown = () => { const q = plainTxt($('#uFind').value.trim()); return folders.filter(f => !q || plainTxt(f).includes(q)); };
+  const pick = f => { dir = f; libre = !side.proyectos.some(p => under(f, p.ruta)); list(); where(); }; // fuera de proyectos: se crea como suelto
+  const list = () => {
+    const L = $('#uList'), sh = shown(); act = Math.min(act, Math.max(sh.length - 1, 0));
+    L.innerHTML = sh.length ? '' : '<div class="gc">Ninguna carpeta coincide: usa «Examinar…»</div>';
+    sh.forEach((f, i) => {
+      const r = document.createElement('div'); r.textContent = '📁 ' + f; r.title = f;
+      r.classList.toggle('on', f === dir); r.classList.toggle('act', i === act);
+      r.onclick = () => { act = i; pick(f); }; L.append(r);
+    });
+    L.querySelector('.act')?.scrollIntoView({ block: 'nearest' });
+  };
+  // Si escribe la extensión en el nombre («informe.md»), pasa al selector
+  $('#uName').oninput = () => {
+    const v = $('#uName').value, m = v.match(/\.[a-z0-9]+$/i), o = m && [...$('#uExt').options].find(o => o.value === m[0].toLowerCase());
+    if (o) { $('#uExt').value = o.value; $('#uName').value = v.slice(0, -m[0].length); }
+    where();
+  };
+  $('#uExt').onchange = where;
+  $('#uFind').oninput = () => { act = 0; list(); };
+  $('#uFind').onkeydown = e => {
+    const sh = shown();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); act = Math.max(0, Math.min(sh.length - 1, act + (e.key === 'ArrowDown' ? 1 : -1))); list(); }
+    else if (e.key === 'Enter' && sh[act]) { e.preventDefault(); pick(sh[act]); }
+  };
+  $('#uBrowse').onclick = async () => {
+    const r = await pickFolder(dir); if (!r) return;
+    if (!folders.includes(r)) folders.unshift(r);
+    $('#uFind').value = ''; act = folders.indexOf(r); pick(r);
+  };
   $('#uNo').onclick = () => d.close();
   $('#uOk').onclick = async () => {
-    const nombre = $('#uName').value.trim(), carpeta = $('#uDir').value;
+    const nombre = name(), carpeta = dir;
     try {
       const html = /\.(docx|pdf)$/i.test(nombre) ? DOMPurify.sanitize(marked.parse(ed.text)) : undefined;
-      const r = await api('/api/crear', { carpeta, nombre, texto: ed.text, html });
+      const r = await api('/api/crear', { carpeta, nombre, texto: ed.text, html, libre });
       d.close(); dropBackup(path); edits.delete(path);
       api('/api/conv/revincular', { de: path, a: r.ruta }).catch(() => {}); // su chat pasa al archivo guardado
       const cid = convMap()[path]; if (cid) { setConvMap(r.ruta, cid); setConvMap(path, ''); }
@@ -6573,7 +6629,33 @@ async function saveUntitled(path) {
       flash('✓ Guardado como ' + nombre);
     } catch (e) { ask('No se pudo guardar', e.message, ['Entendido']); }
   };
-  d.showModal(); const i = $('#uName'); i.focus(); i.setSelectionRange(0, 5);
+  list(); where();
+  d.showModal(); $('#uName').select();
+}
+// «Examinar…»: explorador solo de carpetas (mismo /api/explorar que «Añadir»); devuelve la carpeta elegida o null.
+function pickFolder(start) {
+  return new Promise(done => {
+    const d = dlg2(); d.className = 'pick';
+    let chosen = null;
+    d.onclose = () => { d.className = ''; d.onclose = null; done(chosen); };
+    const go = async ruta => {
+      let ex2;
+      try { ex2 = await api('/api/explorar?ruta=' + encodeURIComponent(ruta)); } catch (e) { return ask('No se puede abrir esa carpeta', e.message, ['Entendido']); }
+      const dirs = ex2.items.filter(i => i.dir), link = (icon, r, n) => `<a data-go="${esc(r)}" title="${esc(r)}">${icon} ${esc(n)}</a>`;
+      d.innerHTML = `<header><b>Elegir carpeta</b><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+        <div class="pkbar"><button class="small" data-up ${ex2.padre === null ? 'disabled' : ''} title="Subir a la carpeta de arriba">↑ Subir</button><span class="pkpath">${esc(ex2.ruta || 'Este equipo')}</span></div>
+        <div class="pkbody"><div class="pkside">${ex2.lugares.map(p => link('🏠', p.ruta, p.nombre)).join('')}
+          ${ex2.proyectos.length ? '<h4>Proyectos</h4>' + ex2.proyectos.map(p => link('📁', p.ruta, p.nombre)).join('') : ''}
+          <h4>Unidades</h4>${ex2.unidades.map(u => link('💽', u, u)).join('')}</div>
+          <div class="pklist">${dirs.length ? dirs.map(i => link('📁', i.ruta, i.nombre)).join('') : '<p class="gc">No hay carpetas dentro.</p>'}</div></div>
+        <footer><span class="sp"></span><button class="primary" data-ok ${ex2.ruta ? '' : 'disabled'}>Elegir esta carpeta</button><button data-x>Cancelar</button></footer>`;
+      d.querySelectorAll('[data-go]').forEach(a => a.onclick = () => go(a.dataset.go));
+      d.querySelectorAll('[data-x]').forEach(b => b.onclick = () => d.close());
+      d.querySelector('[data-up]').onclick = () => go(ex2.padre);
+      d.querySelector('[data-ok]').onclick = () => { chosen = ex2.ruta; d.close(); };
+    };
+    go(start || ''); d.showModal();
+  });
 }
 // Al abrir DeskLens: reabre lo que no se llegó a guardar
 async function recoverAll() {
