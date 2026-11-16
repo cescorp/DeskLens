@@ -4662,7 +4662,12 @@ function gitInit() {
   setInterval(() => { if (gitOn() && !document.hidden && !gbusy && !$('#menu') && !modalOpen()) gitLoad(); }, 5000);
 }
 addEventListener('keydown', e => { // Ctrl+Shift+F: vista Buscar · Ctrl+Shift+G: vista Git
-  if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') { e.preventDefault(); sideView('b', true); }
+  if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') { // lleva lo que se buscaba con Ctrl+F o lo seleccionado
+    e.preventDefault();
+    const fq = $('#fq'), q = (e.target === fq || !$('#find').hidden ? fq.value : selectedText()).trim();
+    sideView('b', true);
+    if (q && !q.includes('\n') && q !== $('#sideQ').value.trim()) { $('#sideQ').value = q; sideSearch(); }
+  }
   if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'g') { e.preventDefault(); sideView('g', true); }
 });
 // Resultados: proyecto › archivo › fragmentos. Un archivo sale una vez aunque coincida por nombre y por contenido.
@@ -6431,7 +6436,7 @@ function findReplace(all) {
     else if (e.key === 'Enter' && e.target.id === 'fr') findReplace(false);
     else if (e.key === 'Enter') findGo(e.shiftKey ? -1 : 1);
     else if (e.ctrlKey && e.shiftKey && e.code === 'Digit1') findReplace(false);
-    else if (e.ctrlKey && (k === 'f' || k === 'h')) { findOpen(k === 'h'); }
+    else if (e.ctrlKey && !e.shiftKey && (k === 'f' || k === 'h')) { findOpen(k === 'h'); } // Ctrl+Shift+F sigue: va a Buscar
     else if (e.key === 'F3') findGo(e.shiftKey ? -1 : 1);
     else return;
     e.preventDefault(); e.stopPropagation();

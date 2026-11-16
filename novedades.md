@@ -1,6 +1,9 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.140 · 2026-11-16 · Ctrl+Shift+F desde el buscador Ctrl+F
+- Con el buscador Ctrl+F abierto, Ctrl+Shift+F ya no se queda bloqueado: abre 🔍 Buscar con el mismo texto y busca en todos los proyectos. Sin el buscador abierto, lleva el texto seleccionado (si es de una línea).
+
 ## v1.139 · 2026-11-16 · Filtro del explorador al instante
 - El filtro del árbol (Ctrl+F en el explorador) busca en el índice en vez de recorrer el disco: en un proyecto de 200 000 archivos pasa de 4 s o más a menos de medio segundo.
 - Una ✕ al final del campo lo borra y vuelve el árbol entero.
