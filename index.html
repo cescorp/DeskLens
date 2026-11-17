@@ -1163,6 +1163,16 @@ dialog#dlg.sets.win{width:min(760px,calc(100vw - 32px));height:fit-content;max-h
 .slist h4{margin:18px 0 4px;font-size:13px;font-weight:600;color:var(--accent)}
 .srow{display:grid;grid-template-columns:1fr 130px 110px 90px;gap:16px;align-items:center;padding:7px 0 7px 14px;border-bottom:1px solid var(--line);position:relative;font-size:13.5px}
 .srow[hidden],.slist section[hidden]{display:none}
+/* ⌨ Accesos por teclado: entrada aparte al final de la columna y tabla de solo consulta */
+.sbody nav a.kfirst{margin-top:10px;border-top:1px solid var(--line);border-radius:0 0 5px 5px;padding-top:9px}
+.keys table{width:100%;border-collapse:collapse;font-size:13.5px}
+.keys .kzone th{text-align:left;padding:14px 0 4px;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.keys .krow td{padding:6px 0;border-bottom:1px solid var(--line);vertical-align:middle}
+.keys .krow td:first-child{width:260px;padding-left:14px;white-space:nowrap;color:var(--muted)}
+.keys kbd{display:inline-block;min-width:18px;padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+  background:var(--paper);color:var(--ink);font:600 11.5px/1.5 Inter,system-ui,sans-serif;text-align:center}
+.keys tbody[hidden],.keys .krow[hidden]{display:none}
+.keys>p.ok{margin:14px 0 0;font-size:12px;color:var(--faint)}
 .srow label{cursor:pointer;line-height:1.35}
 .srow label small{display:block;color:var(--faint);font-size:12px}
 .srow input[type=number]{width:100%;font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
@@ -5246,6 +5256,32 @@ async function winDialog() {
   };
   draw(st); if (!d.open) d.showModal();
 }
+// ⌨ Accesos por teclado (Ajustes): la lista de todos los atajos de DeskLens. REGLA: cada atajo nuevo se apunta aquí.
+// Teclas: «+» une las de una combinación y « / » separa alternativas (para el + del teclado, «＋»).
+const KEYS = [
+  ['General', [['Ctrl+N', 'Archivo nuevo («nuevo 1» sin guardar)'], ['Ctrl+S', 'Guardar'], ['Ctrl+W', 'Cerrar la pestaña'],
+    ['Ctrl+Tab / Ctrl+Shift+Tab', 'Pestaña siguiente / anterior (salta los grupos plegados)'], ['Ctrl+F2', 'Cambiar el nombre de la pestaña'],
+    ['Alt+← / Alt+→', 'Archivo anterior / siguiente de los que viste'], ['Ctrl+\\', 'Dividir en dos lados o juntar'],
+    ['Ctrl+B', 'Mostrar u ocultar la barra lateral'], ['Ctrl+J / Ctrl+Alt+B', 'Mostrar u ocultar el panel de IA'],
+    ['Ctrl+Shift+F', 'Buscar en los proyectos (lleva lo que buscabas o lo seleccionado)'], ['Ctrl+Shift+G', 'Vista Git'],
+    ['Ctrl+P', 'Imprimir'], ['Ctrl+G', 'Ir a la línea'], ['Ctrl+A', 'Seleccionar solo el documento (no toda la ventana)'],
+    ['Esc', 'Salir de la zona ampliada']]],
+  ['Editor', [['Alt+↑ / Alt+↓', 'Mover la línea arriba / abajo'], ['Shift+Alt+↑ / Shift+Alt+↓', 'Duplicar la línea arriba / abajo'],
+    ['Ctrl+Alt+↑ / Ctrl+Alt+↓', 'Añadir un cursor arriba / abajo'], ['Ctrl+D', 'Seleccionar la siguiente coincidencia (otro cursor)'],
+    ['Ctrl+Shift+L', 'Seleccionar todas las coincidencias'], ['Ctrl+Shift+K', 'Borrar la línea'], ['Esc', 'Volver a un solo cursor'],
+    ['Ctrl+F', 'Buscar en el archivo'], ['Ctrl+H', 'Buscar y reemplazar'], ['F3 / Shift+F3', 'Coincidencia siguiente / anterior'],
+    ['Alt+Z', 'Ajuste de línea (también al leer y comparar)'], ['Ctrl+Shift+[ / Ctrl+Shift+]', 'Plegar / desplegar el bloque'],
+    ['Ctrl+Z / Ctrl+Y', 'Deshacer / rehacer (también en Word, imagen y PDF)']]],
+  ['Árbol de archivos', [['↑ / ↓', 'Moverse por las filas'], ['→', 'Abrir la carpeta o entrar en ella'], ['←', 'Cerrar la carpeta o subir a la de arriba'],
+    ['Inicio / Fin', 'Primera / última fila'], ['AvPág / RePág', 'Una página abajo / arriba'], ['Enter', 'Abrir el archivo (pestaña fija)'],
+    ['Letras', 'Saltar al nombre que empieza así («sca» → «SCAN…»)'], ['F2', 'Cambiar el nombre'], ['Supr', 'Enviar a la papelera (pregunta antes)'],
+    ['Ctrl+F', 'Filtrar el árbol por nombre']]],
+  ['PDF', [['AvPág / RePág', 'Página siguiente / anterior'], ['Inicio / Fin', 'Primera / última página'], ['Ctrl+＋ / Ctrl+− / Ctrl+0', 'Acercar / alejar / tamaño inicial']]],
+  ['Depurar', [['F5', 'Continuar'], ['F10', 'Paso por encima'], ['F11', 'Entrar en la función'], ['Shift+F11', 'Salir de la función']]],
+  ['Git y chat', [['Ctrl+Enter', 'Hacer commit (en el mensaje del commit)'], ['Ctrl+Enter', 'Enviar (en el chat de IA)'], ['Esc', 'Salir de Git a pantalla completa']]],
+];
+const KEYS_G = '⌨ Accesos por teclado';
+const kbdHtml = s => s.split(' / ').map(alt => alt.split('+').map(k => `<kbd>${esc(k)}</kbd>`).join('+')).join(' / ');
 async function settingsDialog() {
   const s = await api('/api/ajustes'), d = $('#dlg'), reopen = d.open; // desde «Volver a Ajustes» el modal ya está abierto
   d.className = 'sets'; d.oninput = d.onchange = null; d.onclose = null;
@@ -5255,7 +5291,8 @@ async function settingsDialog() {
   d.innerHTML = `<header><b>Ajustes</b>
       <input type="search" class="sfind" placeholder="Filtrar ajustes…" aria-label="Filtrar ajustes">
       <label class="sonly"><input type="checkbox"> Solo cambiados</label><span class="scount"></span></header>
-    <div class="sbody"><nav>${groups.map(g => `<a data-g="${esc(g)}">${esc(g)}<span></span></a>`).join('')}</nav>
+    <div class="sbody"><nav>${groups.map(g => `<a data-g="${esc(g)}">${esc(g)}<span></span></a>`).join('')}
+      <a data-g="${KEYS_G}" class="kfirst">${KEYS_G}<span></span></a></nav>
     <div class="slist">${groups.map(g => `<section data-g="${esc(g)}"><h4>${esc(g)}</h4>${s.lista.filter(a => a.grupo === g).map(a => {
       const v = s.valores[a.clave], bool = typeof a.defecto === 'boolean', opts = typeof a.defecto === 'string' && a.min; // opts: [[valor, nombre]]
       const def = bool ? (a.defecto ? 'sí' : 'no') : opts ? opts.find(o => o[0] === a.defecto)?.[1] : a.defecto;
@@ -5266,7 +5303,11 @@ async function settingsDialog() {
           : `<input type="number" id="s_${a.clave}" data-k="${a.clave}" value="${v}" min="${a.min}" max="${a.max}">`}
         <span class="shint">${bool || opts ? '' : `${a.min}–${a.max}`}</span>
         <button class="sreset" title="Volver al valor por defecto">↺ ${esc(String(def))}</button></div>`;
-    }).join('')}</section>`).join('')}<p class="snone"></p></div></div>
+    }).join('')}</section>`).join('')}
+    <section data-g="${KEYS_G}" class="keys"><h4>${KEYS_G}</h4><table>${KEYS.map(([z, list]) => `<tbody><tr class="kzone"><th colspan="2">${esc(z)}</th></tr>
+      ${list.map(([k, t]) => `<tr class="krow" data-t="${esc(plainTxt(`${k.replace(/\+/g, ' ')} ${t} ${z}`))}"><td>${kbdHtml(k)}</td><td>${esc(t)}</td></tr>`).join('')}</tbody>`).join('')}</table>
+      <p class="ok">Solo para consultar: estos atajos no se cambian desde aquí.</p></section>
+    <p class="snone"></p></div></div>
     <footer><span class="ok">Se guardan en config.json</span><div class="exp-actions"></div></footer>`;
   const inp = k => d.querySelector(`[data-k=${k}]`), find = d.querySelector('.sfind'), only = d.querySelector('.sonly input');
   const val = i => i.type === 'checkbox' ? i.checked : i.tagName === 'SELECT' ? i.value : +i.value;
@@ -5280,15 +5321,18 @@ async function settingsDialog() {
       row.hidden = (q && !q.split(/\s+/).every(w => row.dataset.t.includes(w))) || (only.checked && !mod);
       shown += !row.hidden;
     }
+    // atajos: el mismo buscador («ctrl d», «duplicar»); con «Solo cambiados» no salen (no se cambian)
+    for (const r of d.querySelectorAll('.krow')) r.hidden = (q && !q.split(/\s+/).every(w => r.dataset.t.includes(w))) || only.checked;
+    for (const b of d.querySelectorAll('.keys tbody')) b.hidden = ![...b.querySelectorAll('.krow')].some(r => !r.hidden);
     for (const sec of d.querySelectorAll('section')) {
-      const rows = [...sec.querySelectorAll('.srow')], vis = rows.filter(r => !r.hidden).length;
+      const rows = [...sec.querySelectorAll('.srow, .krow')], vis = rows.filter(r => !r.hidden).length;
       sec.hidden = !vis;
       const a = d.querySelector(`nav a[data-g="${CSS.escape(sec.dataset.g)}"]`);
       a.classList.toggle('off', !vis); a.classList.toggle('mod', rows.some(r => r.classList.contains('mod')));
       a.lastChild.textContent = vis;
     }
     d.querySelector('.scount').textContent = `${shown} de ${s.lista.length} · ${changed} cambiado${changed === 1 ? '' : 's'}`;
-    d.querySelector('.snone').textContent = shown ? '' : (q ? `Ningún ajuste coincide con «${find.value.trim()}».` : 'Todos los ajustes están en su valor por defecto.');
+    d.querySelector('.snone').textContent = shown || d.querySelector('.krow:not([hidden])') ? '' : (q ? `Ningún ajuste coincide con «${find.value.trim()}».` : 'Todos los ajustes están en su valor por defecto.');
   };
   d.oninput = d.onchange = refresh;
   find.onkeydown = e => { if (e.key === 'Escape' && find.value) { e.preventDefault(); find.value = ''; refresh(); } };

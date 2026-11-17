@@ -15,6 +15,15 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-17 · Accesos por teclado en Ajustes (v1.145)
+A pedido del usuario, una sección de solo consulta con todos los atajos.
+
+**Datos:** `KEYS` en `index.html` (zona → [teclas, qué hace]); «+» une teclas, « / » separa alternativas y «＋» es la tecla +. `kbdHtml` dibuja cada tecla como `<kbd>`.
+
+**Pantalla:** en `settingsDialog`, el enlace `nav a.kfirst` va separado al final y la `section.keys` es una tabla con un `tbody` por zona. El mismo `refresh` filtra los `.krow` por `data-t` (teclas sin «+», texto y zona), oculta las zonas vacías y no los muestra con «Solo cambiados». «Ningún ajuste coincide» solo sale si tampoco hay atajos.
+
+Reunidos los 48 de los `keydown` del código y de `extraKeys`. Nueva regla en `reglas.md`: cada atajo nuevo va a `KEYS`; también se apuntó allí la de `extraKeys`. Probado en el 8799: lista completa y filtro «duplicar».
+
 ## 2026-11-17 · Cambiar el nombre de una pestaña con Ctrl+F2 (v1.144)
 Pedido del usuario: renombrar una pestaña aunque no esté guardada, con Ctrl+F2.
 
