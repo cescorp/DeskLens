@@ -570,6 +570,35 @@ dialog#dlg.imgcmp{width:min(1200px,94vw);max-width:none}.imgcmp header{display:f
 .shit .sn{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-width:0}
 mark{background:#ffe58a;color:#1f1f1f;border-radius:2px}
 /* modal de información e índice */
+/* modal del índice: cabecera y pie fijos, el medio con su propio scroll */
+dialog#dlg.ix{padding:0;width:min(680px,calc(100vw - 32px));max-width:none;max-height:calc(100vh - 48px);display:none;flex-direction:column}
+dialog#dlg.ix[open]{display:flex}
+.ix>header,.ix>footer{display:flex;align-items:center;gap:10px;padding:12px 20px}.ix .sp{flex:1}
+.ix>header{border-bottom:1px solid var(--line)}.ix>header b{font-size:15px}
+.ix>footer{border-top:1px solid var(--line)}.ix>footer small{color:var(--faint);font-size:12px}
+.ixbody{flex:1;min-height:0;overflow:auto;padding:14px 20px 18px;font-size:13px}
+.ixbody h4{margin:18px 0 6px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint)}
+.ixcard{display:grid;gap:6px;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:color-mix(in srgb,var(--ink) 4%,transparent)}
+.ixcard b{font-size:15px}.ixcard small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ixcard.ok{border-color:color-mix(in srgb,#2f9e44 40%,transparent);background:color-mix(in srgb,#2f9e44 9%,transparent)}.ixcard.ok b{color:#2f9e44}
+.ixcard.busy{border-color:color-mix(in srgb,var(--navy) 40%,transparent);background:color-mix(in srgb,var(--navy) 8%,transparent)}
+.ixcard.err{border-color:color-mix(in srgb,#d33 40%,transparent);background:color-mix(in srgb,#d33 8%,transparent)}.ixcard.err b{color:#d33}
+.ixcard progress{width:100%;height:8px}.ixcard .spin{display:inline-block;animation:spin 1s linear infinite}
+.ixcpu{margin:8px 2px 0;color:var(--muted);font-size:12px}.ixcpu a{color:var(--navy);cursor:pointer;text-decoration:underline}
+.ixhow{margin-top:12px;border:1px solid var(--line);border-radius:8px;padding:6px 12px}.ixhow summary{cursor:pointer;font-weight:600;color:var(--muted)}
+.ixhow ol{margin:8px 0 4px;padding-left:20px;display:grid;gap:4px}.ixhow p{margin:6px 0 4px;color:var(--muted)}
+.ixbar{display:flex;height:14px;border-radius:7px;overflow:hidden;gap:2px;background:var(--line)}.ixbar i{min-width:4px}
+.ixleg{display:grid;gap:5px;margin-top:10px}.ixleg>div{display:grid;grid-template-columns:12px 72px 1fr;gap:8px;align-items:baseline}
+.ixleg i{width:12px;height:12px;border-radius:3px;align-self:center;background:var(--line)}.ixleg b{text-align:right;font-variant-numeric:tabular-nums}.ixleg small{color:var(--faint)}
+.ixpdf{margin:0;color:var(--muted)}
+.ixtipos{display:grid;grid-template-columns:1fr 1fr;gap:4px 24px}
+.ixtipos>div{display:grid;grid-template-columns:110px 64px;gap:2px 8px;align-items:center}.ixtipos span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ixtipos b{text-align:right;font-weight:500;font-variant-numeric:tabular-nums}
+.ixtipos i{grid-column:1/-1;height:4px;border-radius:2px;background:var(--navy);opacity:.6}
+.ixerrs{display:grid;gap:8px}.ixerrs>div{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:8px 10px;border-radius:6px;background:color-mix(in srgb,#d33 6%,transparent)}
+.ixerrs b{overflow-wrap:anywhere;color:#d33}.ixerrs .ic{grid-row:1/3;grid-column:2;align-self:start;padding:0 4px;height:auto;line-height:1.4}
+.ixerrs>div>small,.ixerrs>div>span{grid-column:1/-1}.ixerrs>div>small{color:var(--faint);overflow-wrap:anywhere}.ixerrs span small{color:var(--faint)}
+@media (max-width:560px){.ixtipos{grid-template-columns:1fr}.ixleg>div{grid-template-columns:12px 64px 1fr}}
 dialog#dlg.info h4{margin:14px 0 4px;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint)}
 dialog#dlg.info dl{display:grid;grid-template-columns:150px 1fr;gap:4px 12px;margin:0;font-size:13px}
 dialog#dlg.info dt{color:var(--muted)}dialog#dlg.info dd{margin:0;overflow-wrap:anywhere}
@@ -4835,31 +4864,65 @@ function drawIdx() {
 }
 $('#idx').onclick = () => {
   const d = $('#dlg');
-  d.className = 'wide info'; d.oninput = d.onchange = null; d.dataset.kind = 'idx';
+  d.className = 'ix'; d.oninput = d.onchange = null; d.dataset.kind = 'idx';
   d.onclose = () => { d.dataset.kind = ''; };
   fillIdx(); d.showModal();
 };
-// Contenido del modal del índice: estado, archivos por estado y por tipo, PDF pendientes y últimos errores.
+// Errores del índice en español (el original va entre paréntesis)
+const IDX_ERR = [[/missing pdf/i, 'No se encontró el PDF'], [/invalid pdf/i, 'PDF dañado'], [/not a zip/i, 'No es un Word válido o está dañado'],
+  [/permission|acceso denegado/i, 'Sin permiso para leerlo'], [/no such file|cannot find|no se encuentra/i, 'Ya no existe'], [/password/i, 'Tiene contraseña']];
+// Grupos de la barra «Qué hay en el índice»: estado → [color, nombre, explicación]
+const IDX_GRP = [['ok', '#2f9e44', 'Con texto', 'se encuentran por nombre y por contenido'],
+  ['binario', 'var(--navy)', 'Solo el nombre', 'imágenes y otros binarios: no tienen texto que leer'],
+  ['pdf_pendiente', '#c08a00', 'PDF por leer', 'se leen aparte, página a página'],
+  ['pdf_sin_texto', '#8a8a8a', 'PDF sin texto', '¿escaneado? solo se encuentra por el nombre'],
+  ['pendiente', '#b8b8b8', 'Aún sin indexar', ''],
+  ['error', '#d33', 'Con error al leerlos', 'ver abajo']];
+// Contenido del modal del índice (se rehace con cada sondeo: se conserva el scroll y «Cómo funciona» abierto o cerrado).
+// Arriba la tarjeta de estado; en medio, con su propio scroll, lo que hay y los errores; abajo «Cerrar» siempre a la vista.
 function fillIdx() {
-  const i = idxInfo || {}, d = $('#dlg'), fd = t => t ? new Date(t * 1000).toLocaleString() : '—';
-  const est = i.por_estado || {}, pend = est.pdf_pendiente || 0;
-  const row = (k, v) => `<dt>${esc(k)}</dt><dd>${v}</dd>`;
-  d.innerHTML = `<b>Índice de búsqueda</b>
-    <p class="ok">Se crea solo y en segundo plano. Si cierras DeskLens, sigue donde se quedó. Repasa cada 5 minutos solo lo que cambió.</p>
-    <h4>Estado</h4><dl>
-      ${row('Fase', esc(i.fase || '—'))}
-      ${i.fase === 'indexando' ? row('Progreso', `<progress max="${i.total}" value="${i.hechos}"></progress> ${i.hechos} / ${i.total}`) : ''}
-      ${row('Archivo actual', esc(i.actual || pdfWork.actual || '—'))}
-      ${row('Última pasada', `${fd(i.inicio)} → ${fd(i.fin)}`)}
-      ${row('PDF en lectura', pdfWork.actual ? esc(`${pdfWork.actual.split(/[\\/]/).pop()} · pág. ${pdfWork.pagina} / ${pdfWork.total}`) : 'ninguno')}
-      ${row('PDF pendientes', pend)} ${row('Páginas de PDF leídas', i.pdf_paginas || 0)}
-      ${row('Base de datos', `${fmtSize(i.tam_db || 0)} · historial\\indice.db`)}
-    </dl>
-    <h4>Archivos (${i.archivos || 0})</h4><dl>${Object.entries(est).map(([k, v]) => row(IDX_NAMES[k] || k, v)).join('')}</dl>
-    <h4>Por tipo</h4><dl>${(i.por_tipo || []).map(([k, v]) => row(k, v)).join('')}</dl>
-    ${(i.errores || []).length ? `<h4>Errores</h4><dl>${i.errores.map(([p, e]) => row(p.split(/[\\/]/).pop(), esc(e || ''))).join('')}</dl>` : ''}
-    <div class="exp-actions"></div>`;
-  d.lastChild.append(Object.assign(button('Cerrar', () => d.close()), { className: 'primary' }));
+  const i = idxInfo || {}, d = $('#dlg'), n = x => (+x || 0).toLocaleString('es');
+  const fd = t => { if (!t) return '—'; const x = new Date(t * 1000); return (x.toDateString() === new Date().toDateString() ? 'hoy ' : x.toLocaleDateString('es') + ' ') + x.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' }); };
+  const est = i.por_estado || {}, total = i.archivos || 0, busy = i.fase === 'indexando';
+  const scroll = d.querySelector('.ixbody')?.scrollTop || 0, how = d.querySelector('.ixhow')?.open ?? false;
+  const dur = i.inicio && i.fin && i.fin >= i.inicio ? Math.round((i.fin - i.inicio) / 60) : null;
+  const next = i.fin && !busy ? fd(i.fin + (AJ.indice_repaso_min || 5) * 60) : null;
+  const card = busy
+    ? `<div class="ixcard busy"><b><span class="spin">⟳</span> Indexando ${n(i.hechos)} / ${n(i.total)}</b>
+        <progress max="${i.total || 1}" value="${i.hechos || 0}"></progress><small title="${esc(i.actual || '')}">${esc(i.actual || '')}</small></div>`
+    : i.fase === 'error' ? `<div class="ixcard err"><b>⚠️ El índice se detuvo por un error</b><small>${esc(i.actual || '')}</small></div>`
+    : i.fase === 'esperando' ? `<div class="ixcard"><b>⏳ Preparando el índice…</b><small>Empieza en unos segundos.</small></div>`
+    : `<div class="ixcard ok"><b>✓ Al día · ${n(total)} archivos</b>
+        <small>Última pasada: ${fd(i.inicio)}${dur !== null ? `, duró ${dur < 1 ? 'menos de 1 min' : dur + ' min'}` : ''}${next ? ` · próxima hacia las ${next.replace(/^hoy /, '')}` : ''}</small></div>`;
+  const grp = IDX_GRP.filter(([k]) => est[k]), other = Object.keys(est).filter(k => !IDX_GRP.some(g => g[0] === k));
+  const bar = grp.map(([k, c, t]) => `<i style="flex:${est[k]};background:${c}" title="${t}: ${n(est[k])}"></i>`).join('');
+  const legend = grp.map(([k, c, t, why]) => `<div><i style="background:${c}"></i><b>${n(est[k])}</b><span>${t}${why ? ` <small>· ${why}</small>` : ''}</span></div>`).join('')
+    + other.map(k => `<div><i></i><b>${n(est[k])}</b><span>${esc(IDX_NAMES[k] || k)}</span></div>`).join('');
+  const tipos = i.por_tipo || [], top = Math.max(1, ...tipos.map(t => t[1]));
+  const errs = i.errores || [];
+  d.innerHTML = `<header><b>Índice de búsqueda</b><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+    <div class="ixbody">${card}
+      <p class="ixcpu">Usa como máximo el ${AJ.indice_cpu || 20} % del procesador · repasa cada ${AJ.indice_repaso_min || 5} min · <a data-sets>⚙ Ajustes</a></p>
+      <details class="ixhow"${how ? ' open' : ''}><summary>Cómo funciona</summary><ol>
+        <li>Recorre tus proyectos y archivos sueltos (sin la carpeta interna <code>.git</code>).</li>
+        <li>Lee el texto de cada archivo y lo guarda en <code>historial\\indice.db</code>. Los PDF los lee la ventana aparte, página a página.</li>
+        <li>🔍 Buscar y el filtro del explorador usan lo guardado: no abren los archivos al buscar, por eso son rápidos.</li></ol>
+        <p>Cada ${AJ.indice_repaso_min || 5} minutos repasa solo lo que cambió (por fecha y tamaño), y el vigilante avisa al momento de lo que cambias con otros programas. Si cierras DeskLens, sigue donde se quedó.</p></details>
+      <h4>Qué hay en el índice</h4><div class="ixbar">${bar}</div><div class="ixleg">${legend}</div>
+      <h4>PDF</h4><p class="ixpdf">${n(i.pdf_paginas)} páginas leídas · ${n(est.pdf_pendiente)} pendientes · ${pdfWork.actual ? `leyendo ${esc(pdfWork.actual.split(/[\\/]/).pop())} (pág. ${pdfWork.pagina} / ${pdfWork.total})` : 'ninguno en lectura ahora'}</p>
+      ${tipos.length ? `<h4>Por tipo</h4><div class="ixtipos">${tipos.map(([k, v]) => `<div><span>${esc(k)}</span><b>${n(v)}</b><i style="width:${Math.max(1, v / top * 100)}%"></i></div>`).join('')}</div>` : ''}
+      ${errs.length ? `<h4>Errores (${errs.length}${errs.length >= 30 ? ', los últimos' : ''})</h4><div class="ixerrs">${errs.map(([p, e]) => {
+        const msg = IDX_ERR.find(([re]) => re.test(e || ''))?.[1], pr = side.proyectos.find(x => under(p, x.ruta));
+        const where = pr ? [projLabel(pr.ruta), ...relPath(p).split(/[\\/]/).slice(0, -1)] : [p.replace(/[\\/][^\\/]*$/, '')];
+        return `<div><b title="${esc(p)}">⚠ ${esc(p.split(/[\\/]/).pop())}</b><button class="ic" data-show="${esc(p)}" title="Mostrar en carpeta">📁</button>
+          <small title="${esc(p)}">${esc(where.join(' › '))}</small>
+          <span>${msg ? `${msg} <small>(${esc(e)})</small>` : esc(e || '')}</span></div>`; }).join('')}</div>` : ''}
+    </div>
+    <footer><small>${fmtSize(i.tam_db || 0)} · historial\\indice.db</small><span class="sp"></span><button class="primary" data-x>Cerrar</button></footer>`;
+  d.querySelectorAll('[data-x]').forEach(b => b.onclick = () => d.close());
+  d.querySelector('[data-sets]').onclick = () => { d.dataset.kind = ''; settingsDialog(); };
+  d.querySelectorAll('[data-show]').forEach(b => b.onclick = () => api('/api/mostrar', { ruta: b.dataset.show }).catch(e => ask('Mostrar en carpeta', e.message, ['Entendido'])));
+  d.querySelector('.ixbody').scrollTop = scroll;
 }
 // Los PDF los lee la ventana con pdf.js (Python no puede sin instalar nada), uno a uno y sin acaparar
 async function pdfWorker() {
@@ -5679,7 +5742,13 @@ function renderTabs() {
     };
     T.append(el);
   }
-  T.append(iconBtn('plus', 'Añadir proyecto o archivos', openExplorer), iconBtn('globe', 'Nueva pestaña web', () => webOpen('')));
+  // «+»: menú con lo que se puede crear o abrir (un + suelto se confundía con «archivo nuevo»; antes eran + y 🌐)
+  const plus = iconBtn('plus', 'Nuevo: archivo, pestaña web o añadir proyecto', () => openMenu((r => ({ x: r.left, y: r.bottom }))(plus.getBoundingClientRect()), [ // hacia la derecha del +, como Chrome
+    ['📄  Archivo nuevo', () => newUntitled(), { key: 'Ctrl+N', title: '«nuevo 1» sin guardar; al guardar eliges nombre y carpeta' }],
+    ['🌐  Pestaña web', () => webOpen('')],
+    '-',
+    ['📁  Añadir proyecto o archivos…', openExplorer, { title: 'Una carpeta como proyecto, o archivos sueltos' }]]));
+  T.append(plus);
   // conmutadores de paneles en los extremos, siempre visibles (como en VS Code / Obsidian)
   // con la vista dividida: barra lateral a la izquierda del primer lado; dividir/juntar e IA a la derecha del último
   const side = document.body.classList.contains('noside'), ia = document.body.classList.contains('ia');

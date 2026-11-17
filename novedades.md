@@ -1,6 +1,15 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.143 · 2026-11-17 · El «+» de las pestañas despliega sus opciones
+- El «+» de la barra de pestañas ya no abre directamente «Añadir proyecto»: despliega un menú con 📄 Archivo nuevo (Ctrl+N), 🌐 Pestaña web y 📁 Añadir proyecto o archivos…. El botón 🌐 aparte desaparece.
+
+## v1.142 · 2026-11-16 · Ventana del índice más clara
+- Arriba, una tarjeta dice si el índice está al día (con la última pasada, cuánto duró y cuándo será la próxima) o indexando (con barra de progreso y el archivo que lee).
+- «Cómo funciona» explica en tres pasos qué hace el índice; una sola barra de colores con su leyenda muestra cuántos archivos tienen texto, cuántos solo nombre, PDF y errores.
+- «Por tipo» en dos columnas con barritas; los errores con el nombre entero, su carpeta, un botón 📁 y el motivo en español.
+- El título y el botón «Cerrar» quedan siempre a la vista: solo se desplaza el contenido.
+
 ## v1.141 · 2026-11-16 · El filtro del explorador ya no se queda «Buscando…»
 - A veces el filtro tardaba unos 7 segundos: cada vez que cambiaba algo en el índice, rehacía su lista de nombres antes de responder. Ahora responde al momento con la lista que tenía y la pone al día por detrás.
 - Los archivos internos de git (`.git`) ya no entran al índice cuando cambian (antes el vigilante los añadía cada vez que git traía cambios).
