@@ -15,6 +15,18 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-17 · Aviso de recuperación sin bloquear (v1.146)
+Al usuario le molestaba el `ask` «Recuperación» que bloqueaba la ventana al abrir DeskLens.
+
+**Cambios:**
+- `recoverAll` junta filas `{path, nombre, nota, fecha (de la copia), tam (bytes UTF-8 del texto)}` con `row()`.
+- `recToast(rows)` muestra `#recToast.rtoast`: fijo arriba a la derecha (z-index 60) y sin modal.
+- La tabla tiene Archivo (`fileIcon`, nombre, ruta relativa y nota), Último cambio (hoy/ayer + hora) y Peso; un clic en la fila hace `openTab` y cierra el aviso.
+- Se cierra con `pointerdown` fuera (en captura), con ✕ o a los 10 s; la cuenta se para con el ratón encima.
+- El `ask` de conflicto («cambió en disco después de la copia») sigue siendo modal, porque hay que decidir.
+
+Probado en el 8799: dos «nuevo» recuperados tras recargar, cuenta atrás, pausa, clic fuera y clic en la fila.
+
 ## 2026-11-17 · Accesos por teclado en Ajustes (v1.145)
 A pedido del usuario, una sección de solo consulta con todos los atajos.
 

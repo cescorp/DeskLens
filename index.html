@@ -1163,6 +1163,22 @@ dialog#dlg.sets.win{width:min(760px,calc(100vw - 32px));height:fit-content;max-h
 .slist h4{margin:18px 0 4px;font-size:13px;font-weight:600;color:var(--accent)}
 .srow{display:grid;grid-template-columns:1fr 130px 110px 90px;gap:16px;align-items:center;padding:7px 0 7px 14px;border-bottom:1px solid var(--line);position:relative;font-size:13.5px}
 .srow[hidden],.slist section[hidden]{display:none}
+/* aviso de lo recuperado: tarjeta arriba a la derecha, sin bloquear; cuenta atrás con barrita */
+.rtoast{position:fixed;top:48px;right:16px;z-index:60;width:min(460px,calc(100vw - 32px));background:var(--paper);color:var(--ink);
+  border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.18);font-size:13px;overflow:hidden}
+.rtoast header{display:flex;align-items:center;gap:8px;padding:10px 8px 6px 14px}.rtoast header b{flex:1;font-size:13.5px}
+.rtoast header button.ic{width:24px;height:24px}
+.rtoast table{width:100%;border-collapse:collapse}
+.rtoast th{text-align:left;font-size:11px;font-weight:600;color:var(--faint);padding:4px 10px;border-bottom:1px solid var(--line)}
+.rtoast th:first-child,.rtoast td:first-child{padding-left:14px}.rtoast th:last-child,.rtoast td:last-child{text-align:right;padding-right:14px}
+.rtoast td{padding:6px 10px;border-bottom:1px solid var(--line);white-space:nowrap;color:var(--muted);vertical-align:top}
+.rtoast td:first-child{display:flex;gap:8px;align-items:flex-start;white-space:normal;color:var(--ink)}
+.rtoast td small{display:block;font-size:11.5px;color:var(--faint)}
+.rtoast .fi{display:inline-flex;flex:none;margin-top:1px}
+.rtoast tbody tr{cursor:pointer}.rtoast tbody tr:hover{background:var(--navybg)}.rtoast tbody tr:hover b{color:var(--navy);text-decoration:underline}
+.rtoast footer{display:flex;align-items:center;gap:10px;padding:8px 14px;font-size:11.5px;color:var(--faint)}
+.rtoast footer>i{flex:1;height:3px;border-radius:2px;background:var(--line);overflow:hidden}
+.rtoast footer>i>i{display:block;height:100%;background:var(--navy);transition:width 1s linear}
 /* ⌨ Accesos por teclado: entrada aparte al final de la columna y tabla de solo consulta */
 .sbody nav a.kfirst{margin-top:10px;border-top:1px solid var(--line);border-radius:0 0 5px 5px;padding-top:9px}
 .keys table{width:100%;border-collapse:collapse;font-size:13.5px}
@@ -6822,25 +6838,26 @@ function pickFolder(start) {
 }
 // Al abrir DeskLens: reabre lo que no se llegó a guardar
 async function recoverAll() {
-  const list = await api('/api/recup').catch(() => []), found = [];
+  const list = await api('/api/recup').catch(() => []), found = []; // found: filas del aviso (recToast)
+  const row = (path, e, nota = '') => found.push({ path, nombre: tabName(path), nota, fecha: e.fecha, tam: new Blob([e.texto || '']).size });
   for (const e of list) {
     if (!e.ruta) { // "nuevo N"
       const n = e.clave.slice(6), path = 'nuevo:' + n;
       edits.set(path, { f: { ...untitledFile(n), nombre: e.titulo || 'nuevo ' + n }, text: e.texto || '', orig: '', shown: !!e.texto }); // con el nombre que se le dio
       if (!tabs.includes(path)) tabs.push(path);
-      if (e.texto) found.push(e.titulo || `nuevo ${n}`);
+      if (e.texto) row(path, e);
       continue;
     }
     let f = null;
     try { f = await api('/api/abrir?ruta=' + encodeURIComponent(e.ruta)); } catch {}
     const name = e.ruta.split(/[\\/]/).pop(), ago = new Date(e.fecha * 1000).toLocaleString();
     if (!f) { // el archivo ya no existe: el texto se recupera como "nuevo N"
-      dropBackup(e.ruta); newUntitled(e.texto); found.push(`${name} (ya no existía: abierto como nuevo)`); continue;
+      dropBackup(e.ruta); row(newUntitled(e.texto), e, `${name} ya no existía: abierto como nuevo`); continue;
     }
     if (String(f.mtime) === String(e.mtime)) {
       edits.set(e.ruta, { f, text: e.texto, orig: norm(f.texto || ''), shown: true });
       if (!tabs.includes(e.ruta)) tabs.push(e.ruta);
-      found.push(`${name} · copia del ${ago}`);
+      row(e.ruta, e);
       continue;
     }
     // cambió en disco desde la copia: se elige, nunca se mezcla
@@ -6849,16 +6866,41 @@ async function recoverAll() {
     if (c === 'Usar mi versión recuperada') {
       edits.set(e.ruta, { f, text: e.texto, orig: norm(f.texto || ''), shown: true });
       if (!tabs.includes(e.ruta)) tabs.push(e.ruta);
-      found.push(`${name} · versión recuperada`);
+      row(e.ruta, e, 'versión recuperada (el disco había cambiado)');
     } else if (c === 'Ver las dos') {
       if (!tabs.includes(e.ruta)) tabs.push(e.ruta);
-      dropBackup(e.ruta); newUntitled(e.texto); found.push(`${name} · versión recuperada en una pestaña nueva`);
+      dropBackup(e.ruta); row(newUntitled(e.texto), e, `versión recuperada de ${name}, en una pestaña nueva`);
     } else dropBackup(e.ruta);
   }
   if (found.length && (!cur || !tabs.includes(cur))) cur = tabs.find(p => edits.has(p)) || cur; // se ve lo recuperado
   persist();
-  const n = found.length;
-  if (n) ask('Recuperación', `${n === 1 ? 'Se recuperó 1 archivo' : `Se recuperaron ${n} archivos`} con cambios sin guardar:\n\n• ${found.join('\n• ')}`, ['Entendido']);
+  if (found.length) recToast(found);
+}
+// Aviso de lo recuperado: tarjeta arriba a la derecha que no bloquea. Tabla archivo · último cambio · peso; clic en una fila
+// abre su pestaña. Se cierra con un clic en cualquier otro sitio, con ✕ o sola a los 10 s (la cuenta se para con el ratón encima).
+function recToast(rows) {
+  $('#recToast')?.remove();
+  const n = rows.length, t = document.createElement('div'); t.id = 'recToast'; t.className = 'rtoast';
+  const when = s => { const k = dayKey(s); return (k === 'Hoy' ? 'hoy' : k === 'Ayer' ? 'ayer' : k) + ' ' + hhmm(s); };
+  const sub = r => [isVirtual(r.path) ? '' : relPath(r.path), r.nota].filter(Boolean).join(' · ');
+  t.innerHTML = `<header><b>💾 ${n === 1 ? 'Recuperado 1 archivo' : `Recuperados ${n} archivos`} sin guardar</b><button class="ic" title="Cerrar">✕</button></header>
+    <table><thead><tr><th>Archivo</th><th>Último cambio</th><th>Peso</th></tr></thead><tbody>${rows.map((r, i) => `<tr data-i="${i}" title="Abrir «${esc(r.nombre)}»">
+      <td>${fileIcon(r.nombre, false)}<span><b>${esc(r.nombre)}</b>${sub(r) ? `<small>${esc(sub(r))}</small>` : ''}</span></td>
+      <td>${r.fecha ? when(r.fecha) : ''}</td><td>${fmtSize(r.tam)}</td></tr>`).join('')}</tbody></table>
+    <footer><span></span><i><i></i></i></footer>`;
+  document.body.append(t);
+  let left = 10, timer;
+  const msg = t.querySelector('footer span'), bar = t.querySelector('footer i i');
+  const tick = () => { msg.textContent = `Se cierra en ${left} s`; bar.style.width = left * 10 + '%'; };
+  const run = () => { clearInterval(timer); timer = setInterval(() => { if (--left <= 0) close(); else tick(); }, 1000); };
+  const away = e => { if (!t.contains(e.target)) close(); };
+  const close = () => { clearInterval(timer); removeEventListener('pointerdown', away, true); t.remove(); };
+  t.onmouseenter = () => { clearInterval(timer); msg.textContent = 'En pausa mientras el ratón está encima'; };
+  t.onmouseleave = () => { tick(); run(); };
+  t.querySelector('header button').onclick = close;
+  t.querySelector('tbody').onclick = e => { const tr = e.target.closest('tr'); if (!tr) return; close(); openTab(rows[+tr.dataset.i].path, true); };
+  addEventListener('pointerdown', away, true);
+  tick(); run();
 }
 
 function flash(text) {
