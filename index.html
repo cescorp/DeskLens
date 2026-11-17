@@ -652,6 +652,7 @@ body.split .pane:not(.on) #view{opacity:.92}
 .tab.pre span{font-style:italic}
 .tab.on{background:var(--paper);color:var(--ink);box-shadow:0 0 0 1px var(--line);clip-path:inset(-1px -1px 0 -1px)}
 .tab b{font-weight:400;opacity:.45;font-size:12px}.tab b:hover{opacity:1}
+.tab input.tabren{width:150px;font:inherit;font-size:13px;padding:0 4px;border:1px solid var(--navy);border-radius:3px;background:var(--paper);color:var(--ink)}
 /* grupos de pestañas: etiqueta de color delante y raya del mismo color debajo de cada pestaña del grupo */
 .tgchip{display:flex;align-items:center;gap:5px;align-self:center;flex:none;max-width:150px;margin:0 2px 3px 8px;padding:2px 9px;border-radius:10px;
   background:var(--g);color:#fff;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap;user-select:none}
@@ -1677,21 +1678,61 @@ async function renameInline(el) {
     if (done) return; done = true;
     const nombre = input.value.trim();
     if (!ok || !nombre || nombre === old) return back();
-    const open = tabs.filter(t => under(t, path)), was = cur;
-    for (const t of open) { await closeTab(t); if (tabs.includes(t)) return back(); } // canceló al guardar
-    let r;
-    try { r = (await api('/api/renombrar', { ruta: path, nombre })).ruta; }
-    catch (err) { back(); for (const t of open) openTab(t, true); return ask('No se pudo renombrar', err.message, ['Entendido']); }
-    const to = t => r + t.slice(path.length); // la misma ruta, con el nombre nuevo
-    for (const [k, v] of [...tree]) if (under(k, path)) { tree.delete(k); tree.set(to(k), v); } // sus carpetas abiertas siguen abiertas
-    if (selDir && under(selDir, path)) selDir = to(selDir);
-    kcur = r; dirCache.clear(); await loadSide(); SS.focus();
-    for (const t of [...open.filter(t => t !== was), ...open.filter(t => t === was)]) openTab(to(t), true); // la que veías, al final
-    flash(`✓ «${old}» ahora se llama «${nombre}»`);
+    const r = await renameOnDisk(path, nombre);
+    if (!r) return back();
+    kcur = r; SS.focus();
   };
-  input.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); };
+  input.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); finish(e.key === 'Enter'); } };
   input.onblur = () => finish(true);
 }
+// Renombra un archivo o carpeta en el disco (F2 del árbol y Ctrl+F2 de la pestaña). Sus pestañas abiertas se cierran
+// (si hay cambios sin guardar, pregunta) y se reabren con la ruta nueva. Devuelve la ruta nueva, o null si no se hizo.
+async function renameOnDisk(path, nombre) {
+  const old = path.split(/[\\/]/).pop(), open = tabs.filter(t => under(t, path)), was = cur;
+  for (const t of open) { await closeTab(t); if (tabs.includes(t)) return null; } // canceló al guardar
+  let r;
+  try { r = (await api('/api/renombrar', { ruta: path, nombre })).ruta; }
+  catch (err) { for (const t of open) openTab(t, true); ask('No se pudo renombrar', err.message, ['Entendido']); return null; }
+  const to = t => r + t.slice(path.length); // la misma ruta, con el nombre nuevo
+  for (const [k, v] of [...tree]) if (under(k, path)) { tree.delete(k); tree.set(to(k), v); } // sus carpetas abiertas siguen abiertas
+  if (selDir && under(selDir, path)) selDir = to(selDir);
+  dirCache.clear(); await loadSide();
+  for (const t of [...open.filter(t => t !== was), ...open.filter(t => t === was)]) openTab(to(t), true); // la que veías, al final
+  flash(`✓ «${old}» ahora se llama «${nombre}»`);
+  return r;
+}
+// ✎ Cambiar nombre de una pestaña (clic derecho o Ctrl+F2): se escribe en la propia pestaña. «nuevo N» sin guardar solo
+// cambia de nombre en DeskLens (pestaña, migas, colores por la extensión, recuperación y «Guardar»); un archivo guardado
+// se renombra en el disco. Las web no tienen nombre propio.
+function renameTab(p) {
+  if (isWeb(p)) return;
+  const el = [...$('#tabs').querySelectorAll('.tab')].find(t => t.dataset.path === p); if (!el) return;
+  const span = el.firstChild, old = tabName(p);
+  const input = Object.assign(document.createElement('input'), { value: old, spellcheck: false, className: 'tabren' });
+  span.replaceWith(input); el.draggable = false; input.focus();
+  const dot = old.lastIndexOf('.'); input.setSelectionRange(0, dot > 0 ? dot : old.length); // sin la extensión
+  let done = false;
+  const finish = async ok => {
+    if (done) return; done = true;
+    const nombre = input.value.trim();
+    if (!ok || !nombre || nombre === old) return renderTabs();
+    if (!isUntitled(p)) return renameOnDisk(p, nombre).then(r => r || renderTabs());
+    if (/[\\/:*?"<>|]/.test(nombre)) { renderTabs(); return ask('Nombre no válido', 'No puede llevar \\ / : * ? " < > |', ['Entendido']); }
+    const ed = edits.get(p); ed.f.nombre = nombre; backupNow(p); // la recuperación guarda el nombre (titulo)
+    if (p !== cur) return renderTabs();
+    // la que se ve: se vuelve a dibujar (colores según la extensión nueva) sin perder ↶ ni el cursor
+    const h = editorCM?.getHistory(), c = editorCM?.getCursor();
+    await render();
+    if (h && editorCM) { editorCM.setHistory(h); editorCM.setCursor(c); editorCM.focus(); }
+  };
+  // preventDefault: el Enter que confirma no debe llegar al editor (se enfoca al volver a dibujar y metía un salto de línea)
+  input.onkeydown = e => { e.stopPropagation(); if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); finish(e.key === 'Enter'); } };
+  input.onclick = e => e.stopPropagation();
+  input.onblur = () => finish(true);
+}
+addEventListener('keydown', e => { // Ctrl+F2: cambiar el nombre de la pestaña que se ve
+  if (e.ctrlKey && !e.altKey && !e.shiftKey && e.key === 'F2' && cur && !modalOpen()) { e.preventDefault(); e.stopPropagation(); renameTab(cur); }
+}, true);
 
 // ---------- Ctrl+F en el árbol: filtrar por nombre, también dentro de carpetas cerradas ----------
 // La lista sale del disco (/api/arbol/filtro) y se dibuja aparte (#tfilt) con sus carpetas abiertas; el árbol normal
@@ -5696,7 +5737,7 @@ function renderTabs() {
     lastG = g;
     if (gi?.plegado) continue;
     const name = tabName(p), el = document.createElement('div');
-    el.className = 'tab' + (p === cur ? ' on' : '') + (p === previewTab ? ' pre' : '') + (g ? ' ing' : '');
+    el.className = 'tab' + (p === cur ? ' on' : '') + (p === previewTab ? ' pre' : '') + (g ? ' ing' : ''); el.dataset.path = p;
     if (g) el.style.setProperty('--g', gi.color);
     el.title = p + (p === previewTab ? '\nVista previa: doble clic para fijarla' : '');
     el.innerHTML = `<span></span><b title="Cerrar">✕</b>`;
@@ -5709,7 +5750,9 @@ function renderTabs() {
     el.oncontextmenu = e => { // las opciones del archivo, con las de la pestaña arriba
       e.preventDefault();
       const close = [['✕  Cerrar pestaña', () => closeTab(p), { title: 'También con clic central en la pestaña' }],
-        ['✕  Cerrar las demás', async () => { for (const q of tabs.filter(q => q !== p)) await closeTab(q); }, { disabled: tabs.length < 2 }], ...dupItems(p), '-', ...gTabItems(p)];
+        ['✕  Cerrar las demás', async () => { for (const q of tabs.filter(q => q !== p)) await closeTab(q); }, { disabled: tabs.length < 2 }],
+        ...(isWeb(p) ? [] : [['✎  Cambiar nombre…', () => renameTab(p), { key: 'Ctrl+F2', title: isUntitled(p) ? 'Solo el nombre en DeskLens (aún no está guardado); la extensión decide los colores' : 'Renombra el archivo en el disco' }]]),
+        ...dupItems(p), '-', ...gTabItems(p)];
       if (isVirtual(p)) return openMenu({ x: e.clientX, y: e.clientY }, [{ head: name }, ...close.slice(0, -1)]);
       nodeMenu({ x: e.clientX, y: e.clientY }, p, false, null, close);
     };
@@ -6584,7 +6627,7 @@ const isUntitled = p => p.startsWith('nuevo:');
 const isWeb = p => p.startsWith('web:'); // pestaña web: «web:» + dirección («web:» sola = página de inicio)
 const isVirtual = p => isUntitled(p) || isWeb(p); // pestañas que no son un archivo del disco
 const webHost = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return u; } };
-const tabName = p => isUntitled(p) ? 'nuevo ' + p.slice(6) : isWeb(p) ? (p.length > 4 ? '🌐 ' + webHost(p.slice(4)) : '🌐 Nueva pestaña') : p.split(/[\\/]/).pop();
+const tabName = p => isUntitled(p) ? edits.get(p)?.f.nombre || 'nuevo ' + p.slice(6) : isWeb(p) ? (p.length > 4 ? '🌐 ' + webHost(p.slice(4)) : '🌐 Nueva pestaña') : p.split(/[\\/]/).pop();
 // Clave del archivo de recuperación: «nuevo-N» o un hash corto de la ruta (sin caracteres raros para el nombre de archivo).
 function recKey(path) {
   if (isUntitled(path)) return 'nuevo-' + path.slice(6);
@@ -6690,6 +6733,8 @@ async function saveUntitled(path) {
     $('#uFind').value = ''; act = folders.indexOf(r); pick(r);
   };
   $('#uNo').onclick = () => d.close();
+  // renombrada antes de guardar (✎ / Ctrl+F2): ese nombre, con su extensión en el selector
+  if (!/^nuevo \d+$/.test(ed.f.nombre)) { $('#uName').value = ed.f.nombre; $('#uName').oninput(); }
   $('#uOk').onclick = async () => {
     const nombre = name(), carpeta = dir;
     try {
@@ -6737,9 +6782,9 @@ async function recoverAll() {
   for (const e of list) {
     if (!e.ruta) { // "nuevo N"
       const n = e.clave.slice(6), path = 'nuevo:' + n;
-      edits.set(path, { f: untitledFile(n), text: e.texto || '', orig: '', shown: !!e.texto });
+      edits.set(path, { f: { ...untitledFile(n), nombre: e.titulo || 'nuevo ' + n }, text: e.texto || '', orig: '', shown: !!e.texto }); // con el nombre que se le dio
       if (!tabs.includes(path)) tabs.push(path);
-      if (e.texto) found.push(`nuevo ${n}`);
+      if (e.texto) found.push(e.titulo || `nuevo ${n}`);
       continue;
     }
     let f = null;

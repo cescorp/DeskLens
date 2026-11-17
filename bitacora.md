@@ -15,6 +15,20 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-17 · Cambiar el nombre de una pestaña con Ctrl+F2 (v1.144)
+Pedido del usuario: renombrar una pestaña aunque no esté guardada, con Ctrl+F2.
+
+**Funciones:**
+- `renameTab(p)` cambia el `<span>` de la pestaña por un `input.tabren` (tiene `data-path`) y selecciona el nombre sin la extensión.
+- Para «nuevo N», `edits.get(p).f.nombre = nombre`. `tabName` lo lee, `backupBody` lo guarda como `titulo` y `recoverAll` lo restaura. Si se ve, `render()` le pone el modo por la extensión y conserva `getHistory`/`setHistory` y el cursor.
+- `saveUntitled` propone ese nombre (`oninput` pasa la extensión al selector).
+- Un archivo guardado pasa por `renameOnDisk`, la parte de disco que antes estaba dentro de `renameInline` del árbol y ahora comparten los dos.
+- Ctrl+F2: listener en captura. Clic derecho: «✎ Cambiar nombre…»; no aparece en las pestañas web.
+
+**Fallo encontrado al probar:** el Enter que confirma llegaba al editor, que se enfoca al redibujar, y metía un salto de línea. Ahora hace `preventDefault` en Enter y Esc, también en F2 del árbol.
+
+Probado en el 8799: nombre nuevo, colores de Python, texto intacto, ↶, recarga (recuperación), «Guardar» con «hola» + «.py» y renombrar calendario.md → agenda.md en el disco.
+
 ## 2026-11-17 · «+» de las pestañas con menú (v1.143)
 El usuario creyó que el «+» de la barra de pestañas era «archivo nuevo», pero abría `openExplorer`. Eligió la opción B sin la palabra «Nuevo»: en `renderTabs`, un solo `iconBtn('plus')` que abre `openMenu` en el punto inferior izquierdo del botón (se despliega hacia la derecha, como Chrome) con «📄 Archivo nuevo» (`newUntitled`, Ctrl+N), «🌐 Pestaña web» (`webOpen('')`) y «📁 Añadir proyecto o archivos…» (`openExplorer`). El 🌐 suelto se quitó. Probado en el 8799: el menú se abre bajo el + y «Archivo nuevo» abre «nuevo 1».
 

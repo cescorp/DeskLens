@@ -1,6 +1,11 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.144 · 2026-11-17 · Cambiar el nombre de una pestaña (Ctrl+F2)
+- Clic derecho en una pestaña → «✎ Cambiar nombre…», o Ctrl+F2 en la que ves: el nombre se escribe en la propia pestaña (Enter guarda, Esc cancela).
+- Una pestaña «nuevo N» sin guardar solo cambia de nombre en DeskLens: con extensión (por ejemplo «notas.py») el editor pasa a colorear ese lenguaje sin perder ↶, se recuerda si DeskLens se cierra y «Guardar» ya propone ese nombre.
+- Un archivo ya guardado se renombra en el disco, como F2 en el árbol.
+
 ## v1.143 · 2026-11-17 · El «+» de las pestañas despliega sus opciones
 - El «+» de la barra de pestañas ya no abre directamente «Añadir proyecto»: despliega un menú con 📄 Archivo nuevo (Ctrl+N), 🌐 Pestaña web y 📁 Añadir proyecto o archivos…. El botón 🌐 aparte desaparece.
 
