@@ -15,6 +15,12 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-17 · Buscador → documento con todas las palabras (v1.148)
+Al abrir un resultado de «mujer divorciada» solo se marcaba «mujer»: `openHit` tomaba la primera `[[marca]]` del fragmento y saltaba a su primera aparición.
+- `openHit` junta todas las marcas distintas en `q` y añade `v: true` (varias palabras), que hace que `findRe` las busque una a una con `|`; si escribes a mano en la barra, `v` vuelve a false. También guarda `ctx` (el fragmento), y `findRun` lo usa una sola vez con `findP.pick`.
+- `ctxPick(text, starts, ctx)` busca unas 8 palabras alrededor de la primera marca, separadas por `[^\p{L}\p{N}]+`, sin tildes y con `findIn`, así que sirve con el texto pintado y con el Markdown crudo (`**mujer**`). Lo usan `domFind` (cada Range lleva `_s` y `hits.text`) y `cmFind`. El PDF sigue con la página del fragmento.
+- `findTicks` pinta la tira fija `#fticks` al borde derecho de la lectura, con la actual en naranja y un clic para saltar. El editor ya tenía `cm-fbar`. ponytail: no se recoloca al cambiar el tamaño de la ventana hasta la siguiente búsqueda.
+
 ## 2026-11-17 · Selección múltiple en el árbol (v1.147)
 Pedido: Shift+clic para elegir varios y eliminar, copiar o quitar de Sueltos.
 - **Ventana:** `tsel` (Set) + `tanchor` y `treeSelect(el, 'tramo'|'uno')`. Cada sección (Proyectos/Sueltos/filtro) tiene su propia selección. `treeMarks` pinta `.tsel`, y el `go` del teclado amplía con Shift.

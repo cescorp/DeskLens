@@ -1081,6 +1081,7 @@ main{position:relative;overflow:clip}
 ::highlight(fcur){background-color:rgba(255,120,0,.75)}
 .cm-fmatch{background:rgba(255,200,0,.4);border-radius:2px}
 .cm-fbar{background:rgba(230,150,0,.9);min-height:3px}
+#fticks{position:fixed;width:8px;z-index:5;pointer-events:none}#fticks i{position:absolute;left:0;right:0;height:3px;background:rgba(230,150,0,.75);pointer-events:auto;cursor:pointer}#fticks i.on{background:#e8590c;height:5px;margin-top:-1px}
 .ptx{white-space:pre;font-family:Helvetica,Arial,sans-serif;line-height:1;transform:translateY(-80%)}.docxbox .docx-wrapper{background:var(--bg)!important;padding:24px 16px!important;align-items:safe center!important}
 .docxbox .docx-wrapper>section.docx{box-shadow:0 1px 4px rgba(0,0,0,.18);margin-bottom:24px!important}
 .node.seldir:not(.on){box-shadow:inset 2px 0 0 var(--accent)}
@@ -4952,10 +4953,13 @@ function fileResult(f) {
   return F;
 }
 // Abre el archivo y deja el buscador de la pestaña en lo encontrado (en un PDF, desde esa página)
+// Todas las palabras marcadas del fragmento («mujer», «divorciada»), cada una por su cuenta; ctx: el fragmento, para
+// empezar en esa coincidencia y no en la primera del documento.
 function openHit(f, x) {
-  const word = x?.fragmento.match(/\[\[(.+?)\]\]/)?.[1];
+  const words = [...new Set([...(x?.fragmento || '').matchAll(/\[\[(.+?)\]\]/g)].map(m => m[1].trim()).filter(Boolean))];
   if (x?.pagina) pdfPage.set(f.ruta, x.pagina);
-  if (word) findSt.set(f.ruta, { r: '', ...findSt.get(f.ruta), q: word, c: sopt.exacto, a: !sopt.exacto, w: false, x: false, open: true });
+  if (words.length) findSt.set(f.ruta, { r: '', ...findSt.get(f.ruta), q: words.join(' '), v: words.length > 1, ctx: x.fragmento,
+    c: sopt.exacto, a: !sopt.exacto, w: false, x: false, open: true });
   openTab(f.ruta);
 }
 $('#results').onkeydown = e => { // ↑↓ recorrer · Enter abrir · ← → plegar
@@ -6494,7 +6498,9 @@ const foldCh = c => c.normalize('NFD').replace(/[̀-ͯ]/g, '');
 const findState = () => { if (!findSt.has(cur)) findSt.set(cur, { q: '', r: '' }); return findSt.get(cur); };
 function findRe(st) { // null: nada que buscar · undefined: expresión regular mal escrita
   if (!st.q) return null;
-  let src = st.x ? st.q : st.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lit = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  // v: «varias palabras» (al abrir un resultado del buscador de la izquierda): cada palabra por su cuenta, no la frase
+  let src = st.x ? st.q : st.v ? st.q.trim().split(/\s+/).map(lit).join('|') : lit(st.q);
   if (st.a) src = foldCh(src);
   if (st.w) src = `(?<![\\p{L}\\p{N}_])(?:${src})(?![\\p{L}\\p{N}_])`;
   try { return new RegExp(src, 'gmu' + (st.c ? '' : 'i')); } catch { return undefined; }
@@ -6533,12 +6539,40 @@ function domHits(root, re, st) {
   let text = '';
   for (let n; (n = W.nextNode());) { const t = n.nodeType === 3 ? n.data : '\n'; segs.push({ n, at: text.length, len: t.length }); text += t; }
   const seg = pos => { let lo = 0, hi = segs.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; segs[m].at <= pos ? lo = m : hi = m - 1; } return segs[lo]; };
-  return findIn(text, re, st).map(h => {
+  const out = findIn(text, re, st).map(h => {
     const r = new Range(), a = seg(h.s), b = seg(h.e - 1);
     a.n.nodeType === 3 ? r.setStart(a.n, h.s - a.at) : r.setStartBefore(a.n);
     b.n.nodeType === 3 ? r.setEnd(b.n, h.e - b.at) : r.setEndAfter(b.n);
+    r._s = h.s; // posición en el texto: para ctxPick
     return r;
   });
+  out.text = text;
+  return out;
+}
+// Índice de la coincidencia que cae en el fragmento del buscador (ctx, con [[marcas]]), o -1. Se buscan unas palabras
+// alrededor de la primera marca separadas por lo que sea (puntuación, **, saltos), sin tildes ni mayúsculas; la primera
+// y la última del fragmento se saltan porque pueden venir cortadas.
+function ctxPick(text, starts, ctx) {
+  const W = /[\p{L}\p{N}]+/gu, words = ctx.replace(/\[\[|\]\]/g, '').match(W) || [];
+  const before = (ctx.slice(0, ctx.indexOf('[[')).match(W) || []).length;
+  const a = Math.max(before ? 1 : 0, before - 3), core = words.slice(a, Math.min(words.length - 1, a + 8));
+  if (core.length < 2) return -1;
+  const at = findIn(text, new RegExp(core.map(foldCh).join('[^\\p{L}\\p{N}]+'), 'giu'), { a: true })[0]?.s;
+  return at == null ? -1 : starts.findIndex(s => s >= at);
+}
+// Rayas al borde derecho de la vista de lectura: una por coincidencia (la actual más marcada); clic, salta a ella.
+// ponytail: se colocan al buscar y al saltar; si la ventana cambia de tamaño se recolocan con la siguiente búsqueda.
+function findTicks(V, hits, cur, go) {
+  document.getElementById('fticks')?.remove();
+  if (!hits.length) return;
+  const R = V.getBoundingClientRect(), B = Object.assign(document.createElement('div'), { id: 'fticks' });
+  Object.assign(B.style, { top: R.top + 'px', height: V.clientHeight + 'px', left: R.left + V.clientWidth - 10 + 'px' });
+  hits.forEach((r, i) => {
+    const y = (r.getBoundingClientRect().top - R.top + V.scrollTop) / V.scrollHeight * V.clientHeight;
+    const t = Object.assign(document.createElement('i'), { className: i === cur ? 'on' : '', title: `${i + 1} de ${hits.length}` });
+    t.style.top = Math.min(y, V.clientHeight - 3) + 'px'; t.onclick = () => go(i); B.append(t);
+  });
+  document.body.append(B);
 }
 const hlSet = (name, ranges) => ranges?.length ? CSS.highlights.set(name, new Highlight(...ranges)) : CSS.highlights.delete(name);
 function scrollToRange(r, V = $('#view')) {
@@ -6547,12 +6581,15 @@ function scrollToRange(r, V = $('#view')) {
 }
 function domFind(V) { // vista en lectura: solo buscar
   let hits = [];
-  return {
-    search(re, st) { hits = domHits(V, re, st); hlSet('fall', hits); return hits.length; },
+  const go = i => { findI = i; P.show(i); findCount(); };
+  const P = {
+    search(re, st) { hits = domHits(V, re, st); hlSet('fall', hits); findTicks(V, hits, -1, go); return hits.length; },
     near() { const top = V.getBoundingClientRect().top; const i = hits.findIndex(r => r.getBoundingClientRect().top >= top); return Math.max(i, 0); },
-    show(i) { hlSet('fcur', [hits[i]]); scrollToRange(hits[i], V); },
-    clear() { hits = []; hlSet('fall'); hlSet('fcur'); }
+    pick: ctx => ctxPick(hits.text || '', hits.map(r => r._s), ctx),
+    show(i) { hlSet('fcur', [hits[i]]); scrollToRange(hits[i], V); findTicks(V, hits, i, go); },
+    clear() { hits = []; hlSet('fall'); hlSet('fcur'); findTicks(V, []); }
   };
+  return P;
 }
 function cmFind(cm) { // editor: marcas, rayas en la barra de scroll y reemplazar
   let hits = [], marks = [], t = 0;
@@ -6568,6 +6605,7 @@ function cmFind(cm) { // editor: marcas, rayas en la barra de scroll y reemplaza
       return hits.length;
     },
     near() { const c = cm.indexFromPos(cm.getCursor('from')); const i = hits.findIndex(h => h.s >= c); return i < 0 ? 0 : i; },
+    pick: ctx => ctxPick(cm.getValue(), hits.map(h => h.s), ctx),
     show(i) { const h = hits[i]; cm.setSelection(pos(h.s), pos(h.e)); cm.scrollIntoView({ from: pos(h.s), to: pos(h.e) }, 80); },
     selText: () => cm.getSelection(),
     selRange: () => cm.somethingSelected() ? [cm.indexFromPos(cm.getCursor('from')), cm.indexFromPos(cm.getCursor('to'))] : null,
@@ -6657,6 +6695,7 @@ async function findRun(near) {
   const n = await findP.search(re, st, seq);
   if (seq !== findSeq) return;
   findN = n; findI = n ? (near || findI < 0 ? findP.near() : Math.min(findI, n - 1)) : -1;
+  if (n && st.ctx) { const k = findP.pick?.(st.ctx) ?? -1; if (k >= 0) findI = k; st.ctx = null; } // recién abierto desde el buscador
   if (findI >= 0) findP.show(findI);
   findCount();
 }
@@ -6700,7 +6739,7 @@ function findReplace(all) {
     if (b.classList.contains('ftog')) { const st = findState(); st.repl = !st.repl; findDraw(); return (st.repl ? $('#fr') : $('#fq')).focus(); }
     ({ prev: () => findGo(-1), next: () => findGo(1), close: findClose, one: () => findReplace(false), all: () => findReplace(true) })[b.dataset.f]?.();
   };
-  $('#fq').oninput = () => { findState().q = $('#fq').value; findRun(true); };
+  $('#fq').oninput = () => { Object.assign(findState(), { q: $('#fq').value, v: false }); findRun(true); }; // escrito a mano: la frase tal cual
   $('#fr').oninput = () => { findState().r = $('#fr').value; };
   F.addEventListener('keydown', e => {
     const k = e.key.toLowerCase(), alt = e.altKey && !e.ctrlKey && { c: 'c', w: 'w', r: 'x', l: 's' }[k];

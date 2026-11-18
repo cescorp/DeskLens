@@ -1,6 +1,10 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.148 · 2026-11-17 · Al abrir un resultado del buscador se marcan todas las palabras
+- Buscar «mujer divorciada» y abrir un resultado marca las dos palabras en el documento, no solo la primera, y empieza en el fragmento que pulsaste.
+- Al borde derecho de la lectura sale una rayita por cada coincidencia, para ver si hay más y dónde están; con un clic saltas a ella. La cuenta «3 de 14» sigue en la barrita de buscar.
+
 ## v1.147 · 2026-11-17 · Varios archivos a la vez en el explorador
 - Shift+clic marca un tramo, Ctrl+clic suma o quita uno, Shift+↑↓ amplía y Esc deja de marcar.
 - Clic derecho sobre lo marcado: abrir todos (o en un grupo de pestañas nuevo), quitar de archivos sueltos, copiar rutas, copiar o mover a otra carpeta y enviar a la papelera. Supr también envía la selección a la papelera, después de preguntar y mostrar la lista.
