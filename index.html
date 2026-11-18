@@ -3056,8 +3056,18 @@ function sideView(v, keep) {
   if (hidden) toggleSide();
   B.toggle('vsearch', v === 'b'); B.toggle('vgit', v === 'g'); LS('desklens.vista', v === 'e' ? '' : v);
   if (v === 'b') { $('#sideQ').focus(); $('#sideQ').select(); if (!sres) sideSearch(); }
-  else if (v === 'g') gitLoad().then(() => LS('desklens.git.full') === '1' && !gitFullOn() && gitFullOpen()); // como se dejó
+  else if (v === 'g') gitEnter();
   else reveal(cur);
+}
+// ⎇ Git como se dejó. En pantalla completa se entra directo: con el estado que ya se tenía (y se actualiza ya abierta)
+// o, la primera vez, con «Cargando Git…» en su sitio. Antes se veía el panel pequeño ~1 s, hasta que llegaba el estado.
+function gitEnter() {
+  const full = LS('desklens.git.full') === '1';
+  if (full && !gitFullOn()) {
+    if (gst && gst.ruta === gitRepoPath()) gitFullOpen();
+    else { $('#gitfull').innerHTML = '<p class="gc" style="padding:24px">Cargando Git…</p>'; document.body.classList.add('gitfull', 'vgit'); }
+  }
+  return gitLoad().then(() => full && LS('desklens.git.full') === '1' && !$('#gfGraph') && gitFullOpen()); // aún con «Cargando…»: ahora sí
 }
 
 // ---------- vista Git: cambios, preparar (+), quitar (−), descartar (↶), commit, ramas, pull, push y merge ----------
@@ -9495,7 +9505,8 @@ $('#sbtns').append(
 if (LS('desklens.vista') === 'b') document.body.classList.add('vsearch');
 if (LS('desklens.vista') === 'g') { // tras cargar el árbol (side); a pantalla completa si así se dejó
   document.body.classList.add('vgit');
-  setTimeout(() => gitLoad().then(() => LS('desklens.git.full') === '1' && gitFullOpen()), 600);
+  if (LS('desklens.git.full') === '1') { $('#gitfull').innerHTML = '<p class="gc" style="padding:24px">Cargando Git…</p>'; document.body.classList.add('gitfull'); }
+  setTimeout(gitEnter, 600); // tras cargar el árbol (side): gitRepoPath lo necesita
 }
 drawResults();
 $('#sidetools').append(

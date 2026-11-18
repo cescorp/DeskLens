@@ -1,6 +1,9 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.152 · 2026-11-18 · Git se abre directo a pantalla completa
+- Si dejaste Git a pantalla completa, al entrar en ⎇ (o al abrir DeskLens) aparece así desde el primer momento, sin pasar un segundo por el panel pequeño.
+
 ## v1.151 · 2026-11-18 · Fusionar: qué archivos trae cada commit
 - En Fusionar / Pull, «Ver: Por commit» muestra cada commit que llega como encabezado verde y, debajo, los archivos que cambió, con sus +/− y «👁 Ver cambios» (antes y después de ese commit).
 - Un archivo que choca con lo tuyo lleva ⚠ y «Ir a decidir». «Por archivo» sigue siendo la lista de siempre, y lo elegido se recuerda.
