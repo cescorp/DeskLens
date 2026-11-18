@@ -1,6 +1,10 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.147 · 2026-11-17 · Varios archivos a la vez en el explorador
+- Shift+clic marca un tramo, Ctrl+clic suma o quita uno, Shift+↑↓ amplía y Esc deja de marcar.
+- Clic derecho sobre lo marcado: abrir todos (o en un grupo de pestañas nuevo), quitar de archivos sueltos, copiar rutas, copiar o mover a otra carpeta y enviar a la papelera. Supr también envía la selección a la papelera, después de preguntar y mostrar la lista.
+
 ## v1.146 · 2026-11-17 · El aviso de recuperación ya no bloquea
 - Lo recuperado sin guardar se avisa en una tarjeta arriba a la derecha, sin bloquear la ventana: una tabla con archivo, último cambio y peso; un clic en una fila abre ese archivo.
 - Se cierra con un clic en cualquier otro sitio o sola a los 10 segundos («Se cierra en N s», con una barrita); con el ratón encima la cuenta se para.

@@ -15,6 +15,13 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-17 · Selección múltiple en el árbol (v1.147)
+Pedido: Shift+clic para elegir varios y eliminar, copiar o quitar de Sueltos.
+- **Ventana:** `tsel` (Set) + `tanchor` y `treeSelect(el, 'tramo'|'uno')`. Cada sección (Proyectos/Sueltos/filtro) tiene su propia selección. `treeMarks` pinta `.tsel`, y el `go` del teclado amplía con Shift.
+- **Menú:** `selMenu` (clic derecho con 2+ marcados) llama a `selUnloose`, `selTrash` (uno a uno, tocan config.json), `selMoveCopy` (`pickFolder`; las pestañas movidas se reabren en la ruta nueva) y `closeUnder`. `gNew(...ps)` acepta varias pestañas. `openMenu` admite `{ danger: true }` (`.mdanger`, en rojo).
+- **Servidor:** `move_copy(paths, dest, copy)` en POST `/api/mover` y `/api/copiar`. Nunca sobrescribe y lo que choca se devuelve en `saltados`. Un archivo que queda fuera de los proyectos pasa a suelto, como `create_file(libre)`. `/api/quitar` acepta `rutas`.
+- **Descartado:** «Añadir a archivos sueltos» desde Proyectos no sirve, porque `sin_duplicar_sueltos` no deja un archivo de proyecto como suelto. «Mostrar en el Explorador» lo rechazó el usuario.
+
 ## 2026-11-17 · Aviso de recuperación sin bloquear (v1.146)
 Al usuario le molestaba el `ask` «Recuperación» que bloqueaba la ventana al abrir DeskLens.
 

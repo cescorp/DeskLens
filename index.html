@@ -332,8 +332,8 @@ body.foldP:not(.tfilt) #projects,body.foldP #tfilt,body.foldL #loose{display:non
    sale hacia la izquierda y lo recorta el desplazamiento del panel) */
 :is(#projects,#loose,#tfilt) .node{height:22px;padding:0 6px 0 4px;border-radius:0;color:var(--ink);font-size:13px;position:relative}
 /* ::before solo en las filas que lo pintan (hover, abierto, cursor): antes estaba en todas, cada una con su capa */
-:is(#projects,#loose,#tfilt) .node:is(:hover,.on,.kcur){isolation:isolate}
-:is(#projects,#loose,#tfilt) .node:is(:hover,.on,.kcur)::before{content:'';position:absolute;z-index:-1;top:0;bottom:0;right:-8px;
+:is(#projects,#loose,#tfilt) .node:is(:hover,.on,.kcur,.tsel){isolation:isolate}
+:is(#projects,#loose,#tfilt) .node:is(:hover,.on,.kcur,.tsel)::before{content:'';position:absolute;z-index:-1;top:0;bottom:0;right:-8px;
   left:calc(-8px - var(--sangria,0px));pointer-events:none}
 /* --sangria: cuánto está metida la fila (cada .kids suma 17 px: 12 de margen, 4 de relleno y 1 de línea) */
 .kids{--sangria:17px}.kids .kids{--sangria:34px}.kids .kids .kids{--sangria:51px}.kids .kids .kids .kids{--sangria:68px}
@@ -348,6 +348,12 @@ body.foldP:not(.tfilt) #projects,body.foldP #tfilt,body.foldL #loose{display:non
 .sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur::before{box-shadow:inset 0 1px 0 var(--navy),inset 0 -1px 0 var(--navy)} /* arriba y abajo, de borde a borde */
 .sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur.on::before{box-shadow:inset 2px 0 0 var(--navy),inset 0 1px 0 var(--navy),inset 0 -1px 0 var(--navy)}
 .sidescroll:focus :is(#projects,#loose,#tfilt) .node.kcur:not(.on)::before{background:var(--navybg)}
+/* selección múltiple (Shift/Ctrl+clic): azul marino claramente más fuerte que el del abierto, con su raya.
+   Los tachados (.missing, opacity .5) atenuaban también el fondo: la opacidad pasa al contenido, el fondo queda entero. */
+:is(#projects,#loose,#tfilt) .node.tsel{background:none}
+:is(#projects,#loose,#tfilt) .node.tsel::before{background:color-mix(in srgb,var(--navy) 32%,transparent);box-shadow:inset 3px 0 0 var(--navy)}
+:is(#projects,#loose,#tfilt) .node.tsel.missing{opacity:1}
+:is(#projects,#loose,#tfilt) .node.tsel.missing>*{opacity:.55}
 :is(#projects,#loose,#tfilt) .node.seldir:not(.on){box-shadow:inset 2px 0 0 var(--navy)}
 /* proyectos: en negrita y separados por una línea fina */
 #projects .proj+.proj{border-top:1px solid var(--line);margin-top:2px;padding-top:2px}
@@ -679,6 +685,7 @@ body.split .pane:not(.on) #view{opacity:.92}
 .menu{position:fixed;z-index:20;display:flex;flex-direction:column;min-width:190px;max-height:min(70vh,calc(100vh - 8px));overflow:auto;padding:4px;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.15)}
 .menu button{border:0;background:none;text-align:left;padding:6px 10px;font-size:13px}
 .menu button:hover,.menu button:focus-visible{background:var(--hover);outline:none}
+.menu button.mdanger:not(:disabled){color:#c62828}
 .menu button{max-width:560px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none}
 /* comparar versiones: cabecera con la versión de cada columna, debajo el merge de CodeMirror */
 dialog#dlg.cmp{max-width:none;width:calc(100vw - 32px);height:calc(100vh - 32px);padding:0;display:none;flex-direction:column}
@@ -1548,9 +1555,17 @@ function nodeEl(name, path, isDir, removable, git, it = {}) {
   if (k.lock && !isDir) el.classList.add('lock');
   if (!isDir && /\.bak$/i.test(name)) el.classList.add('bak');
   const remove = async () => await ask('Quitar de DeskLens', `¿Quitar «${name}» de DeskLens?\nNo se borra nada del disco.`, ['Quitar', 'Cancelar'], { danger: true }) === 'Quitar' && api('/api/quitar', { ruta: removable }).then(loadSide);
-  el.oncontextmenu = e => { e.preventDefault(); nodeMenu({ x: e.clientX, y: e.clientY }, path, isDir, git); };
+  el.oncontextmenu = e => {
+    e.preventDefault();
+    if (tsel.size > 1 && tsel.has(path)) return selMenu({ x: e.clientX, y: e.clientY }); // sobre la selección: menú del grupo
+    if (tsel.size) { tsel.clear(); treeMarks(); }
+    nodeMenu({ x: e.clientX, y: e.clientY }, path, isDir, git);
+  };
+  el.onmousedown = e => (e.shiftKey || e.ctrlKey) && e.preventDefault(); // Shift+clic no selecciona texto
   el.onclick = e => {
     if (e.target.tagName === 'INPUT') return; // escribiendo el nombre nuevo (F2)
+    if ((e.shiftKey || e.ctrlKey) && !e.target.closest('.ib, .x')) return treeSelect(el, e.shiftKey ? 'tramo' : 'uno');
+    tsel.clear(); tanchor = path;
     kcur = path; treeMarks(); // el cursor del teclado sigue al clic
     if (e.target.classList.contains('ib')) return nodeMenu(e.target, path, isDir, git);
     if (e.target.classList.contains('x')) {
@@ -1647,6 +1662,85 @@ function treeMarks() {
   const k = (focused && rows.find(n => n.dataset.path === kcur)) || rows.find(n => n.dataset.path === cur) || rows.find(n => n.dataset.path === kcur);
   if (k && k.dataset.path === kcur) k.classList.add('kcur');
   k?.closest('.kids')?.classList.add('kact');
+  document.querySelectorAll('aside .tsel').forEach(x => x.classList.remove('tsel'));
+  if (tsel.size) rows.forEach(n => tsel.has(n.dataset.path) && n.classList.add('tsel'));
+}
+// ---------- selección múltiple: Shift+clic (tramo), Ctrl+clic (uno más o uno menos), Shift+↑↓ ----------
+// Cada sección (Proyectos, Sueltos, la vista filtrada) selecciona por su cuenta: un tramo no salta de una a otra.
+// tanchor: el último clic normal o Ctrl+clic, desde donde se cuenta el tramo.
+const tsel = new Set();
+let tanchor = null;
+const secOf = n => n.closest('#loose') ? 'L' : n.closest('#tfilt') ? 'F' : 'P';
+function treeSelect(el, modo) {
+  const rows = treeRows().filter(n => secOf(n) === secOf(el)), p = el.dataset.path, paths = rows.map(n => n.dataset.path);
+  if (!paths.includes(tanchor)) { tanchor = null; tsel.clear(); }
+  if (modo === 'tramo') {
+    const a = paths.indexOf(tanchor ?? p), b = paths.indexOf(p);
+    tsel.clear(); paths.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(x => tsel.add(x));
+  } else {
+    if (!tsel.size && tanchor) tsel.add(tanchor); // Ctrl+clic suma al que ya estaba elegido
+    tsel.has(p) ? tsel.delete(p) : tsel.add(p); tanchor = p;
+  }
+  kcur = p; SS.focus(); treeMarks();
+}
+const rowOf = p => document.querySelector(`aside .node[data-path="${CSS.escape(p)}"]`);
+const listNames = ps => ps.slice(0, 12).map(p => '• ' + p.split(/[\\/]/).pop()).join('\n') + (ps.length > 12 ? `\n… y ${ps.length - 12} más` : '');
+const plural = (n, s = 's') => n === 1 ? '' : s;
+// Clic derecho sobre la selección: lo que se puede hacer con todos a la vez
+function selMenu(at) {
+  const all = [...tsel], n = all.length, suelto = p => side.sueltos.find(s => s.ruta === p);
+  const files = all.filter(p => rowOf(p)?.dataset.dir !== '1' && suelto(p)?.existe !== false); // los tachados ya no existen
+  const loose = all.filter(suelto), disk = all.filter(p => !isProject(p) && suelto(p)?.existe !== false);
+  const noFiles = files.length ? {} : { disabled: true, title: 'En la selección solo hay carpetas' };
+  const fin = fn => () => { tsel.clear(); treeMarks(); fn(); }; // abrir: la selección ya cumplió
+  openMenu(at, [{ head: `${n} elementos seleccionados` },
+    [`📂  Abrir todos en pestañas (${files.length})`, fin(() => files.forEach(p => openTab(p, true))), noFiles],
+    ['🗂  Abrir en grupo de pestañas nuevo…', fin(() => { files.forEach(p => openTab(p, true)); gNew(...files); }), noFiles],
+    ...(loose.length ? [[`✕  Quitar de archivos sueltos (${loose.length})`, () => selUnloose(loose), { title: 'Salen de la lista; no se borra nada del disco' }]] : []),
+    '-',
+    ['⧉  Copiar rutas', () => copyText(all.join('\n'), `${n} rutas copiadas`), { title: 'Una por línea' }],
+    ['⧉  Copiar a carpeta…', () => selMoveCopy(disk, true), disk.length ? { title: 'Elegir la carpeta; los originales se quedan' } : { disabled: true }],
+    ['📁  Mover a carpeta…', () => selMoveCopy(disk, false), disk.length ? { title: 'Elegir la carpeta; nunca se sobrescribe nada' } : { disabled: true }],
+    '-',
+    [`🗑  Eliminar a la papelera (${disk.length})`, () => selTrash(disk), disk.length ? { danger: true, title: 'Pregunta antes; se puede recuperar desde la papelera' } : { disabled: true }]]);
+}
+async function selUnloose(ps) {
+  if (await ask('Quitar de archivos sueltos', `¿Quitar ${ps.length} archivo${plural(ps.length)} de Sueltos? No se borra nada del disco.\n\n${listNames(ps)}`,
+    ['Quitar', 'Cancelar'], { danger: true }) !== 'Quitar') return;
+  await api('/api/quitar', { rutas: ps }); tsel.clear(); await loadSide();
+  flash(`✕ ${ps.length} quitado${plural(ps.length)} de Sueltos`);
+}
+// Cierra las pestañas de lo que va a cambiar de sitio o a la papelera; false si se canceló al guardar
+async function closeUnder(ps) {
+  for (const t of tabs.filter(t => ps.some(p => under(t, p)))) { await closeTab(t); if (tabs.includes(t)) return false; }
+  return true;
+}
+async function selTrash(ps) {
+  if (!ps.length) return;
+  if (await ask('Eliminar', `¿Enviar ${ps.length} elemento${plural(ps.length)} a la papelera de reciclaje? Las carpetas van con todo lo que contienen. Se puede recuperar desde la papelera.\n\n${listNames(ps)}`,
+    ['Enviar a la papelera', 'Cancelar'], { danger: true }) !== 'Enviar a la papelera') return;
+  if (!await closeUnder(ps)) return;
+  const fail = [];
+  for (const p of ps) await api('/api/papelera', { ruta: p }).catch(e => fail.push(p.split(/[\\/]/).pop() + ': ' + e.message)); // uno a uno: cada uno toca config.json
+  if (selDir && ps.some(p => under(selDir, p))) selDir = null;
+  tsel.clear(); dirCache.clear(); await loadSide();
+  flash(`🗑 ${ps.length - fail.length} en la papelera`);
+  if (fail.length) ask('No se pudo eliminar todo', fail.join('\n'), ['Entendido']);
+}
+async function selMoveCopy(ps, copy) {
+  const dest = await pickFolder(ps[0].replace(/[\\/][^\\/]+$/, '')); if (!dest) return;
+  const was = copy ? [] : tabs.filter(t => ps.some(p => under(t, p))); // se cierran y se reabren en su sitio nuevo
+  if (!copy && !await closeUnder(ps)) return;
+  let r;
+  try { r = await api(copy ? '/api/copiar' : '/api/mover', { rutas: ps, destino: dest }); }
+  catch (e) { return ask(copy ? 'No se pudo copiar' : 'No se pudo mover', e.message, ['Entendido']); }
+  tsel.clear(); dirCache.clear(); await loadSide();
+  for (const t of was) {
+    const p = ps.find(p => under(t, p)), to = pjoin(dest, p.split(/[\\/]/).pop());
+    openTab(r.hechos.includes(to) ? to + t.slice(p.length) : t, true); // lo saltado sigue donde estaba
+  }
+  flash(`✓ ${r.hechos.length} ${copy ? 'copiado' : 'movido'}${plural(r.hechos.length)} a «${dest.split(/[\\/]/).filter(Boolean).pop()}»`);
+  if (r.saltados.length) ask(copy ? 'Copiar a carpeta' : 'Mover a carpeta', `Se ${r.saltados.length === 1 ? 'saltó 1' : `saltaron ${r.saltados.length}`}: en el destino ya hay uno con ese nombre, o es la carpeta de un proyecto.\n\n${r.saltados.map(s => '• ' + s).join('\n')}`, ['Entendido']);
 }
 SS.tabIndex = 0;
 SS.onfocus = SS.onblur = () => treeMarks();
@@ -1655,7 +1749,12 @@ SS.addEventListener('keydown', async e => {
   if (e.ctrlKey) { if (!e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); e.stopPropagation(); treeFilterOpen(); } return; }
   const rows = treeRows(); if (!rows.length) return;
   const i = rows.findIndex(n => n.dataset.path === kcur), el = rows[i], isDir = el?.dataset.dir === '1';
-  const go = j => { const n = rows[Math.max(0, Math.min(rows.length - 1, j))]; kcur = n.dataset.path; treeMarks(); n.scrollIntoView({ block: 'nearest' }); };
+  const go = j => {
+    const n = rows[Math.max(0, Math.min(rows.length - 1, j))];
+    if (e.shiftKey) { tanchor ??= kcur; treeSelect(n, 'tramo'); } // Shift+↑↓ (Inicio, Fin, AvPág…): amplía el tramo
+    else { tsel.clear(); tanchor = kcur = n.dataset.path; treeMarks(); }
+    n.scrollIntoView({ block: 'nearest' });
+  };
   const page = Math.max(1, Math.floor(SS.clientHeight / (rows[0].offsetHeight || 24)) - 1);
   const keys = {
     ArrowDown: () => go(i < 0 ? 0 : i + 1), ArrowUp: () => go(i < 0 ? 0 : i - 1),
@@ -1671,11 +1770,12 @@ SS.addEventListener('keydown', async e => {
     Enter: () => el && (isDir ? toggle(el) : openTab(el.dataset.path, true)),
     F2: () => el && renameInline(el),
     Delete: async () => {
+      if (tsel.size > 1) { await selTrash([...tsel].filter(p => !isProject(p) && !rowOf(p)?.classList.contains('missing'))); return SS.focus(); }
       if (!el || isProject(el.dataset.path)) return;
       await trashPath(el.dataset.path, isDir);
       const r = treeRows(); kcur = r[Math.min(i, r.length - 1)]?.dataset.path; treeMarks(); SS.focus();
     },
-    Escape: () => { typed = ''; },
+    Escape: () => { typed = ''; tsel.clear(); treeMarks(); },
   };
   if (keys[e.key]) { e.preventDefault(); e.stopPropagation(); return keys[e.key](); }
   if (e.key.length !== 1 || (e.key === ' ' && !typed)) return;
@@ -5290,8 +5390,9 @@ const KEYS = [
     ['Ctrl+Z / Ctrl+Y', 'Deshacer / rehacer (también en Word, imagen y PDF)']]],
   ['Árbol de archivos', [['↑ / ↓', 'Moverse por las filas'], ['→', 'Abrir la carpeta o entrar en ella'], ['←', 'Cerrar la carpeta o subir a la de arriba'],
     ['Inicio / Fin', 'Primera / última fila'], ['AvPág / RePág', 'Una página abajo / arriba'], ['Enter', 'Abrir el archivo (pestaña fija)'],
-    ['Letras', 'Saltar al nombre que empieza así («sca» → «SCAN…»)'], ['F2', 'Cambiar el nombre'], ['Supr', 'Enviar a la papelera (pregunta antes)'],
-    ['Ctrl+F', 'Filtrar el árbol por nombre']]],
+    ['Letras', 'Saltar al nombre que empieza así («sca» → «SCAN…»)'], ['F2', 'Cambiar el nombre'], ['Supr', 'Enviar a la papelera (pregunta antes; también la selección)'],
+    ['Ctrl+F', 'Filtrar el árbol por nombre'], ['Shift+clic', 'Seleccionar un tramo de filas'], ['Ctrl+clic', 'Añadir o quitar una fila de la selección'],
+    ['Shift+↑ / Shift+↓', 'Ampliar la selección'], ['Esc', 'Quitar la selección']]],
   ['PDF', [['AvPág / RePág', 'Página siguiente / anterior'], ['Inicio / Fin', 'Primera / última página'], ['Ctrl+＋ / Ctrl+− / Ctrl+0', 'Acercar / alejar / tamaño inicial']]],
   ['Depurar', [['F5', 'Continuar'], ['F10', 'Paso por encima'], ['F11', 'Entrar en la función'], ['Shift+F11', 'Salir de la función']]],
   ['Git y chat', [['Ctrl+Enter', 'Hacer commit (en el mensaje del commit)'], ['Ctrl+Enter', 'Enviar (en el chat de IA)'], ['Esc', 'Salir de Git a pantalla completa']]],
@@ -5701,12 +5802,12 @@ function gFold(id, fold) {
   grp[id] = { ...grp[id], plegado: fold };
   other ? openTab(other) : (persist(), renderTabs());
 }
-async function gNew(p) {
+async function gNew(...ps) { // una pestaña (clic derecho) o varias (selección del árbol)
   const n = await ask('Grupo nuevo', 'Nombre del grupo (por ejemplo «Fusión pendiente»).', ['Crear grupo', 'Cancelar'], { input: '' });
   if (n == null) return;
   const used = new Set(Object.keys(grp).map(id => gInfo(id).color)), id = 'm' + Date.now().toString(36);
   grp[id] = { nombre: n.trim() || 'Grupo', color: (GCOL.find(([, c]) => !used.has(c)) || GCOL[0])[1] };
-  tg[p] = id; persist(); renderTabs();
+  ps.forEach(p => tg[p] = id); persist(); renderTabs();
 }
 // Opciones de grupo en el clic derecho de una pestaña
 function gTabItems(p) {
@@ -5883,6 +5984,7 @@ function openMenu(anchor, items, { search } = {}) {
     const [t, fn, o = {}] = it, b = button(t, () => { closeMenu(); fn(); });
     if (o.html) b.innerHTML = o.html; // fila con formato (ya escapado por quien llama); el buscador sigue usando el texto
     Object.assign(b, { title: o.title || '', disabled: !!o.disabled });
+    if (o.danger) b.classList.add('mdanger'); // borra o envía a la papelera: en rojo
     if (o.key) b.append(Object.assign(document.createElement('kbd'), { className: 'mkey', textContent: o.key })); // atajo, a la derecha
     btns.push(b); rows.push(b); return b;
   });

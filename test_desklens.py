@@ -717,6 +717,17 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
             raise AssertionError(f"debió fallar: {ruta} → {nombre}")
         except exc:
             pass
+    # mover/copiar a carpeta: nunca sobrescribe; lo que sale de los proyectos queda como suelto
+    dest = fuera / "destino"
+    dest.mkdir()
+    r = desklens.move_copy([str(arb / "UNIDAD 3.pdf"), str(arb / "Unidad 1"), str(proj)], dest, copy=True)
+    assert sorted(Path(x).name for x in r["hechos"]) == ["UNIDAD 3.pdf", "Unidad 1"] and r["saltados"] == [proj.name]
+    assert (arb / "UNIDAD 3.pdf").exists() and (dest / "Unidad 1" / "Lección.md").exists()
+    assert str(dest / "UNIDAD 3.pdf") in desklens.load_config()["sueltos"]  # el archivo, sí; la carpeta, no
+    assert desklens.move_copy([str(arb / "UNIDAD 3.pdf")], dest)["saltados"] == ["UNIDAD 3.pdf"]  # ya existe allí
+    (arb / "mover.txt").write_text("m")
+    assert desklens.move_copy([str(arb / "mover.txt")], dest)["hechos"] and not (arb / "mover.txt").exists()
+    assert desklens.move_copy([str(arb)], arb / "vacía")["saltados"] == [arb.name]  # ni dentro de sí misma
 
     # recuperación: copia atómica de lo no guardado, se lista y se borra
     desklens.RECOVERY_DIR = tmp / "recuperacion"

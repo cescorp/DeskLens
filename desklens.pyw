@@ -598,6 +598,34 @@ def rename_path(path, name):
     return str(new)
 
 
+def move_copy(paths, dest, copy=False):
+    """«Mover/Copiar a carpeta…» de la selección del árbol. `dest` la eligió el usuario con «Elegir carpeta» (como
+    «Examinar…» al guardar): puede estar fuera de lo añadido, y entonces lo que llega allí queda como suelto (un
+    archivo) para no perderlo de vista; una carpeta fuera de los proyectos no se añade. Nunca sobrescribe: lo que
+    choca con un nombre ya existente se salta y se cuenta. Devuelve {"hechos": [rutas nuevas], "saltados": [nombres]}."""
+    d = Path(dest).resolve()
+    if not d.is_dir():
+        raise FileNotFoundError(f"No existe la carpeta: {d}")
+    cfg, done, skipped = load_config(), [], []
+    for path in paths:
+        p = Path(path).resolve()
+        new = d / p.name
+        if not p.exists() or is_project(p) or new.exists() or d.is_relative_to(p):  # ni en sí misma ni en su hija
+            skipped.append(p.name)
+            continue
+        if copy:
+            shutil.copytree(p, new) if p.is_dir() else shutil.copy2(p, new)
+        else:
+            shutil.move(str(p), str(new))
+            if str(p) in cfg["sueltos"]:
+                cfg["sueltos"].remove(str(p))
+        if new.is_file() and not allowed(new) and str(new) not in cfg["sueltos"]:
+            cfg["sueltos"].append(str(new))
+        done.append(str(new))
+        save_config(cfg)  # allowed() lee el config: lo de este paso cuenta para el siguiente
+    return {"hechos": done, "saltados": skipped}
+
+
 # ---------- explorador para añadir (solo nombres: nunca lee contenido fuera de lo añadido) ----------
 
 MARKERS = [("artisan", "Laravel"), ("composer.json", "PHP"), ("package.json", "Node"),
@@ -4745,6 +4773,14 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(403, {"error": str(e)})
             except (ValueError, OSError) as e:  # nombre no válido, ya no existe o Windows lo tiene en uso
                 return self.send_json(400, {"error": str(e)})
+        if url == "/api/mover" or url == "/api/copiar":  # selección del árbol → carpeta elegida
+            rutas = [str(r) for r in data.get("rutas", []) if isinstance(r, str)]
+            if not rutas or any(not allowed(r) for r in rutas):
+                return self.send_json(403, {"error": "Solo lo añadido a DeskLens"})
+            try:
+                return self.send_json(200, move_copy(rutas, str(data.get("destino", "")), url == "/api/copiar"))
+            except OSError as e:  # carpeta que no existe, archivo en uso…
+                return self.send_json(400, {"error": str(e)})
         if url == "/api/papelera":
             if self.denied(data.get("ruta", "")):
                 return
@@ -4818,9 +4854,9 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, RuntimeError, subprocess.TimeoutExpired) as e:  # formato no viable o Edge falló
                 return self.send_json(400, {"error": str(e)})
         if url == "/api/quitar":
-            cfg = load_config()
+            cfg, fuera = load_config(), set(data.get("rutas") or [data.get("ruta")])  # rutas: varios de una vez
             for k in ("proyectos", "sueltos"):
-                cfg[k] = [r for r in cfg[k] if r != data.get("ruta")]
+                cfg[k] = [r for r in cfg[k] if r not in fuera]
             save_config(cfg)
             return self.send_json(200, estado())
         if url == "/api/ventana":
