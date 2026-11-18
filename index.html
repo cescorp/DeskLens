@@ -6594,7 +6594,7 @@ function domFind(V) { // vista en lectura: solo buscar
 function cmFind(cm) { // editor: marcas, rayas en la barra de scroll y reemplazar
   let hits = [], marks = [], t = 0;
   const ann = cm.annotateScrollbar?.({ className: 'cm-fbar' }), pos = i => cm.posFromIndex(i);
-  cm.on('changes', () => { if (findP?.cm === cm && findState().open && !$('#find').hidden) { clearTimeout(t); t = setTimeout(() => findRun(false), 250); } });
+  cm.on('changes', () => { if (findP?.cm === cm && findState().open && !$('#find').hidden) { clearTimeout(t); t = setTimeout(() => findRun(false, true), 250); } });
   const P = {
     cm, replace: true,
     search(re, st) {
@@ -6688,13 +6688,16 @@ function findDraw() {
   F.querySelectorAll('[data-o]').forEach(b => b.classList.toggle('on', !!st[b.dataset.o]));
 }
 // Busca con lo escrito y marca las coincidencias; near: salta a la más cercana a lo que se ve.
-async function findRun(near) {
+// quieto: al escribir en el editor con la barra abierta solo se recuentan y repintan las marcas; mover la selección a la
+// coincidencia llevaba el cursor allí y la siguiente letra la sobrescribía.
+async function findRun(near, quieto = false) {
   const st = findState(), seq = ++findSeq, re = findRe(st);
   $('#find').classList.toggle('bad', re === undefined);
   if (!re) { findP?.clear(); findN = 0; findI = -1; return findCount(); }
   const n = await findP.search(re, st, seq);
   if (seq !== findSeq) return;
-  findN = n; findI = n ? (near || findI < 0 ? findP.near() : Math.min(findI, n - 1)) : -1;
+  findN = n; findI = n ? (near || quieto || findI < 0 ? findP.near() : Math.min(findI, n - 1)) : -1;
+  if (quieto) return findCount(); // «N de M»: la siguiente desde el cursor, sin moverlo
   if (n && st.ctx) { const k = findP.pick?.(st.ctx) ?? -1; if (k >= 0) findI = k; st.ctx = null; } // recién abierto desde el buscador
   if (findI >= 0) findP.show(findI);
   findCount();

@@ -15,6 +15,11 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-18 · Ctrl+F abierto: escribir ya no salta a la coincidencia (v1.149)
+Con la barra abierta, cada cambio del editor (`cmFind`, `changes` con espera de 250 ms) repetía `findRun(false)`, que acababa en `findP.show(findI)` → `cm.setSelection` sobre la coincidencia. El cursor saltaba allí y la siguiente letra la sobrescribía.
+- `findRun(near, quieto)`: con `quieto` solo recuenta y repinta, y deja «N de M» en la siguiente desde el cursor (`near()`) sin mover nada. El `changes` del editor lo llama así. Reemplazar sigue saltando a la siguiente, como antes.
+- Probado con tecleo real en el panel del navegador: el texto queda donde está el cursor.
+
 ## 2026-11-17 · Buscador → documento con todas las palabras (v1.148)
 Al abrir un resultado de «mujer divorciada» solo se marcaba «mujer»: `openHit` tomaba la primera `[[marca]]` del fragmento y saltaba a su primera aparición.
 - `openHit` junta todas las marcas distintas en `q` y añade `v: true` (varias palabras), que hace que `findRe` las busque una a una con `|`; si escribes a mano en la barra, `v` vuelve a false. También guarda `ctx` (el fragmento), y `findRun` lo usa una sola vez con `findP.pick`.

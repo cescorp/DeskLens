@@ -1,6 +1,9 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.149 · 2026-11-18 · Escribir con la barra de buscar abierta ya no salta
+- Con Ctrl+F abierto en el editor, escribir en otra parte ya no lleva el cursor a lo buscado ni escribe encima: solo se actualizan las marcas y la cuenta.
+
 ## v1.148 · 2026-11-17 · Al abrir un resultado del buscador se marcan todas las palabras
 - Buscar «mujer divorciada» y abrir un resultado marca las dos palabras en el documento, no solo la primera, y empieza en el fragmento que pulsaste.
 - Al borde derecho de la lectura sale una rayita por cada coincidencia, para ver si hay más y dónde están; con un clic saltas a ella. La cuenta «3 de 14» sigue en la barrita de buscar.
