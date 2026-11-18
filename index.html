@@ -925,6 +925,16 @@ small.mgleft{color:#d33!important;font-weight:700;font-size:12.5px!important}
 .mgsolos{margin-top:14px}.mgsolos>summary{display:flex;align-items:baseline;gap:8px;padding:10px 14px;border-radius:8px;cursor:pointer;list-style:none;background:color-mix(in srgb,#2f9e44 12%,var(--paper));border:1px solid color-mix(in srgb,#2f9e44 35%,transparent)}
 .mgsolos>summary:hover{background:color-mix(in srgb,#2f9e44 19%,var(--paper))}.mgsolos>summary::-webkit-details-marker{display:none}
 .mgsolos>summary::before{content:"▸";color:#2f9e44}.mgsolos[open]>summary::before{content:"▾"}.mgsolos[open]>summary{border-radius:8px 8px 0 0}
+/* «Por commit»: cada commit como encabezado verde (como «Se fusionan sin problemas») con sus archivos debajo */
+.mgview{display:flex;align-items:center;gap:6px;margin:0 0 10px;font-size:12.5px;color:var(--muted)}.mgview .on{background:var(--navy);border-color:var(--navy);color:#fff}
+.mgbyc>summary{margin-bottom:8px}.mgc{margin:0 0 8px}
+.mgc>summary{display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:baseline;padding:8px 12px;border-radius:8px;cursor:pointer;list-style:none;text-transform:none;font-weight:400;font-size:13px;color:var(--ink);
+  background:color-mix(in srgb,#2f9e44 12%,var(--paper));border:1px solid color-mix(in srgb,#2f9e44 35%,transparent)}
+.mgc>summary:hover{background:color-mix(in srgb,#2f9e44 19%,var(--paper))}.mgc>summary::-webkit-details-marker{display:none}
+.mgc>summary .msg::before{content:"▸ ";color:#2f9e44}.mgc[open]>summary .msg::before{content:"▾ "}.mgc[open]>summary{border-radius:8px 8px 0 0}
+.mgc>summary small{color:#2f9e44;font-weight:600;white-space:nowrap}.mgc>.mglist{border:1px solid color-mix(in srgb,#2f9e44 35%,transparent);border-top:0;border-radius:0 0 8px 8px;padding:4px 0}
+.mgcommits.mgbyc .mgc .mglist>div{grid-template-columns:28px 24px minmax(160px,1.2fr) 2fr auto auto}
+.mgtab tr.mgflash td{background:color-mix(in srgb,#c08a00 22%,transparent);transition:background .3s}
 .mgsolos>summary h4{display:inline;margin:0;color:#2f9e44}.mgsolos>summary small{color:var(--muted);font-size:12.5px}
 .mgsolos>summary:focus{outline:none}.mgsolos>summary:focus-visible{outline:2px solid #2f9e44;outline-offset:2px}
 .mgsolos[open]>.mglist{border:1px solid color-mix(in srgb,#2f9e44 35%,transparent);border-top:0;border-radius:0 0 8px 8px}
@@ -3305,13 +3315,18 @@ async function mergeOneDialog(accion, rama, dec = {}, txt = {}) {
     const card = BLOQ ? `<div class="mgcard ${c.bloqueo === 'al_dia' ? 'ok' : 'stop'}"><b>${BLOQ[0]}</b><p>${BLOQ[1]}</p><div class="mgcardacts">${BLOQ[2]}</div></div>`
       : items.length ? `<p class="mgsum">⚠ <b>${locked.length && !todo.length ? `Cierra ${pl(locked.length, 'archivo')}` : `${pl(items.length, 'archivo')} por decidir`}</b> · traes ${pl(c.commits, 'commit')} de «${esc(from)}» que ${c.commits === 1 ? 'cambia' : 'cambian'} ${pl(items.length + c.solos.length, 'archivo')}${c.solos.length ? ` (${pl(c.solos.length, 'se fusiona sin problemas', 'se fusionan sin problemas')})` : ''} · nada se toca hasta «${pull ? 'Traer' : 'Fusionar'}»</p>`
       : `<div class="mgcard ok"><b>✅ Se puede fusionar sin problemas</b><p>Traes ${pl(c.commits, 'commit')} de «${esc(from)}» que ${c.commits === 1 ? 'cambia' : 'cambian'} ${pl(c.solos.length, 'archivo')}. Nada choca con lo tuyo: git lo une solo.</p></div>`;
+    // «Ver: Por commit | Por archivo» (desklens.fusion.vista): por commit, cada commit con sus archivos debajo
+    const canGroup = !(c.bloqueo && c.bloqueo !== 'a_medias') && c.lista.some(x => x.archivos);
+    const byCommit = canGroup && LS('desklens.fusion.vista') !== 'archivo';
+    const viewBar = canGroup ? `<div class="mgview">Ver: <button class="small${byCommit ? ' on' : ''}" data-view="commit">Por commit</button><button class="small${byCommit ? '' : ' on'}" data-view="archivo">Por archivo</button></div>` : '';
     d.className = 'sets mg mgone';
     d.innerHTML = `<header><b>${pull ? `Traer «${esc(from)}» a «${esc(gst.rama)}»` : `Fusionar «${esc(from)}» en «${esc(gst.rama)}»`}</b><span class="sp"></span>
         <button class="small" data-re title="Vuelve a mirarlo todo (p. ej. tras cerrar un archivo en otro programa)">⟳ Comprobar otra vez</button><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
-      <div class="mgbody">${card}
-        ${c.bloqueo && c.bloqueo !== 'a_medias' ? '' : c.lista.length ? `<details class="mgcommits"${items.length ? '' : ' open'}><summary>Commits que llegan (${c.commits})</summary><div class="mglist">${c.lista.map((x, i) => `<div><span class="mgn">${i + 1}</span><span>⎇ <span class="gc">${esc(dayKey(x.fecha))} ${hhmm(x.fecha)} · ${esc(x.autor)} ·</span> «${esc(x.mensaje)}»</span></div>`).join('')}${c.commits > c.lista.length ? `<div class="gc"><span></span><span>… y ${c.commits - c.lista.length} más (del ${c.lista.length + 1} al ${c.commits})</span></div>` : ''}</div></details>` : ''}
+      <div class="mgbody">${card}${viewBar}
+        ${byCommit ? mergeByCommit(c, from, items) : ''}
+        ${byCommit || (c.bloqueo && c.bloqueo !== 'a_medias') ? '' : c.lista.length ? `<details class="mgcommits"${items.length ? '' : ' open'}><summary>Commits que llegan (${c.commits})</summary><div class="mglist">${c.lista.map((x, i) => `<div><span class="mgn">${i + 1}</span><span>⎇ <span class="gc">${esc(dayKey(x.fecha))} ${hhmm(x.fecha)} · ${esc(x.autor)} ·</span> «${esc(x.mensaje)}»</span></div>`).join('')}${c.commits > c.lista.length ? `<div class="gc"><span></span><span>… y ${c.commits - c.lista.length} más (del ${c.lista.length + 1} al ${c.commits})</span></div>` : ''}</div></details>` : ''}
         ${items.length ? `<h4>Debes decidir (${items.length}${todo.length - left ? ` · ${todo.length - left} listo${todo.length - left === 1 ? '' : 's'}` : ''})</h4>${mergeTable()}` : ''}
-        ${c.solos.length ? `<details class="mgsolos"${items.length ? '' : ' open'}><summary><h4>✓ Se fusionan sin problemas (${c.solos.length})</h4><small>git los junta automáticamente: no hay nada que elegir</small></summary><div class="mglist">${c.solos.map((f, i) => `<div class="mgfile"><span class="mgn">${i + 1}</span><span class="ic2">${{ A: '➕', D: '🗑' }[f.estado] || '✓'}</span>
+        ${!byCommit && c.solos.length ? `<details class="mgsolos"${items.length ? '' : ' open'}><summary><h4>✓ Se fusionan sin problemas (${c.solos.length})</h4><small>git los junta automáticamente: no hay nada que elegir</small></summary><div class="mglist">${c.solos.map((f, i) => `<div class="mgfile"><span class="mgn">${i + 1}</span><span class="ic2">${{ A: '➕', D: '🗑' }[f.estado] || '✓'}</span>
           <b title="${esc(f.rel)}">${esc(f.rel)}</b><span class="what">${esc({ A: `llega nuevo de «${from}»`, D: `se borra («${from}» lo borró)` }[f.estado] || `se actualiza con lo de «${from}»`)}</span>
           ${f.mas == null ? '<span class="gc">—</span>' : `<span class="pm"><i>+${f.mas}</i> <em>−${f.menos}</em></span>`}<button class="small" data-s="${i}">👁 Ver cambios</button></div>`).join('')}</div></details>` : ''}
       </div>
@@ -3334,6 +3349,12 @@ async function mergeOneDialog(accion, rama, dec = {}, txt = {}) {
     d.querySelectorAll('[data-sort]').forEach(th => th.onclick = () => { const k = th.dataset.sort; sdir = sk === k ? -sdir : 1; sk = k; redraw(); });
     d.querySelectorAll('[data-v]').forEach(b => b.onclick = () => mergeTwoView(items[+b.dataset.v], from, c, dec, txt, redraw));
     d.querySelectorAll('[data-s]').forEach(b => b.onclick = () => mergeSoloView(c.solos[+b.dataset.s], from, c));
+    d.querySelectorAll('[data-view]').forEach(b => b.onclick = () => { LS('desklens.fusion.vista', b.dataset.view); redraw(); });
+    d.querySelectorAll('[data-cf]').forEach(b => b.onclick = () => { const [i, j] = b.dataset.cf.split(':'); mergeCommitView(c.lista[i], c.lista[i].archivos[j], from); });
+    d.querySelectorAll('[data-goto]').forEach(b => b.onclick = () => { // archivo que choca: a su fila de «Debes decidir»
+      const tr = [...d.querySelectorAll('.mgtab tbody tr')].find(t => t.children[2]?.title === b.dataset.goto); if (!tr) return; // la tabla puede estar ordenada
+      tr.scrollIntoView({ block: 'center' }); tr.classList.add('mgflash'); setTimeout(() => tr.classList.remove('mgflash'), 1200);
+    });
     d.querySelector('[data-go]')?.addEventListener('click', async e => {
       const btn = e.currentTarget; btn.disabled = true; btn.textContent = '⏳ ' + (pull ? 'Trayendo…' : 'Fusionando…');
       try {
@@ -3492,6 +3513,37 @@ function mgEditMarks(cm, base, bar) {
   run();
 }
 // 👁 Ver cambios de un archivo que se une solo: así quedará, frente al último commit
+// «Por commit»: cada commit que llega como encabezado verde (pliega y despliega) con sus archivos debajo, en filas
+// como las de «Se fusionan sin problemas». El +/− es lo que cambió ese commit; un archivo que choca con lo tuyo
+// lleva ⚠ y «Ir a decidir». Las uniones de ramas no traen archivos propios: salen plegadas.
+function mergeByCommit(c, from, items) {
+  const prob = new Set(items.map(f => f.rel)), WHAT = { A: `llega nuevo de «${from}»`, D: `se borra («${from}» lo borró)` };
+  const rows = (x, i) => x.archivos.map((f, j) => `<div class="mgfile${prob.has(f.rel) ? ' warn' : ''}"><span class="mgn">${j + 1}</span>
+      <span class="ic2">${prob.has(f.rel) ? '⚠' : { A: '➕', D: '🗑' }[f.estado] || '✓'}</span><b title="${esc(f.rel)}">${esc(f.rel)}</b>
+      <span class="what">${prob.has(f.rel) ? 'choca con lo tuyo: decídelo en «Debes decidir»' : esc(WHAT[f.estado] || `se actualiza con lo de «${from}»`)}</span>
+      ${f.mas == null ? '<span class="gc">—</span>' : `<span class="pm"><i>+${f.mas}</i> <em>−${f.menos}</em></span>`}
+      ${prob.has(f.rel) ? `<button class="small" data-goto="${esc(f.rel)}">⚠ Ir a decidir</button>` : `<button class="small" data-cf="${i}:${j}" title="Lo que cambió este commit en el archivo">👁 Ver cambios</button>`}</div>`).join('');
+  return `<details class="mgcommits mgbyc" open><summary>Commits que llegan (${c.commits})</summary>${c.lista.map((x, i) =>
+    `<details class="mgc"${x.union ? '' : ' open'}><summary><span class="mgn">${i + 1}</span><span class="msg">⎇ <span class="gc">${esc(dayKey(x.fecha))} ${hhmm(x.fecha)} · ${esc(x.autor)} ·</span> «${esc(x.mensaje)}»</span>
+      <small>${x.union ? 'unión de ramas: sin archivos propios' : `${x.archivos.length} archivo${x.archivos.length === 1 ? '' : 's'}`}</small></summary>
+      ${x.archivos.length ? `<div class="mglist">${rows(x, i)}</div>` : ''}</details>`).join('')}
+    ${c.commits > c.lista.length ? `<p class="gc">… y ${c.commits - c.lista.length} commits más (del ${c.lista.length + 1} al ${c.commits}): sus archivos están en «Por archivo».</p>` : ''}</details>`;
+}
+// 👁 Lo que cambió un commit en un archivo: antes del commit (su padre) | después
+async function mergeCommitView(x, f, from) {
+  const d = dlg2();
+  d.className = 'mgv';
+  d.innerHTML = `<header><button class="small" data-back>← Volver a la lista</button><b>${esc(f.rel)}</b><span class="gc">«${esc(x.mensaje)}» · ${esc(x.autor)} · ${esc(dayKey(x.fecha))} ${hhmm(x.fecha)}</span><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header><div class="mgvbody"><p class="gc" style="padding:16px">Cargando…</p></div>`;
+  d.querySelector('[data-x]').onclick = d.querySelector('[data-back]').onclick = () => d.close();
+  if (!d.open) d.showModal();
+  const ver = h => h ? api(`/api/git/version?ruta=${encodeURIComponent(pjoin(gst.ruta, '_'))}&hash=${h}&rel=${encodeURIComponent(f.rel)}`).then(r => r.texto) : null;
+  let a, b;
+  try { [a, b] = await Promise.all([f.estado === 'A' ? null : ver(x.padre), f.estado === 'D' ? null : ver(x.hash), loadMerge()]); }
+  catch (e) { d.querySelector('.mgvbody').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  d.querySelector('.mgvbody').innerHTML = `<p class="mglegend">A la izquierda el archivo antes de este commit; a la derecha, después. En <span class="del">rojo</span> lo que quitó y en <span class="add">verde</span> lo que añadió.</p>
+    ${mgSbs(a, b, `DESPUÉS DE ESTE COMMIT (${esc(x.hash.slice(0, 7))})`).replace('LO QUE TIENES AHORA', 'ANTES DE ESTE COMMIT')}`;
+  mgCenter(d); mgMarks(d);
+}
 async function mergeSoloView(f, from, c) {
   const d = dlg2();
   d.className = 'mgv';

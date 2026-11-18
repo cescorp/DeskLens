@@ -968,6 +968,9 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     chk = lambda rama: json.loads(get(port, f"/api/git/fusion?ruta={urllib.request.quote(str(rep))}&accion=fusionar&rama={rama}")[1])
     pv = chk("kotra")  # pantalla única: comprobar sin tocar nada
     assert pv["commits"] == 1 and pv["lista"][0]["mensaje"] == "kotra" and out(rep, "rev-parse", "HEAD") == antes and out(rep, "status", "--porcelain") == "", pv
+    # «Por commit»: qué archivos trae cada commit, con su estado y sus +/−
+    assert {f["rel"]: (f["estado"], f["mas"], f["menos"]) for f in pv["lista"][0]["archivos"]} == \
+        {"k.txt": ("M", 1, 1), "kb.txt": ("D", 0, 1), "kn.txt": ("A", 1, 0)} and not pv["lista"][0]["union"], pv["lista"]
     fil = {f["rel"]: f for f in pv["filas"]}
     assert (fil["k.txt"]["problema"], fil["k.txt"]["tipo"]) == ("conflicto", "contenido") and fil["kb.txt"]["tipo"] == "borrado_suyo"
     assert [s["rel"] for s in pv["solos"]] == ["kn.txt"] and chk("main")["bloqueo"] == "al_dia"

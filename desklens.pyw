@@ -3790,6 +3790,36 @@ class GitMergeStop(ValueError):
         super().__init__(texto)
 
 
+def _merge_commits(repo, target, n=50):
+    """Los commits que llegan (los n más nuevos) con lo que cambió cada uno: [{hash, padre, union, fecha, autor,
+    mensaje, archivos: [{rel, estado A/M/D, mas, menos}]}]. Una unión de ramas (merge) no trae archivos propios:
+    git log no la compara, y lo que junta ya sale en los commits de los que viene. Sin renombres (borrar + nuevo)."""
+    q, rng = ("-c", "core.quotePath=false"), f"HEAD..{target}"
+    head = "--format=\x1e%H\x1f%P\x1f%at\x1f%an\x1f%s"
+    out, by = [], {}
+    for blk in git_run(repo, *q, "log", "-n", str(n), head, "--name-status", "--no-renames", rng).split("\x1e"):
+        if not blk.strip():  # git_run hace strip(): el \x1e del principio (cuenta como espacio) ya no está
+            continue
+        first, _, rest = blk.partition("\n")
+        h, padres, at, autor, msg = (first.split("\x1f") + [""] * 5)[:5]
+        c = {"hash": h, "padre": padres.split()[0] if padres else None, "union": len(padres.split()) > 1,
+             "fecha": int(at or 0), "autor": autor, "mensaje": msg, "archivos": []}
+        for ln in rest.splitlines():
+            s, _, rel = ln.partition("\t")
+            if rel:
+                c["archivos"].append({"rel": rel, "estado": s[:1], "mas": None, "menos": None})
+        out.append(c)
+        by[h] = {f["rel"]: f for f in c["archivos"]}
+    for blk in git_run(repo, *q, "log", "-n", str(n), "--format=\x1e%H", "--numstat", "--no-renames", rng).split("\x1e"):
+        h, _, rest = blk.partition("\n")
+        for ln in rest.splitlines():  # «12\t3\truta» («-\t-» si es binario)
+            a, d, rel = (ln.split("\t", 2) + ["", ""])[:3]
+            f = by.get(h.strip(), {}).get(rel)
+            if f and a.isdigit():
+                f["mas"], f["menos"] = int(a), int(d)
+    return out
+
+
 def git_merge_check(path, accion, rama):
     """Pantalla única de fusionar: todas las comprobaciones de una vez, sin tocar nada. Devuelve qué llega (commits),
     los archivos que se unen solos y los problemas por archivo, cada uno con su tipo:
@@ -3812,8 +3842,7 @@ def git_merge_check(path, accion, rama):
     except GitMergeStop as e:
         return {**out, "destino": rama, "bloqueo": e.codigo, "motivo": str(e)}
     out["commits"] = int(git_run(repo, "rev-list", "--count", f"HEAD..{target}") or 0)
-    out["lista"] = [dict(zip(("fecha", "autor", "mensaje"), (int(a or 0), b, c))) for a, b, c in
-                    (ln.split("\x1f", 2) for ln in git_run(repo, "log", "-n", "50", "--format=%at\x1f%an\x1f%s", f"HEAD..{target}").splitlines() if ln.count("\x1f") == 2)]
+    out["lista"] = _merge_commits(repo, target)
     if not out["commits"]:
         return {**out, "bloqueo": "al_dia", "motivo": f"Ya tienes todo lo de «{target}»."}
     tree, conflicts = _merge_tree(repo, target)
