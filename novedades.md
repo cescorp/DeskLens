@@ -1,6 +1,16 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.154 · 2026-11-18 · DeskLens se siente menos «navegador» y con icono nítido
+- La ventana usa un perfil propio de Edge, sin extensiones, traductor, barra lateral ni sincronización: arranca más ligera. Tus pestañas y preferencias pasan solas al perfil nuevo la próxima vez que abras DeskLens.
+- Las teclas y gestos del navegador que no sirven aquí ya no hacen nada: F5, Ctrl+D/H/J/U, zoom de Edge con Ctrl+rueda, Alt+← fuera de DeskLens…
+- Icono nuevo nítido en la ventana, la barra de tareas y el acceso directo (`icono/desklens.ico`).
+
+## v1.153 · 2026-11-18 · Git: panel «Dónde estoy» más claro
+- El panel izquierdo de Git muestra **Ramas** en una sola lista, con 💻 si está en tu PC y ☁ si está en el servidor. Debajo, solo si los hay, **Cambios guardados aparte** (stash) y **Versiones marcadas** (etiquetas), cada uno con una línea que explica para qué sirve.
+- Un clic en una rama o versión la marca en el historial sin cambiar nada; para cambiar de rama, doble clic. Un clic en un guardado muestra sus archivos, y con clic derecho se recupera (quitándolo o dejando copia) o se borra.
+- Cada sección se pliega con un clic en su título, y con más de 10 ramas aparece un filtro.
+
 ## v1.152 · 2026-11-18 · Git se abre directo a pantalla completa
 - Si dejaste Git a pantalla completa, al entrar en ⎇ (o al abrir DeskLens) aparece así desde el primer momento, sin pasar un segundo por el panel pequeño.
 

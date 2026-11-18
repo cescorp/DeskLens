@@ -276,6 +276,8 @@ elseif (Confirmar @($destinos | ForEach-Object { "Crear $_  ->  `"$pyw`" `"$Carp
         $lnk.TargetPath = $pyw
         $lnk.Arguments = '"' + (Join-Path $Carpeta 'desklens.pyw') + '"'
         $lnk.WorkingDirectory = $Carpeta
+        $ico = Join-Path $Carpeta 'icono\desklens.ico'   # sin él, Windows muestra el icono de Python
+        if (Test-Path $ico) { $lnk.IconLocation = "$ico,0" }
         $lnk.Description = 'DeskLens: visor y editor local de proyectos, con git e IA'
         $lnk.Save()
     }

@@ -27,7 +27,7 @@ $Archivos = @(
     'README.md', 'LICENSE', 'TERCEROS.md',        # qué es, licencia y licencias de terceros
     'novedades.md'                                # versión de la copia (ⓘ de la cinta) y qué trae cada una
 )
-$Carpetas = @('plantillas')                       # AGENTS.md, CLAUDE.md, reglas.md… para «Sin reglas / Sin bitácora»
+$Carpetas = @('plantillas', 'icono')                       # AGENTS.md, CLAUDE.md, reglas.md… para «Sin reglas / Sin bitácora»
 
 # Si falta algo, mejor avisar que crear un zip que luego no funcione
 $faltan = @($Archivos + $Carpetas | Where-Object { -not (Test-Path (Join-Path $Carpeta $_)) })

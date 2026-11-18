@@ -41,6 +41,7 @@ with tempfile.TemporaryDirectory() as tmp:
     desklens.UNDO_DIR, desklens.HIST_DIR, desklens.IA_DIR = tmp / "deshacer", tmp / "versiones", tmp / "ia"
     # ni al índice, conversaciones o recuperación reales: con DeskLens abierto, su índice está en uso y la prueba esperaba
     desklens.INDEX_DB, desklens.CONV_DIR, desklens.RECOVERY_DIR = tmp / "idx" / "indice.db", tmp / "conv", tmp / "recuperacion"
+    desklens.WIN_PROFILE, desklens.WIN_DATA = tmp / "ventana", tmp / "ventana_datos.json"  # ni al perfil de la ventana
     proj, fuera = tmp / "proyecto", tmp / "fuera"
     proj.mkdir(), fuera.mkdir()
     (proj / "utf8.md").write_bytes("# Hola ñ\n".encode())
@@ -804,6 +805,14 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
         except urllib.error.HTTPError as e:
             return e.code, json.loads(e.read())
 
+    # perfil propio de la ventana: solo cuando ya hay copia de su localStorage; la copia guarda solo desklens.*
+    assert desklens.window_profile_flags() == []
+    assert post("/api/ventana/datos", {"desklens.tabs": "[1]", "otra": "x", "desklens.n": 5})[0] == 200
+    assert json.loads(get(port, "/api/ventana/datos")[1]) == {"desklens.tabs": "[1]"}
+    assert post("/api/ventana/datos", {"otra": "x"})[0] == 200  # vacía: no pisa la buena
+    assert json.loads(get(port, "/api/ventana/datos")[1]) == {"desklens.tabs": "[1]"}
+    assert f"--user-data-dir={desklens.WIN_PROFILE}" in desklens.window_profile_flags()
+
     # 🔗 chat vinculado a una pestaña: 🧹 limpiar lo vacía sin perder el vínculo; un "nuevo 1" guardado se lleva su chat
     desklens.save_config({**desklens.load_config()})  # (sin cambios: asegura config escrita)
     desklens.conv_save({"id": "abc1", "titulo": "t", "fecha": "f", "ia": "claude", "session": "s9", "proyecto": "",
@@ -1172,6 +1181,17 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": ov["stashes"][0]["id"]})
     assert code == 200 and (rep / "h.md").read_text() == "1\n2\ntres\n" and not ov["stashes"]
     assert post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": "HEAD; rm"})[0] == 400
+    # panel izquierdo: aplicar deja el guardado en el cajón; borrar lo quita; etiquetas y puntas de rama
+    git(rep, "stash", "push", "-q", "-m", "a medias")
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "aplicar_stash", "rama": "stash@{0}"})
+    assert code == 200 and (rep / "h.md").read_text() == "1\n2\ntres\n" and len(ov["stashes"]) == 1 and len(ov["stashes"][0]["hash"]) == 40
+    git(rep, "checkout", "--", "h.md")
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "borrar_stash", "rama": "stash@{0}"})
+    assert code == 200 and not ov["stashes"]
+    git(rep, "tag", "-a", "v1.0", "-m", "entregada")
+    ov = desklens.git_overview(str(rep))
+    assert [(t["nombre"], t["hash"]) for t in ov["etiquetas"]] == [("v1.0", ov["puntas"]["main"])], (ov["etiquetas"], ov["puntas"])
+    git(rep, "tag", "-d", "v1.0")
     git(rep, "checkout", "--", "h.md")
     # detalle del commit: mensaje completo, email, ramas, tamaños; versión binaria; crear rama aquí; revertir
     (rep / "i.md").write_text("cuatro\n"); (rep / "logo.png").write_bytes(b"\x89PNG\r\n\x1a\n" + b"\0" * 20)

@@ -3295,7 +3295,11 @@ def git_overview(path):
             "head": ("rev-parse", "-q", "--verify", "HEAD"),
             "up": ("rev-parse", "-q", "--verify", "@{u}"),
             "remotos": ("remote",),
-            "stash": ("-c", "core.quotePath=false", "stash", "list", "--format=%gd\x1f%s\x1f%cr"),
+            "stash": ("-c", "core.quotePath=false", "stash", "list", "--format=%gd\x1f%s\x1f%ct\x1f%H"),  # %ct: la ventana pone «hace 2 h» en español
+            # versiones marcadas (etiquetas), la más reciente primero; %(*objectname): el commit de una etiqueta anotada
+            "tags": ("for-each-ref", "--sort=-creatordate", "--format=%(refname:short)\x1f%(*objectname)\x1f%(objectname)\x1f%(creatordate:unix)", "refs/tags"),
+            # último commit de cada rama (tuya y del remoto): clic en el panel → el historial salta ahí
+            "puntas": ("for-each-ref", "--format=%(refname:short)\x1f%(objectname)", "refs/heads", "refs/remotes"),
             "merge": ("rev-parse", "-q", "--verify", "MERGE_HEAD"),
             "revert": ("rev-parse", "-q", "--verify", "REVERT_HEAD"),
             # cada rama local con la remota que sigue y cuánto va por delante/detrás: «[ahead 3, behind 2]», «[gone]»
@@ -3314,7 +3318,10 @@ def git_overview(path):
             "punta": q["head"] + ":" + q["up"],
             "remotos": q["remotos"].splitlines(),
             # cambios guardados aparte (stash): [{id: stash@{N}, mensaje, fecha}], el más reciente primero
-            "stashes": [dict(zip(("id", "mensaje", "fecha"), ln.split("\x1f"))) for ln in q["stash"].splitlines() if ln],
+            "stashes": [dict(zip(("id", "mensaje", "fecha", "hash"), ln.split("\x1f"))) for ln in q["stash"].splitlines() if ln],
+            "etiquetas": [{"nombre": n, "hash": h1 or h2, "fecha": int(t or 0)}
+                          for n, h1, h2, t in (ln.split("\x1f") for ln in q["tags"].splitlines() if ln.count("\x1f") == 3)],
+            "puntas": dict(ln.split("\x1f", 1) for ln in q["puntas"].splitlines() if "\x1f" in ln),
             "fusionando": bool(q["merge"] or q["revert"]),  # merge o revert a medias
             "fusion_de": git_merge_name(repo) if q["merge"] else "",
             "ramas_info": [git_track(ln) for ln in q["track"].splitlines() if ln],
@@ -4102,14 +4109,18 @@ def git_action(path, accion, archivos=(), mensaje="", rama="", todo=False, modo=
         git_switch(repo, git_branch_name(repo, rama), modo)
     elif accion == "nueva_rama":
         git_do(repo, "switch", "-c", git_branch_name(repo, rama))
-    elif accion == "recuperar_stash":  # vuelve a poner los cambios guardados aparte; si chocan, quedan en conflicto
+    elif accion in ("recuperar_stash", "aplicar_stash", "borrar_stash"):
+        # recuperar: los vuelve a poner y los quita del cajón (pop) · aplicar: los pone y siguen guardados · borrar: drop
         if not re.fullmatch(r"stash@\{\d+\}", rama):
             raise ValueError("Cambios guardados no válidos")
-        try:
-            git_do(repo, "stash", "pop", rama)
-        except ValueError:
-            raise ValueError("Algunos de los cambios guardados chocan con lo que hay ahora: aparecen en «Conflictos». "
-                             "Siguen guardados en el stash por si acaso.")
+        if accion == "borrar_stash":
+            git_do(repo, "stash", "drop", rama)
+        else:
+            try:
+                git_do(repo, "stash", "pop" if accion == "recuperar_stash" else "apply", rama)
+            except ValueError:
+                raise ValueError("Algunos de los cambios guardados chocan con lo que hay ahora: aparecen en «Conflictos». "
+                                 "Siguen guardados en el stash por si acaso.")
     elif accion == "rama_desde":  # crear una rama en un commit del historial (sin cambiar a ella)
         if not re.fullmatch(r"[0-9a-f]{4,40}", mensaje):
             raise ValueError("commit no válido")
@@ -4379,6 +4390,11 @@ class Handler(BaseHTTPRequestHandler):
                 if not self.guard(need_header=False):
                     return
                 return self.send_file(ROOT / "index.html", sandbox=False)
+            if url.path.startswith("/icono/"):  # icono de la ventana y la barra de tareas (PNG nítidos, ver icono/)
+                name = url.path[7:]
+                if not self.guard(need_header=False) or not re.fullmatch(r"[\w.-]+\.(png|svg|ico)", name):
+                    return self.send_json(404, {"error": "no existe"})
+                return self.send_file(ROOT / "icono" / name, sandbox=True)
             if url.path == "/novedades.md":  # versión y novedades de esta copia (ⓘ de la cinta)
                 if not self.guard(need_header=False):
                     return
@@ -4435,6 +4451,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send_json(200, {"personas": load_config().get("personas", [])})
             if url.path == "/api/windows":
                 return self.send_json(200, win_state())
+            if url.path == "/api/ventana/datos":  # copia de localStorage para un perfil recién estrenado (ver WIN_DATA)
+                try:
+                    return self.send_json(200, json.loads(WIN_DATA.read_text(encoding="utf-8")))
+                except (OSError, ValueError):
+                    return self.send_json(200, {})
             if url.path == "/api/pendientes":  # archivos que otra instancia pidió abrir aquí
                 out, pending_open[:] = pending_open[:], []
                 return self.send_json(200, {"rutas": out})
@@ -4891,6 +4912,15 @@ class Handler(BaseHTTPRequestHandler):
                 cfg[k] = [r for r in cfg[k] if r not in fuera]
             save_config(cfg)
             return self.send_json(200, estado())
+        if url == "/api/ventana/datos":  # la ventana guarda aquí su localStorage (solo claves desklens.*)
+            datos = {k: v for k, v in data.items() if isinstance(k, str) and k.startswith("desklens.") and isinstance(v, str)}
+            if not datos:  # una ventana vacía nunca pisa una copia con datos
+                return self.send_json(200, {})
+            WIN_DATA.parent.mkdir(exist_ok=True)
+            tmp = WIN_DATA.with_suffix(".tmp")
+            tmp.write_text(json.dumps(datos, ensure_ascii=False), encoding="utf-8")
+            os.replace(tmp, WIN_DATA)  # de golpe: nunca queda a medias
+            return self.send_json(200, {})
         if url == "/api/ventana":
             cfg = load_config()
             cfg["ventana"] = {k: int(data[k]) for k in ("x", "y", "w", "h")}
@@ -5139,6 +5169,23 @@ def hand_to_running(port, files):
         return False  # un DeskLens anterior sin esta función, o no responde: se abre otra ventana como antes
 
 
+# Perfil propio del navegador para la ventana de DeskLens: sin las extensiones, la sincronización, el traductor ni la
+# barra lateral del Edge de siempre, que se cargaban con cada arranque y lo hacían sentir «navegador». Lo que la ventana
+# guarda (pestañas, preferencias: localStorage) vive en el perfil, así que antes de estrenarlo hace falta una copia en
+# WIN_DATA: la hace la propia ventana (POST /api/ventana/datos) y la nueva la recupera al abrir (GET). Mientras no
+# exista la copia se sigue con el perfil de siempre; el perfil propio se usa desde el siguiente arranque.
+WIN_PROFILE = ROOT / "historial" / "ventana"
+WIN_DATA = ROOT / "historial" / "ventana_datos.json"
+APP_FLAGS = ["--no-first-run", "--no-default-browser-check", "--disable-extensions", "--disable-sync",
+             "--disable-features=Translate,msEdgeSidebarV2,msHubApps,msEdgeShopping,msUndersideButton,"
+             "msEdgeCollections,EdgeDiscoverButton,AutofillServerCommunication"]  # nombres que no conoce: los ignora
+
+
+def window_profile_flags():
+    """Perfil propio (con sus opciones) si ya está creado o ya hay copia de los datos de la ventana; si no, nada."""
+    return [f"--user-data-dir={WIN_PROFILE}", *APP_FLAGS] if WIN_PROFILE.exists() or WIN_DATA.exists() else []
+
+
 def open_window(url):
     """Ventana propia en modo aplicación con el navegador de ⚙ Ajustes (o el primero instalado); con «predeterminado»
     o sin ninguno Chromium, una pestaña del navegador de siempre."""
@@ -5146,7 +5193,7 @@ def open_window(url):
     try:
         exe = None if choice == "predeterminado" else edge_path(choice)
         if exe:  # start_new_session solo actúa en macOS y Linux: la ventana no muere con el servidor
-            return subprocess.Popen([exe, f"--app={url}", *window_flags(load_config())], start_new_session=True,
+            return subprocess.Popen([exe, f"--app={url}", *window_profile_flags(), *window_flags(load_config())], start_new_session=True,
                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
     except OSError:
         pass

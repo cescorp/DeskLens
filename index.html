@@ -3,6 +3,17 @@
 <head>
 <meta charset="utf-8">
 <script>
+// Perfil propio del navegador recién estrenado (ver WIN_DATA en desklens.pyw): sin nada de DeskLens guardado, se trae
+// la copia del disco antes de que nada lea localStorage. Síncrono a propósito: el resto de la página depende de esto.
+// lsOk: esta ventana tiene sus datos (ya estaban o se recuperaron). Si no, no guarda copia: pisaría la buena con una vacía.
+var lsOk = false;
+try {
+  if (Object.keys(localStorage).some(k => k.startsWith('desklens.'))) lsOk = true;
+  else {
+    const x = new XMLHttpRequest(); x.open('GET', '/api/ventana/datos', false); x.setRequestHeader('X-DeskLens', '1'); x.send();
+    if (x.status === 200) { for (const [k, v] of Object.entries(JSON.parse(x.responseText))) localStorage.setItem(k, v); lsOk = true; } // {} = DeskLens nuevo: nada que perder
+  }
+} catch {}
 // Tema: «auto» sigue a Windows; «claro»/«oscuro» lo fijan (⚙ Ajustes › General). Se aplica antes de pintar con lo
 // último guardado en este navegador; loadSettings lo confirma con config.json.
 function applyTheme(t) {
@@ -16,7 +27,9 @@ const isDark = () => (document.documentElement.dataset.theme || (matchMedia('(pr
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>DeskLens</title>
 <!-- icono: una hoja de texto sobre su atril (ventana, barra de tareas y pestaña); en línea, sin archivo aparte -->
-<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%237c5cdb'/%3E%3Cpath d='M17 12h24l6 6v22H17z' fill='%23fff'/%3E%3Cpath d='M41 12v6h6' fill='%23d9cff7'/%3E%3Cpath d='M22 21h15M22 26.5h20M22 32h16' stroke='%237c5cdb' stroke-width='3' stroke-linecap='round'/%3E%3Cpath d='M12 42h40' stroke='%23fff' stroke-width='4' stroke-linecap='round'/%3E%3Cpath d='M30 42h4v10h-4z' fill='%23fff'/%3E%3Crect x='22' y='50' width='20' height='5' rx='2.5' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" sizes="32x32" href="/icono/icono-32.png">
+<link rel="icon" type="image/png" sizes="256x256" href="/icono/icono-256.png">
+<link rel="apple-touch-icon" href="/icono/icono-512.png">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&family=Inter:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" media="print, (prefers-color-scheme: light)">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="screen and (prefers-color-scheme: dark)">
@@ -470,6 +483,12 @@ dialog#dlg.sets.win.uni{width:fit-content;min-width:min(640px,calc(100vw - 32px)
 .gfb .gbh{font-size:11px;color:var(--accent)}.gfb .gbs{margin-left:auto;font-size:11.5px;white-space:nowrap}
 #gfBr.gfwait{pointer-events:none;opacity:.6}
 .gbs.gbelse{color:var(--muted);font-style:italic} /* rama abierta en otra carpeta del mismo repositorio */
+/* «Dónde estoy»: títulos que pliegan su sección, línea gris de ayuda, 💻☁ (en tu PC / en el servidor) y filtro */
+.gfside h4.gfsec{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;margin-top:14px;padding-top:8px;border-top:1px solid var(--line)}
+.gfside h4.gfsec:hover{color:var(--ink)}.gfsec .tw{width:10px;color:var(--faint)}.gfsec .sp{flex:1}
+.gfhelp{margin:-2px 8px 6px 20px;font-size:11px;color:var(--faint);line-height:1.35}
+.gfb .gbw{font-size:11px;letter-spacing:1px;opacity:.8}.gfx .gbn{font-weight:400}
+.gffilt{width:calc(100% - 12px);margin:0 6px 6px;height:26px;font-size:12px}
 .gbs.gbok{color:#2e8b57}.gbs.gbmove{color:var(--accent);font-weight:600}.gbs.gbweb{color:#2f7fd8}.gbs.gbpc{color:#b07800}
 body.gitfull #gitv .gline:has(#gRepo),body.gitfull #gitv .gline:has(#gBranch){display:none} /* ya están a la izquierda */
 .gfmain{display:grid;grid-template-rows:minmax(0,1fr) auto auto;grid-template-columns:minmax(0,1fr);min-width:0;min-height:0} /* sin la columna explícita, el grafo ensancha la central */
@@ -3757,7 +3776,7 @@ function gitPending(rama) {
   $('#gBranch').textContent = '⏳ ' + rama;
   for (const n of document.querySelectorAll('#gfBr .gfb')) {
     const hit = n.dataset.rama === rama; n.classList.toggle('on', hit);
-    if (hit) n.querySelector('.gbs').textContent = '⏳ cambiando…';
+    if (hit) (n.querySelector('.gbs') || n.appendChild(Object.assign(document.createElement('span'), { className: 'gbs' }))).textContent = '⏳ cambiando…'; // sin servidor la fila no lleva estado
   }
   $('#gfBr')?.classList.add('gfwait'); // mientras git trabaja, sin clics (ni derechos) sobre filas que van a cambiar
   const g = $('#gfGraph'); if (g) g.style.opacity = '.45';
@@ -3929,7 +3948,7 @@ function gitBranchMenu(anchor) {
       if (rama?.trim()) gitDo('nueva_rama', [], { rama: rama.trim() });
     }, { title: `Crear una rama desde «${gst.rama}» y pasar a ella` }],
     ['📦  Recuperar guardados…', () => openMenu(anchor, [{ head: 'Cambios guardados aparte (stash)' }, ...gst.stashes.map(st =>
-      [`${st.mensaje.replace(/^On [^:]+: /, '')} · ${st.fecha}`, async () => {
+      [`${st.mensaje.replace(/^On [^:]+: /, '')} · ${fmtRel(+st.fecha)}`, async () => {
         if (await ask('Recuperar cambios guardados', `¿Poner de nuevo en «${gst.rama}» estos cambios?\n${st.mensaje.replace(/^On [^:]+: /, '')}`,
           ['Recuperar', 'Cancelar']) === 'Recuperar' && await gitDo('recuperar_stash', [], { rama: st.id })) flash('✓ Cambios recuperados');
       }, { title: st.id }])]), gst.stashes.length ? { title: 'Volver a poner cambios que se guardaron aparte (stash)' } : gitNo('No hay cambios guardados aparte')],
@@ -4029,8 +4048,8 @@ function gitFullOpen() {
       <label title="Ver también las demás ramas locales y remotas"><input type="checkbox" id="gfAll"> Todas las ramas</label>
       <button class="small" id="gfPull" title="git pull">⇣ Pull</button><button class="small" id="gfPush" title="git push">⇡ Push</button>
       <button class="small" id="gfFetch" title="Ver si hay novedades en el remoto">⟳ Fetch</button></div>
-    <div class="gfbody"><div class="gfside"><h4>Proyecto</h4><button class="gfrepo" id="gfRepo" title="Elegir otro proyecto"></button><div class="gfst" id="gfSt"></div>
-      <h4 id="gfBrH">Ramas</h4><div id="gfBr"></div></div><div class="gfrs l"></div>
+    <div class="gfbody"><div class="gfside"><h4>Estás en</h4><button class="gfrepo" id="gfRepo" title="Elegir otro proyecto"></button><div class="gfst" id="gfSt"></div>
+      <h4 id="gfBrH">Ramas</h4><div id="gfBr"></div><div id="gfMore"></div></div><div class="gfrs l"></div>
       <div class="gfmain"><div class="gfgraph" id="gfGraph"></div><div class="gfrs d"></div><div class="gfdetail" id="gfDetail"></div></div>
       <div class="gfrs r"></div><div class="gfright"></div></div>`;
   // ◧ ⬓ ◨: ocultar o mostrar proyectos y ramas, el detalle del commit y la columna de commit y cambios
@@ -4079,7 +4098,7 @@ async function gitSetupDraw() {
   $('#gfPull').disabled = $('#gfPush').disabled = $('#gfFetch').disabled = true;
   $('#gfRepo').innerHTML = `<b>${esc(projLabel(gst.ruta))}</b><span>▾</span>`;
   $('#gfRepo').onclick = e => { e.stopPropagation(); gitRepoMenu(e.currentTarget); };
-  $('#gfSt').textContent = 'Este proyecto no usa git'; $('#gfBrH').textContent = 'Ramas'; $('#gfBr').innerHTML = ''; $('#gfBr').classList.remove('gfwait');
+  $('#gfSt').textContent = 'Este proyecto no usa git'; $('#gfBrH').textContent = 'Ramas'; $('#gfBr').innerHTML = ''; $('#gfMore').innerHTML = ''; $('#gfBr').classList.remove('gfwait');
   $('#gfDetail').innerHTML = ''; $('#gfConn')?.remove();
   const G = $('#gfGraph'); G.style.opacity = '';
   // la vista Git se refresca sola cada 5 s: si el asistente de este proyecto ya está, no se rehace (borraría lo escrito)
@@ -4141,9 +4160,6 @@ function gitFullSide() {
     sinCommit && n(sinCommit, 'archivo sin commit', 'archivos sin commit')].filter(Boolean);
   $('#gfSt').innerHTML = `⎇ ${esc(gst.rama)} · ` + (st.length ? esc(st.join(' · ')) : gst.remota ? `<span class="gbok">✓ Todo al día con ${esc(web)}</span>` : 'sin remoto');
   gitConnectBox();
-  $('#gfBrH').innerHTML = `<span>Ramas de ${esc(projLabel(gst.ruta).split(' · ')[0])}</span><span class="sp"></span>`;
-  $('#gfBrH').append(Object.assign(button('⋯', e => { e.stopPropagation(); gitBranchMenu(e.currentTarget); }),
-    { className: 'ic gfbm', title: `Pull, Push, Fusionar y más para «${gst.rama}»` }));
   const info = new Map((gst.ramas_info || []).map(x => [x.rama, x])), localOf = r => r.split('/').slice(1).join('/');
   const remoteOnly = [...new Set(gst.ramas_remotas.map(localOf))].filter(b => !gst.ramas.includes(b)).sort();
   // orden fijo (alfabético): la actual no sube arriba, así nada se mueve bajo el ratón al cambiar de rama
@@ -4151,26 +4167,72 @@ function gitFullSide() {
   if (gst.rama && !rows.includes(gst.rama)) rows.unshift(gst.rama); // HEAD suelta o rama sin commits
   const otra = gst.en_otra_carpeta || {}, carpetaDe = b => otra[b].split(/[\\/]/).filter(Boolean).pop();
   const state = b => {
-    if (otra[b]) return ['gbelse', `📂 abierta en ${carpetaDe(b)}`, `Abierta en ${otra[b]} (otra carpeta de este repositorio). Clic: ir allí`];
-    if (!gst.ramas.includes(b)) return ['gbweb', `☁ solo en ${web}`, `Clic: traerla de ${web} y cambiar a ella`];
+    if (otra[b]) return ['gbelse', `📂 abierta en ${carpetaDe(b)}`, `Abierta en ${otra[b]} (otra carpeta de este repositorio). Doble clic: ir allí`];
+    if (!gst.ramas.includes(b)) return ['gbweb', 'solo en el servidor', `Doble clic: traerla de ${web} y cambiar a ella`];
     const i = info.get(b);
-    if (i?.borrada) return ['gbpc', '💻 ya no está en ' + web, `La rama que seguía (${i.remota}) se borró en ${web}`];
-    if (!i?.remota) return gst.ramas_remotas.some(r => localOf(r) === b) ? ['gbpc', '💻 sin enlazar', `Existe en ${web} con el mismo nombre, pero esta no la sigue`]
-      : ['gbpc', '💻 solo en tu PC', `Aún no está en ${web} (se publica con Push)`];
-    const t = [i.adelante && `↑ ${i.adelante} por subir`, i.atras && `↓ ${i.atras} por traer`].filter(Boolean);
+    if (i?.borrada) return ['gbpc', 'ya no está en el servidor', `La rama que seguía (${i.remota}) se borró en ${web}`];
+    if (!i?.remota) return gst.ramas_remotas.some(r => localOf(r) === b) ? ['gbpc', 'sin enlazar', `Existe en ${web} con el mismo nombre, pero esta no la sigue`]
+      : ['gbpc', 'solo en tu PC', `Aún no está en ${web} (se publica con Subir / Push)`];
+    const t = [i.adelante && `↑${i.adelante} por subir`, i.atras && `↓${i.atras} por traer`].filter(Boolean);
     return t.length ? ['gbmove', t.join(' · '), `Comparada con ${i.remota}`] : ['gbok', '✓ al día', `Igual que ${i.remota}`];
   };
-  const B = $('#gfBr'); B.innerHTML = ''; B.classList.remove('gfwait');
-  for (const b of rows) {
-    const [cls, txt, tip] = state(b), cur = b === gst.rama;
-    const r = Object.assign(document.createElement('div'), { className: 'node gfb' + (cur ? ' on' : ''), title: (cur ? 'Estás en esta rama' : 'Clic: cambiar a esta rama') + ' · clic derecho: más opciones\n' + tip });
-    r.dataset.rama = b;
-    r.innerHTML = `<span class="gbn">${cur ? '● ' : ''}${esc(b)}</span>${cur ? '<span class="gbh">estás aquí</span>' : ''}<span class="gbs ${cls}">${esc(txt)}</span>`;
-    r.onclick = () => cur ? null : otra[b] ? gitBranchElsewhere(b, otra[b]) : gitSwitch(b);
-    r.oncontextmenu = e => { e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; cur ? gitBranchMenu(at) : gitOtherBranchMenu(at, b, txt); };
-    B.append(r);
+  // Panel «Dónde estoy»: una sola lista de ramas (💻 en tu PC, ☁ en el servidor: no se repiten como en «Remotos»);
+  // debajo, solo si hay, los cambios guardados aparte (stash) y las versiones marcadas (etiquetas). Cada título pliega
+  // su sección (se recuerda) y lleva una línea gris que dice para qué sirve.
+  const shut = gitSideFold(), head = (id, k, t, n, help) => {
+    const h = $(id); h.className = 'gfsec' + (shut[k] ? ' fold' : ''); h.dataset.k = k;
+    h.innerHTML = `<span class="tw">${shut[k] ? '▸' : '▾'}</span><span>${t}${n == null ? '' : ` (${n})`}</span><span class="sp"></span>`;
+    h.onclick = e => { if (e.target.closest('button')) return; shut[k] = !shut[k]; LS('desklens.git.secciones', JSON.stringify(shut)); gitFullSide(); };
+    return shut[k] ? '' : `<p class="gfhelp">${help}</p>`;
+  };
+  const enWeb = b => gst.ramas_remotas.some(r => localOf(r) === b);
+  const B = $('#gfBr'); B.innerHTML = head('#gfBrH', 'ramas', 'Ramas', rows.length, 'líneas de trabajo · clic: ver en el historial · doble clic: cambiar'); B.classList.remove('gfwait');
+  $('#gfBrH').append(Object.assign(button('⋯', e => { e.stopPropagation(); gitBranchMenu(e.currentTarget); }),
+    { className: 'ic gfbm', title: `Traer, Subir, Fusionar y más para «${gst.rama}»` }));
+  if (!shut.ramas) {
+    if (rows.length > 10) { // muchas ramas: filtro (lo escrito se conserva al refrescar)
+      const q = Object.assign(document.createElement('input'), { className: 'gffilt', placeholder: 'Filtrar ramas…', value: gitBrQ, spellcheck: false });
+      q.oninput = () => { gitBrQ = q.value; B.querySelectorAll('.gfb').forEach(r => r.hidden = !!gitBrQ && !fold(r.dataset.rama).includes(fold(gitBrQ))); };
+      B.append(q);
+    }
+    for (const b of rows) {
+      const [cls, txt, tip] = state(b), cur = b === gst.rama, tipHash = gst.puntas?.[b] || gst.puntas?.[gst.ramas_remotas.find(r => localOf(r) === b)];
+      const r = Object.assign(document.createElement('div'), { className: 'node gfb' + (cur ? ' on' : ''),
+        title: (cur ? 'Estás en esta rama' : 'Doble clic: cambiar a esta rama') + ' · clic: su último commit en el historial · clic derecho: más opciones\n' + tip });
+      r.dataset.rama = b; r.hidden = !!gitBrQ && !fold(b).includes(fold(gitBrQ));
+      r.innerHTML = `<span class="gbn">${cur ? '● ' : ''}${esc(b)}</span><span class="gbw" title="${gst.ramas.includes(b) ? 'En tu PC' : ''}${gst.ramas.includes(b) && enWeb(b) ? ' y ' : ''}${enWeb(b) ? 'en el servidor' : ''}">${gst.ramas.includes(b) ? '💻' : ''}${enWeb(b) ? '☁' : ''}</span>${cur ? '<span class="gbh">estás aquí</span>' : ''}${gst.remotos.length || cls === 'gbelse' ? `<span class="gbs ${cls}">${esc(txt)}</span>` : ''}`; // sin servidor, «solo en tu PC» en todas no dice nada
+      r.onclick = () => tipHash && gitShowCommit(tipHash);
+      r.ondblclick = () => cur ? null : otra[b] ? gitBranchElsewhere(b, otra[b]) : gitSwitch(b);
+      r.oncontextmenu = e => { e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; cur ? gitBranchMenu(at) : gitOtherBranchMenu(at, b, txt); };
+      B.append(r);
+    }
   }
+  const M = $('#gfMore'); M.innerHTML = '';
+  const sec = (k, t, n, help) => { const h = document.createElement('h4'); h.id = 'gfS_' + k; M.append(h); const hp = head('#gfS_' + k, k, t, n, help); if (hp) M.insertAdjacentHTML('beforeend', hp); return !shut[k]; };
+  const row = (html, title, click, menu) => {
+    const r = Object.assign(document.createElement('div'), { className: 'node gfb gfx', title, innerHTML: html });
+    r.onclick = click; r.oncontextmenu = e => { e.preventDefault(); menu?.({ x: e.clientX, y: e.clientY }); }; M.append(r);
+  };
+  if (gst.stashes.length && sec('guardados', 'Cambios guardados aparte', gst.stashes.length, 'cambios a medias, sin commit · clic: ver sus archivos · clic derecho: recuperar'))
+    for (const s of gst.stashes) {
+      const m = s.mensaje.match(/^(?:WIP on|On) ([^:]+): (.*)$/) || [, '', s.mensaje], txt = m[2].replace(/^[0-9a-f]{7,} /, '');
+      row(`<span class="gbn">📦 ${esc(txt)}</span><span class="gbs">${m[1] ? `en ${esc(m[1])} · ` : ''}${fmtRel(+s.fecha)}</span>`, `${s.id} · ${s.mensaje}\nClic: ver sus archivos abajo · clic derecho: recuperar o borrar`,
+        () => { if (!s.hash) return; gfSel = s.hash; gitCommitDetail({ hash: s.hash, mensaje: '📦 ' + txt, padres: [], corto: s.hash.slice(0, 7), ts: 0 }); },
+        at => openMenu(at, [{ head: '📦 ' + txt },
+          ['↩  Recuperar y quitar del cajón', () => gitDo('recuperar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados')), { title: 'Vuelven a tus archivos y el guardado desaparece (git stash pop)' }],
+          ['↩  Recuperar y dejar una copia', () => gitDo('aplicar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados; la copia sigue guardada')), { title: 'Vuelven a tus archivos y el guardado sigue en el cajón (git stash apply)' }],
+          '-', ['🗑  Borrar…', async () => {
+            if (await ask('Borrar cambios guardados', `¿Borrar «${txt}»? Esos cambios a medias se pierden: no van a la papelera.`, ['Borrar', 'Cancelar'], { danger: true }) === 'Borrar'
+              && await gitDo('borrar_stash', [], { rama: s.id })) flash('🗑 Guardado borrado');
+          }, { danger: true }]]));
+    }
+  if (gst.etiquetas?.length && sec('versiones', 'Versiones marcadas', gst.etiquetas.length, 'commits con nombre fijo (etiquetas) · clic: ver en el historial'))
+    for (const t of gst.etiquetas)
+      row(`<span class="gbn">🏷 ${esc(t.nombre)}</span><span class="gbs">${t.fecha ? esc(dayKey(t.fecha)) : ''}</span>`, `${t.nombre} · ${t.hash.slice(0, 7)}\nClic: ver ese commit en el historial`,
+        () => gitShowCommit(t.hash), at => openMenu(at, [{ head: '🏷 ' + t.nombre }, ['⧉  Copiar el nombre', () => copyText(t.nombre, 'Nombre copiado')]]));
 }
+let gitBrQ = ''; // lo escrito en «Filtrar ramas…»
+const gitSideFold = () => { try { return JSON.parse(LS('desklens.git.secciones') || '{}'); } catch { return {}; } };
 // Nombre corto de una rama de %D: sin «HEAD -> » ni el remoto («origin/jeanr» y «jeanr» van juntas)
 const branchKey = f => { f = f.replace(/^HEAD -> /, ''); const r = (gst?.remotos || []).find(x => f.startsWith(x + '/')); return r ? f.slice(r.length + 1) : f; };
 // Rama que entró en un merge: la del mensaje (git, GitHub, GitLab) o, si no, la etiqueta del commit fusionado
@@ -4877,6 +4939,14 @@ async function gitCommitDetail(c) {
   q.oninput = draw; draw();
 }
 // Lleva a un commit del grafo (p. ej. un padre): lo marca, lo enseña y muestra su detalle
+// Panel «Dónde estoy»: la punta de otra rama o una versión marcada puede no estar en el historial de la rama actual;
+// entonces se enciende «Todas las ramas» (y se recuerda) antes de marcarla.
+async function gitShowCommit(hash) {
+  if (!gfGraph?.commits.some(x => x.hash === hash) && $('#gfAll') && !$('#gfAll').checked) {
+    $('#gfAll').checked = true; LS('desklens.git.todas', '1'); gfKey = ''; await gitFullDraw();
+  }
+  gitSelectCommit(hash);
+}
 function gitSelectCommit(hash) {
   if (!gfGraph?.commits.some(x => x.hash === hash)) return flash('Ese commit no está en el historial que se ve (prueba «Todas las ramas»)');
   const m = gfLine?.owner.get(hash); if (m && !gfOpen.has(m)) { gfOpen.add(m); gitGraphDraw(true); } // está dentro de un merge plegado
@@ -9569,6 +9639,27 @@ setInterval(async () => { // ponytail: sondeo cada 1,5 s (una petición local va
   flash(r.rutas.length === 1 ? `Abierto desde Windows: ${r.rutas[0].split(/[\\/]/).pop()}` : `${r.rutas.length} archivos abiertos desde Windows`);
 }, 1500);
 addEventListener('pagehide', () => navigator.sendBeacon('/api/adios'));
+// Copia en el disco de lo que la ventana guarda (desklens.*): con ella DeskLens estrena su perfil propio del navegador
+// sin perder pestañas ni preferencias, y sobrevive a que se borre el perfil. Al abrir, cada 2 min y al cerrar.
+const lsBackup = keepalive => {
+  if (!lsOk) return;
+  const d = {}; try { for (const k of Object.keys(localStorage)) if (k.startsWith('desklens.')) d[k] = localStorage.getItem(k); } catch { return; }
+  fetch('/api/ventana/datos', { method: 'POST', keepalive, headers: { ...H, 'Content-Type': 'application/json' }, body: JSON.stringify(d) }).catch(() => {});
+};
+setTimeout(() => lsBackup(false), 3000); setInterval(() => lsBackup(false), 120000);
+addEventListener('pagehide', () => lsBackup(true));
+// Gestos del navegador que en DeskLens no pintan nada o sacan de él: F5 recargar, F3/Ctrl+G buscar del navegador, F7
+// cursor de navegación, Ctrl+D/H/J/U/O/T, Ctrl+Mayús+N/T/B/O/Supr, Alt+Inicio, Alt+←/→ (volver atrás en el navegador) y el
+// zoom de Edge (Ctrl+rueda, Ctrl + / − / 0). Va al final y en burbuja: lo que DeskLens ya usa (F5 al depurar, Ctrl+N,
+// el zoom del PDF y de la imagen…) llega antes y lo marca con preventDefault. Ctrl+R se deja: recarga DeskLens a propósito.
+const BROWSER_KEYS = new Set(['F3', 'F5', 'F7', 'c:d', 'c:h', 'c:j', 'c:u', 'c:o', 'c:t', 'c:g', 'c:n', 'c:=', 'c:+', 'c:-', 'c:0',
+  'cs:n', 'cs:t', 'cs:b', 'cs:o', 'cs:delete', 'cs:g', 'cs:+', 'cs:=', 'a:home', 'a:arrowleft', 'a:arrowright']);
+addEventListener('keydown', e => {
+  if (e.defaultPrevented) return;
+  const k = e.key.toLowerCase(), id = (e.ctrlKey || e.metaKey) ? (e.shiftKey ? 'cs:' : 'c:') + k : e.altKey ? 'a:' + k : e.key;
+  if (BROWSER_KEYS.has(id)) e.preventDefault();
+});
+addEventListener('wheel', e => { if (e.ctrlKey && !e.defaultPrevented) e.preventDefault(); }, { passive: false }); // ponytail: oyente no pasivo; si el scroll se resiente, limitarlo a #view
 
 // Posición y tamaño de la ventana: se guardan al cambiar (el navegador no avisa al mover, así que se comprueba cada 2 s)
 // y DeskLens abre la siguiente vez con ellos (--window-position / --window-size).
