@@ -7083,7 +7083,15 @@ function ask(title, msg, buttons, { danger, input, numeric } = {}) {
 
 // Guarda el texto en el archivo conservando codificación y saltos de línea. Si cambió fuera de DeskLens
 // desde que se abrió (409), pregunta qué versión conservar. Marca el paso del historial como guardado.
+// Los guardados de un mismo archivo van en fila: dos a la vez (Ctrl+S dos veces, Ctrl+S y ▶) salían con la misma fecha
+// y el segundo chocaba con el primero («Conflicto… cambió a las», que era el propio guardado). diskPoll no mira mientras.
+const saving = new Map(); // ruta → guardado en curso
 async function save(path, force = false) {
+  await saving.get(path)?.catch(() => {});
+  const run = saveNow(path, force); saving.set(path, run);
+  try { return await run; } finally { if (saving.get(path) === run) saving.delete(path); }
+}
+async function saveNow(path, force = false) {
   const ed = edits.get(path); if (!ed) return;
   if (isUntitled(path)) return saveUntitled(path);
   await hists.get(path)?.flush?.(); // lo último escrito entra en el historial antes de guardar
@@ -7093,7 +7101,7 @@ async function save(path, force = false) {
   if (r.status === 409) {
     const c = await ask('Conflicto', `"${ed.f.nombre}" cambió fuera de DeskLens a las ${new Date(d.fecha * 1000).toLocaleTimeString()}. ` +
       '¿Qué versión quieres conservar?', ['Recargar su versión', 'Sobrescribir', 'Cancelar']);
-    if (c === 'Sobrescribir') return save(path, true); // su resultado (true si se guardó) es el de este
+    if (c === 'Sobrescribir') return saveNow(path, true); // (no save: ya está en la fila) su resultado (true si se guardó) es el de este
     if (c === 'Recargar su versión') startEdit(path, await api('/api/abrir?ruta=' + encodeURIComponent(path)));
     return;
   }
@@ -7123,12 +7131,16 @@ const diskSkip = new Map(); // ruta → mtime que el usuario decidió no recarga
 async function diskPoll() {
   try {
     const path = cur, f = curFile;
-    if (!path || !f?.mtime || isUntitled(path) || document.hidden || modalOpen()) return;
+    if (!path || !f?.mtime || isUntitled(path) || document.hidden || modalOpen() || saving.has(path)) return;
     const r = await api('/api/mtime?ruta=' + encodeURIComponent(path));
     const known = edits.get(path)?.f?.mtime || f.mtime;
-    if (path !== cur || !r.mtime || r.mtime === known || diskSkip.get(path) === r.mtime) return;
+    if (path !== cur || saving.has(path) || !r.mtime || r.mtime === known || diskSkip.get(path) === r.mtime) return; // guardando: la fecha nueva es la nuestra
     const ed = edits.get(path), st = [wedit, iedit, pedit].find(s => s?.path === path);
     const dirty = (ed && isDirty(ed)) || st?.dirty, name = path.split(/[\\/]/).pop();
+    if (dirty && ed) { // otra fecha pero el mismo contenido que se guardó o se abrió (p. ej. una respuesta que se cruzó): no es un cambio
+      const now = await api('/api/abrir?ruta=' + encodeURIComponent(path)).catch(() => null);
+      if (now?.texto != null && norm(now.texto) === ed.orig) { ed.f.mtime = now.mtime; return; }
+    }
     if (dirty || AJ.recargar_preguntar) {
       const ok = dirty ? 'Recargar (perder mis cambios)' : 'Recargar';
       const t = await ask('Cambió en el disco', dirty

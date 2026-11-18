@@ -15,6 +15,17 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
 
+## 2026-11-18 · Falsos «Cambió en el disco» / «Conflicto» al guardar (v1.150)
+El usuario los veía en `descargar_archivos.py` cada vez que guardaba. Ningún otro programa había escrito el archivo: en su historial, el «cambio de fuera» coincidía al segundo con su último paso de edición. Eran dos carreras con su propio guardado:
+- **Revisión cada 3 s durante el guardado:** `diskPoll` leía la fecha nueva antes de que llegara la respuesta. `save_text` esperaba a `idx_update`, con el texto aún «sucio» (`orig` viejo), y salía el aviso.
+- **Dos guardados a la vez** (Ctrl+S dos veces, Ctrl+S y ▶): ambos salían con la misma fecha y el segundo daba 409 con la hora del primero.
+
+**Arreglo:**
+- `save` pone en fila los guardados de cada ruta en el mapa `saving` y delega en `saveNow`; «Sobrescribir» llama a `saveNow` para no esperarse a sí mismo.
+- `diskPoll` no mira mientras hay un guardado en curso. Con otra fecha y el texto «sucio», compara el disco con `ed.orig`: si coinciden, adopta la fecha y no avisa.
+- `save_text` responde tras escribir y lanza `idx_update` en un hilo aparte.
+- Probado: dos guardados a la vez sin aviso; cambiar solo la fecha no avisa; un cambio real sí avisa.
+
 ## 2026-11-18 · Ctrl+F abierto: escribir ya no salta a la coincidencia (v1.149)
 Con la barra abierta, cada cambio del editor (`cmFind`, `changes` con espera de 250 ms) repetía `findRun(false)`, que acababa en `findP.show(findI)` → `cm.setSelection` sobre la coincidencia. El cursor saltaba allí y la siguiente letra la sobrescribía.
 - `findRun(near, quieto)`: con `quieto` solo recuenta y repinta, y deja «N de M» en la siguiente desde el cursor (`near()`) sin mover nada. El `changes` del editor lo llama así. Reemplazar sigue saltando a la siguiente, como antes.

@@ -1,6 +1,10 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.150 · 2026-11-18 · Guardar ya no avisa de cambios que no existen
+- Guardar mientras sigues escribiendo (o guardar dos veces seguidas) ya no muestra «Cambió en el disco» ni «Conflicto»: era tu propio guardado, que DeskLens tomaba por un cambio de otro programa.
+- Si otro programa cambia de verdad el archivo, sigue avisando como siempre.
+
 ## v1.149 · 2026-11-18 · Escribir con la barra de buscar abierta ya no salta
 - Con Ctrl+F abierto en el editor, escribir en otra parte ya no lleva el cursor a lo buscado ni escribe encima: solo se actualizan las marcas y la cuenta.
 

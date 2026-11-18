@@ -329,8 +329,11 @@ def save_text(path, text, encoding, eol, mtime, force=False):
                               "No se guardó para no romper el archivo."}
     bak = backup_once(p)
     p.write_bytes(data)
-    idx_update(p)
-    return 200, {"mtime": str(p.stat().st_mtime_ns), "bak": str(bak) if bak else None}
+    mtime = str(p.stat().st_mtime_ns)
+    # el índice, aparte: la respuesta (con la fecha nueva) llega enseguida; esperar al índice dejaba un rato en que la
+    # ventana veía la fecha nueva sin saber que era suya y avisaba «Cambió en el disco»
+    threading.Thread(target=idx_update, args=(p,), daemon=True).start()
+    return 200, {"mtime": mtime, "bak": str(bak) if bak else None}
 
 
 # ---------- plantillas y bitácora ----------
