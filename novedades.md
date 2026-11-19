@@ -1,6 +1,24 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.161 · 2026-11-19 · Git: apartar solo los archivos que elijas
+- «📦 Apartar» abre una ventana con tus archivos con cambios en una tabla, cada uno con su casilla (todos marcados al abrir; «Todos» marca o desmarca). Se apartan solo los marcados y los demás siguen en tu rama; la línea de abajo lo dice («Se apartan 3 archivos; los otros 2 siguen en tu rama») y el botón cuántos.
+- Clic derecho en un archivo de la columna de cambios: «📦 Apartar este archivo…» abre la misma ventana con solo ese archivo marcado (también «Abrir» y «Comparar versiones»).
+- «Sin servidor» en la barra ya no sale en verde.
+
+## v1.160 · 2026-11-19 · Git: todas las acciones arriba, en español, y la columna de cambios en cajas
+- La barra de arriba de Git tiene todas las acciones con su nombre en español y el de git entre [ ]: ⇣ Traer [pull], ⇡ Subir [push], ⟳ Comprobar [fetch], ⤵ Fusionar [merge], 📦 Apartar [stash], 🏷 Versión [tag] y ⎇ Nueva rama [branch]. Con poco ancho se esconden los [ ] y la barra usa dos líneas.
+- Al lado, el estado del servidor: «✓ Al día · hace 1 min» o «↑2 por subir». «Subir 2» se pinta en morado y «Traer 3» en azul cuando hay algo pendiente; lo que no se puede, sale apagado y dice por qué.
+- Nuevo: 📦 **Apartar** guarda tus cambios sin commit con un nombre ya puesto, sin cambiar de rama. 🏷 **Versión** pone un nombre fijo («v1.0», propone el siguiente número) a tu último commit, con nota opcional y la casilla «Subirla también al servidor».
+- La columna derecha va en cajas como el panel izquierdo: ✎ Commit (el botón dice qué hará: «Commit de 4 archivos en «pruebas»»), ✓ Preparados y ✎ Cambios, con «− Todos» / «＋ Todos» siempre a la vista y la carpeta de cada archivo a la derecha. En pantalla completa, «Sincronizar» y «Fusionar» de la columna pasan a la barra; en el panel pequeño siguen ahí.
+
+## v1.159 · 2026-11-19 · Git: cambiar de rama con cambios sin commit, más claro
+- Al cambiar de rama con cambios sin commit sale una ventana con el título «⎇ Cambiar de «pruebas» a «main»», tus archivos en una tabla (estado, archivo, carpeta, +/−) y tres opciones en una fila:
+  - 📦 **Guardarlos aparte** (elegida al abrir): con un nombre ya puesto («pruebas · 19 nov 10:42») que puedes cambiar; aparece así en «Guardados aparte».
+  - 🧳 **Llevarlos a «main»**: siguen contigo en la otra rama.
+  - ✓ **Commit primero**: escribes el mensaje ahí mismo y el botón «✓ Commit y cambiar a «main»» hace las dos cosas. Si el commit falla, no se cambia de rama.
+- Enter aplica la opción elegida; Esc o «Cancelar» no cambian nada.
+
 ## v1.158 · 2026-11-19 · Git: clic cambia de rama, doble clic la compara con la tuya
 - En el panel izquierdo de Git, un clic en una rama cambia a ella. Si tienes cambios sin commit, antes pregunta: guardarlos aparte o llevarlos contigo.
 - Doble clic abre «⇆ Comparar»: arriba, en dos columnas, los commits que solo tiene esa rama y los que solo tienes tú; abajo, los archivos distintos, con dónde cambió cada uno («Cambió en»: en la otra, en la tuya o ⚠ en las 2, que puede chocar al fusionar). Un clic en un commit muestra solo sus archivos (Ctrl+clic: varios; «✕ Ver todos» vuelve). «Ver» abre el archivo en dos columnas: tu rama | la otra, o antes | después del commit elegido. Abajo: fusionar esa rama o cambiar a ella. Solo mira: no cambia nada hasta pulsar una acción.

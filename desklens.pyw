@@ -3283,6 +3283,27 @@ def git_status_parse(out, repo=Path()):
     return branch, upstream, num("ahead"), num("behind"), staged, changes, conflicts
 
 
+def git_add_lines(repo, items, numstat):
+    """Pone mas/menos (líneas) en cada archivo de la lista, de «git diff --numstat» (binario: None); uno nuevo sin
+    seguimiento cuenta sus líneas (hasta 2 MB)."""
+    nums = {}
+    for ln in numstat.splitlines():
+        a, d, rel = (ln.split("\t", 2) + ["", ""])[:3]
+        if rel:
+            nums[rel] = (int(a), int(d)) if a.isdigit() else (None, None)
+    for f in items:
+        if f["rel"] in nums:
+            f["mas"], f["menos"] = nums[f["rel"]]
+        elif f["estado"] == "U":
+            try:
+                p = repo / f["rel"]
+                if p.stat().st_size <= 2_000_000:
+                    data = p.read_bytes()
+                    f["mas"], f["menos"] = (None, None) if b"\0" in data[:8000] else (data.count(b"\n") + (1 if data and not data.endswith(b"\n") else 0), 0)
+            except OSError:
+                pass
+
+
 def git_overview(path):
     """Estado del repositorio para la vista Git: rama, remota, commits por subir/bajar, ramas locales y los archivos
     preparados, con cambios y en conflicto (estado de una letra como VS Code: M, A, D, R, U = sin seguimiento)."""
@@ -3305,11 +3326,16 @@ def git_overview(path):
             # cada rama local con la remota que sigue y cuánto va por delante/detrás: «[ahead 3, behind 2]», «[gone]»
             "track": ("for-each-ref", "--format=%(refname:short)\x1f%(upstream:short)\x1f%(upstream:track)", "refs/heads"),
             "urls": ("config", "--get-regexp", r"^remote\..*\.url$"),
-            "worktrees": ("worktree", "list", "--porcelain")}.items()}
+            "worktrees": ("worktree", "list", "--porcelain"),
+            # líneas +/− de cada archivo (la tabla de «Cambiar de rama»): sin preparar y preparado
+            "num": ("-c", "core.quotePath=false", "diff", "--numstat", "--no-renames"),
+            "numc": ("-c", "core.quotePath=false", "diff", "--cached", "--numstat", "--no-renames")}.items()}
         fetched = ex.submit(git_fetch_time, repo)
         out = git_do(repo, "-c", "core.quotePath=false", "status", "--porcelain=v1", "-z", "--branch", "--untracked-files=all")
         q = {k: f.result() for k, f in q.items()}
     branch, upstream, ahead, behind, staged, changes, conflicts = git_status_parse(out, repo)
+    git_add_lines(repo, changes, q["num"])
+    git_add_lines(repo, staged, q["numc"])
     git_cache.pop(repo, None)  # el punto de color del árbol se pone al día con lo que se acaba de ver
     return {"repositorio": str(repo), "nombre": repo.name, "rama": branch, "remota": upstream,
             "adelante": ahead, "atras": behind,
@@ -3579,6 +3605,15 @@ def git_branch_name(repo, name):
     if not name or name.startswith("-"):
         raise ValueError("Nombre de rama no válido")
     git_do(repo, "check-ref-format", "--branch", name)
+    return name
+
+
+def git_tag_name(repo, name):
+    """Nombre de versión (tag) válido para git, o ValueError."""
+    name = str(name or "").strip()
+    if not name or name.startswith("-") or " " in name:
+        raise ValueError("Nombre de versión no válido (sin espacios; por ejemplo v1.0)")
+    git_do(repo, "check-ref-format", f"refs/tags/{name}")
     return name
 
 
@@ -4084,16 +4119,17 @@ def git_mark_merged(path, texto):
     return True
 
 
-def git_switch(repo, name, modo=""):
+def git_switch(repo, name, modo="", nombre=""):
     """Cambia a la rama `name`. Si git se niega por cambios sin commit, GitLocalChanges con los archivos.
     modo «llevar»: guarda los cambios (stash), cambia y los vuelve a poner en la rama nueva (como «Migrate changes»
     de VS Code); si chocan con ella, quedan en conflicto para resolverlos y el stash se conserva.
-    modo «apartar»: los guarda en el stash con un nombre claro y cambia (se recuperan con git stash pop)."""
+    modo «apartar»: los guarda en el stash con un nombre claro (`nombre`, si se escribió) y cambia (se recuperan con git stash pop)."""
     guardado = False
     if modo in ("llevar", "apartar"):
         actual = git_run(repo, "rev-parse", "--abbrev-ref", "HEAD")
         antes = git_run(repo, "rev-parse", "-q", "--verify", "refs/stash")
-        git_do(repo, "stash", "push", "-u", "-m", f"DeskLens: cambios de «{actual}» al pasar a «{name}»")
+        nombre = " ".join(str(nombre or "").split())[:120]
+        git_do(repo, "stash", "push", "-u", "-m", nombre if modo == "apartar" and nombre else f"DeskLens: cambios de «{actual}» al pasar a «{name}»")
         # sin nada que guardar no se crea stash: entonces no hay que sacar ninguno (sería uno viejo, ajeno)
         guardado = git_run(repo, "rev-parse", "-q", "--verify", "refs/stash") != antes
     otra = git_branches_elsewhere(repo, git_run(repo, "worktree", "list", "--porcelain")).get(name)
@@ -4139,8 +4175,22 @@ def git_action(path, accion, archivos=(), mensaje="", rama="", todo=False, modo=
         if todo:
             git_do(repo, "add", "-A")
         git_do(repo, "commit", "-F", "-", stdin=mensaje.strip().encode("utf-8"))
+    elif accion == "apartar":  # 📦 guardar aparte (stash) con nombre, todo o solo `archivos`; modo «nuevos»: también los sin seguimiento
+        nombre = " ".join(mensaje.split())[:120] or f"{git_run(repo, 'rev-parse', '--abbrev-ref', 'HEAD')} · cambios a medias"
+        antes = git_run(repo, "rev-parse", "-q", "--verify", "refs/stash")
+        # con archivos: solo esos (git stash push -- rutas); sin archivos: todo
+        git_do(repo, "stash", "push", *(["-u"] if modo == "nuevos" else []), "-m", nombre, *(["--", *files] if files else []))
+        if git_run(repo, "rev-parse", "-q", "--verify", "refs/stash") == antes:
+            raise ValueError("No había cambios que apartar")
+    elif accion == "etiqueta":  # 🏷 nueva versión (tag anotado) en un commit (modo = hash; vacío: el último)
+        name = git_tag_name(repo, rama)
+        if git_run(repo, "rev-parse", "-q", "--verify", f"refs/tags/{name}"):
+            raise ValueError(f"Ya existe una versión «{name}»")
+        if modo and not re.fullmatch(r"[0-9a-f]{4,40}", modo):
+            raise ValueError("commit no válido")
+        git_do(repo, "tag", "-a", name, "-m", " ".join(mensaje.split()) or name, *([modo] if modo else []))
     elif accion == "cambiar_rama":
-        git_switch(repo, git_branch_name(repo, rama), modo)
+        git_switch(repo, git_branch_name(repo, rama), modo, mensaje)  # mensaje = nombre del guardado al apartar
     elif accion == "nueva_rama":
         git_do(repo, "switch", "-c", git_branch_name(repo, rama))
     elif accion in ("recuperar_stash", "aplicar_stash", "borrar_stash"):
@@ -4194,7 +4244,7 @@ def git_action(path, accion, archivos=(), mensaje="", rama="", todo=False, modo=
             git_do(repo, "revert", "--abort")
         else:
             raise ValueError("No hay ninguna fusión en curso")
-    elif accion in ("pull", "push", "fetch", "fusionar", "sincronizar", "pull_desde", "push_a", "pull_rama", "push_rama", "probar"):
+    elif accion in ("pull", "push", "fetch", "fusionar", "sincronizar", "pull_desde", "push_a", "pull_rama", "push_rama", "probar", "push_etiqueta"):
         ov = git_overview(repo)
         if accion == "sincronizar" and ov["remota"]:  # como VS Code: primero trae y luego sube (si hay algo tuyo)
             pop = git_before_merge(repo, ov, ov["remota"], modo, files, mensaje)
@@ -4211,6 +4261,10 @@ def git_action(path, accion, archivos=(), mensaje="", rama="", todo=False, modo=
             args = ["ls-remote", "--heads", "origin" if "origin" in ov["remotos"] else ov["remotos"][0]]
         elif accion == "fusionar":
             args = ["merge", "--no-edit", git_branch_name(repo, rama)]
+        elif accion == "push_etiqueta":  # subir una versión (tag) al servidor
+            if not ov["remotos"]:
+                raise ValueError("Este repositorio no tiene servidor: la versión queda solo en tu PC")
+            args = ["push", "origin" if "origin" in ov["remotos"] else ov["remotos"][0], f"refs/tags/{git_tag_name(repo, rama)}"]
         elif accion in ("pull_desde", "push_a"):  # rama = «origin/otra»: traer de ella a la actual o subir la actual a ella
             remote, _, other = str(rama).partition("/")
             if remote not in ov["remotos"] or not other:

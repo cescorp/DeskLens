@@ -870,6 +870,7 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     (rep / "a.md").write_text("dos\n"); (rep / "b.md").write_text("nuevo\n")
     ov = json.loads(get(port, "/api/git/estado?ruta=" + urllib.request.quote(str(rep)))[1])
     assert {(c["estado"], c["rel"]) for c in ov["cambios"]} == {("M", "a.md"), ("U", "b.md")}
+    assert {c["rel"]: (c.get("mas"), c.get("menos")) for c in ov["cambios"]} == {"a.md": (1, 1), "b.md": (1, 0)}  # líneas +/−
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "preparar", "archivos": ["b.md"]})
     assert [(c["estado"], c["rel"]) for c in ov["preparados"]] == [("A", "b.md")]
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "quitar", "archivos": ["b.md"]})
@@ -1192,6 +1193,26 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     assert "DeskLens: cambios de «main» al pasar a «otra»" in subprocess.run(["git", "-C", str(rep), "stash", "list"], capture_output=True, text=True, encoding="utf-8").stdout
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "cambiar_rama", "rama": "main"})
     assert [s["mensaje"].split(": ", 1)[-1] for s in ov["stashes"]] == ["DeskLens: cambios de «main» al pasar a «otra»"]
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": ov["stashes"][0]["id"]})
+    assert code == 200 and (rep / "h.md").read_text() == "1\n2\ntres\n" and not ov["stashes"]
+    # 📦 apartar con nombre (sin cambiar de rama) y 🏷 nueva versión
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "apartar", "mensaje": "pruebita"})
+    assert code == 200 and ov["rama"] == "main" and not ov["cambios"] and ov["stashes"][0]["mensaje"].endswith("pruebita")
+    assert post("/api/git/accion", {"ruta": str(rep), "accion": "apartar", "mensaje": "otra"})[0] == 400  # nada que apartar
+    post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": ov["stashes"][0]["id"]})
+    (rep / "solo.md").write_text("aparte\n")  # solo los elegidos: h.md sigue con su cambio
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "apartar", "mensaje": "uno solo", "modo": "nuevos", "archivos": ["solo.md"]})
+    assert code == 200 and not (rep / "solo.md").exists() and [c["rel"] for c in ov["cambios"]] == ["h.md"], ov["cambios"]
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": ov["stashes"][0]["id"]})
+    assert (rep / "solo.md").exists(); (rep / "solo.md").unlink()
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "v9.9", "mensaje": "prueba"})
+    assert code == 200 and any(x["nombre"] == "v9.9" for x in ov["etiquetas"])
+    assert post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "v9.9"})[0] == 400  # ya existe
+    assert post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "con espacio"})[0] == 400
+    git(rep, "tag", "-d", "v9.9")
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "cambiar_rama", "rama": "otra", "modo": "apartar", "mensaje": " precio  a medias "})
+    assert code == 200 and [x["mensaje"].split(": ", 1)[-1] for x in ov["stashes"]] == ["precio a medias"], ov["stashes"]  # con nombre propio
+    post("/api/git/accion", {"ruta": str(rep), "accion": "cambiar_rama", "rama": "main"})
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": ov["stashes"][0]["id"]})
     assert code == 200 and (rep / "h.md").read_text() == "1\n2\ntres\n" and not ov["stashes"]
     assert post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": "HEAD; rm"})[0] == 400

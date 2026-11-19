@@ -506,6 +506,17 @@ dialog#dlg.sets.win.uni{width:fit-content;min-width:min(640px,calc(100vw - 32px)
 .gfbb .gbs{margin-left:0;flex:none}
 .s-ok{color:#2e8b57}.s-up{color:var(--accent)}.s-down,.s-web{color:#2f7fd8}.s-off{color:var(--faint);font-weight:400}.s-else{color:#b07800}.s-tag{color:var(--navy)}
 .gfnone{margin:3px 12px 4px 27px;font-size:12px;color:var(--faint)}
+/* ventana «Cambiar de rama» con cambios sin commit: tabla de archivos y tres salidas en una fila */
+dialog#dlg.sets.swd{width:min(720px,calc(100vw - 32px));height:fit-content;display:none;flex-direction:column;max-height:calc(100vh - 48px)}dialog#dlg.sets.swd[open]{display:flex}
+.swd>header .sp,.swd>footer .sp{flex:1}.swbody{padding:14px 20px;overflow:auto;min-height:0}
+.swn{margin:0 0 8px;font-weight:600}.swtab{max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px}
+.swtab .cbt th:nth-child(1){width:34px}.swtab .cbt th:nth-child(2){width:56px}.swtab .cbt th:nth-child(4){width:34%}.swtab .cbt th:nth-child(5),.swtab .cbt th:nth-child(6){width:52px}.swtab .cbt th{cursor:default;position:sticky;top:0;background:var(--paper)}
+.swsel .cbt th:nth-child(1){width:30px}.swsel .cbt th:nth-child(2){width:34px}.swsel .cbt th:nth-child(3){width:56px}.swsel .cbt th:nth-child(4){width:auto}.swsel .cbt th:nth-child(5){width:30%}.swsel .cbt th:nth-child(6),.swsel .cbt th:nth-child(7){width:52px}
+.swsel tbody tr{cursor:pointer}.swsel tbody tr:hover td{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.swops{display:flex;flex-wrap:wrap;gap:6px 18px;margin:14px 0 6px}.swops label{display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13.5px}
+.swops label:has(input:checked){color:var(--accent);font-weight:600}
+.swin{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;font-size:13px;color:var(--muted)}.swin input{flex:1;height:30px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0 8px}.swin input:focus{outline:none;border-color:var(--accent)}
+.swhelp{margin:6px 0 0;font-size:12px;color:var(--faint)}
 /* ⇆ Comparar ramas: resumen, dos columnas de commits (clic: filtrar archivos) y tabla de archivos */
 .cbsum{background:color-mix(in srgb,#2f7fd8 9%,var(--paper))!important}
 .cbcols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
@@ -527,6 +538,23 @@ dialog#dlg.sets.win.uni{width:fit-content;min-width:min(640px,calc(100vw - 32px)
 .cbt .en-suya{color:#2f7fd8}.cbt .en-tuya{color:var(--accent)}.cbt .en-las2{color:#b07800;font-weight:600}
 .cbt tr.cbw td{background:color-mix(in srgb,#c08a00 9%,transparent)}
 dialog#dlg.sets.mg.cmpb>footer .sp{flex:1}
+/* barra de Git: acciones en español con [nombre de git] y el estado del servidor */
+.gfbar{flex-wrap:wrap;row-gap:4px;min-width:0}.gfbar label{white-space:nowrap}
+.gfbar .gfa{display:inline-flex;align-items:baseline;gap:4px;white-space:nowrap}.gfbar .gfa small{font-size:10.5px;color:var(--faint);font-weight:400}
+.gfbar .gfa.up{color:var(--accent);border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.gfbar .gfa.down{color:#2f7fd8;border-color:#2f7fd8;background:color-mix(in srgb,#2f7fd8 12%,transparent)}
+.gfbar .gfsep{width:1px;align-self:stretch;margin:2px 4px;background:var(--line)}
+.gfsync{font-size:12px;color:#2e8b57;white-space:nowrap;margin-right:4px}.gfsync.pend{color:var(--accent);font-weight:600}.gfsync.off{color:var(--faint)}
+@media (max-width:1400px){.gfbar .gfa small{display:none}} /* estrecho: sin el [nombre de git] */
+body.gitfull #gitv :is(.gsyncrow,#gChecked){display:none} /* en pantalla completa están arriba, en la barra */
+/* columna de cambios en cajas, como el panel izquierdo */
+#gitv .gcommit,#gitv .gsec{border:1px solid var(--line);border-radius:8px;background:var(--paper);overflow:hidden;margin-top:8px}
+#gitv .gcommit{display:grid;gap:6px;padding:0 0 8px}#gitv .gcommit>#gMsg,#gitv .gcommit>#gCommit{margin:0 8px;width:calc(100% - 16px)}
+#gitv .gcbh,#gitv .gsec>.node{display:flex;align-items:center;gap:6px;padding:5px 8px;min-height:0;background:color-mix(in srgb,var(--ink) 5%,transparent);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);border-radius:0}
+#gitv .gsec:not(.fold)>.node{border-bottom:1px solid var(--line)}#gitv .gsec>.node .chev{color:var(--faint)}
+#gitv .gitems{padding:3px 0}#gitv .grow{padding-left:10px}
+#gitv .grow .rb{flex-direction:row;align-items:baseline;gap:8px}#gitv .grow .rb small{margin-left:auto;flex:none;max-width:45%}
+.gcopt2{display:flex;align-items:center;gap:6px;margin-top:12px;font-size:13px;cursor:pointer}
 .gfst{margin:6px 8px 4px;font-size:12px;color:var(--muted);line-height:1.4}.gfst .gbok{color:#2e8b57}
 .gfside .gfb{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;row-gap:0}.gfb .gbn{font-weight:500}.gfb.on .gbn{font-weight:700;color:var(--ink)}
 .gfb .gbh{font-size:11px;color:var(--accent)}.gfb .gbs{margin-left:auto;font-size:11.5px;white-space:nowrap}
@@ -609,7 +637,8 @@ dialog#dlg.imgcmp{width:min(1200px,94vw);max-width:none}.imgcmp header{display:f
 .grow{padding-left:14px}.grow .gst{flex:none;width:14px;font:600 11px Consolas,monospace;text-align:center}
 :is(.grow,.gdtab) .gst[data-s=M]{color:#c08a00}:is(.grow,.gdtab) .gst:is([data-s=A],[data-s=U]){color:#2e8b57}:is(.grow,.gdtab) .gst:is([data-s=D],[data-s="!"]){color:#d33}
 .grow .rb{display:flex;flex-direction:column;min-width:0;flex:1}.grow small{color:var(--faint);font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.grow .gact,.gsec>.node .gact{display:none;gap:2px}.grow:hover .gact,.gsec>.node:hover .gact{display:flex}
+.grow .gact{display:none;gap:2px}.grow:hover .gact{display:flex}.gsec>.node .gact{display:flex;gap:4px;flex:none} /* «Todos» siempre a la vista */
+.gsec>.node .gact button{width:auto;min-width:20px;padding:1px 6px;font:600 10.5px Inter,sans-serif;letter-spacing:0;text-transform:none}
 .gact button{border:0;background:none;color:var(--muted);width:20px;height:20px;padding:0;border-radius:4px;font-size:13px;cursor:pointer}
 .gact button:hover{background:var(--hover);color:var(--ink)}
 .gnote{font-size:12px;color:var(--muted);line-height:1.5}
@@ -1399,10 +1428,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
       <div class="shead"><h2>Git</h2><span id="gbtns"></span></div>
       <div class="gline"><button id="gRepo" title="Repositorio (proyecto)"></button></div>
       <div class="gline"><button id="gBranch" title="Rama: cambiar, crear, fusionar, pull y push"></button></div>
-      <textarea id="gMsg" rows="2" placeholder="Mensaje del commit (Ctrl+Enter)" spellcheck="true"></textarea>
-      <button id="gCommit" class="primary">✓ Commit</button>
       <div class="gsyncrow"><button id="gSyncBtn"></button><button id="gMergeBtn"></button></div>
       <div class="gnote" id="gChecked"></div>
+      <div class="gcommit"><div class="gcbh">✎ Commit</div>
+        <textarea id="gMsg" rows="2" placeholder="Mensaje del commit (Ctrl+Enter)" spellcheck="true"></textarea>
+        <button id="gCommit" class="primary">✓ Commit</button></div>
       <div id="glist"></div>
     </div>
     <h2 class="tsec" id="hP" data-fold="P"><span class="tw">›</span><span class="tl">Proyectos</span><span class="sidetools" id="sidetools"></span></h2>
@@ -3181,7 +3211,7 @@ function gitDraw() {
     const h = document.createElement('div'); h.className = 'node';
     h.innerHTML = `<span class="chev">›</span><span class="n"></span><span class="gact"></span><span class="cnt">${list.length}</span>`;
     h.querySelector('.n').textContent = title;
-    if (list.length) for (const [t, tip, fn] of acts) h.querySelector('.gact').append(Object.assign(button(t, e => { e.stopPropagation(); fn(list); }), { title: tip + ' (todos)' }));
+    if (list.length) for (const [t, tip, fn, all] of acts) h.querySelector('.gact').append(Object.assign(button(all || t, e => { e.stopPropagation(); fn(list); }), { title: tip + ' (todos)' }));
     h.onclick = () => { S.classList.toggle('fold'); gfold.has(key) ? gfold.delete(key) : gfold.add(key); };
     const K = document.createElement('div'); K.className = 'gitems';
     for (const f of list) {
@@ -3192,14 +3222,20 @@ function gitDraw() {
       for (const [t, tip, fn] of acts) r.querySelector('.gact').append(Object.assign(button(t, e => { e.stopPropagation(); fn([f]); }), { title: tip }));
       // modificado o borrado: último commit ↔ disco en el comparador; nuevo o en conflicto: se abre el archivo
       r.onclick = () => ['U', 'A', '!'].includes(f.estado) ? openTab(f.ruta, true) : compareDialog(f.ruta);
+      r.oncontextmenu = e => { e.preventDefault(); openMenu({ x: e.clientX, y: e.clientY }, [{ head: `${name} · ${GST_TXT[f.estado] || f.estado}` },
+        ['📄  Abrir', () => openTab(f.ruta, true)],
+        ...(['U', 'A', '!'].includes(f.estado) ? [] : [['⇆  Comparar versiones (git)…', () => compareDialog(f.ruta)]]),
+        '-', ['📦  Apartar este archivo…', () => gitStashDialog(f.rel), { title: 'Guardarlo aparte (git stash) y quitarlo de tus cambios; los demás siguen' }]]); };
       K.append(r);
     }
     if (!list.length) K.innerHTML = '<p class="gnote" style="margin:4px 14px">Sin cambios.</p>';
     S.append(h, K); L.append(S);
   };
-  sec('conflictos', 'Conflictos', gst.conflictos, [['+', 'Marcar como resuelto (preparar)', fs => gitDo('preparar', fs)]]);
-  sec('preparados', 'Preparados', gst.preparados, [['−', 'Quitar de preparados', fs => gitDo('quitar', fs)]]);
-  sec('cambios', 'Cambios', gst.cambios, [['↶', 'Descartar los cambios', gitDiscard], ['+', 'Preparar para el commit', fs => gitDo('preparar', fs)]]);
+  sec('conflictos', '⚠ Conflictos', gst.conflictos, [['+', 'Marcar como resuelto (preparar)', fs => gitDo('preparar', fs), '＋ Todos']]);
+  sec('preparados', '✓ Preparados', gst.preparados, [['−', 'Quitar de preparados', fs => gitDo('quitar', fs), '− Todos']]);
+  sec('cambios', '✎ Cambios', gst.cambios, [['↶', 'Descartar los cambios', gitDiscard], ['+', 'Preparar para el commit', fs => gitDo('preparar', fs), '＋ Todos']]);
+  { const n = gst.preparados.length, all = gst.cambios.length + gst.conflictos.length; // el botón dice qué hará
+    $('#gCommit').textContent = n ? `✓ Commit de ${n} archivo${n === 1 ? '' : 's'} en «${gst.rama}»` : all ? `✓ Commit de todo (${all}) en «${gst.rama}»` : '✓ Commit'; }
   if (gitFullOn()) gitFullDraw();
 }
 // Botón Sincronizar: «⟳ Sincronizar ↓2 ↑13» en color si hay algo pendiente, «⇡ Publicar rama» si no tiene remota,
@@ -3768,6 +3804,106 @@ async function mergeFinalDialog() {
   draw();
   if (!d.open) d.showModal();
 }
+// Barra de Git a pantalla completa: todas las acciones en español con su nombre de git entre [ ], y el estado del
+// servidor. «Traer»/«Subir» se pintan y dicen cuántos cuando hay algo pendiente; lo que no se puede, apagado y con
+// la razón al pasar el ratón.
+function gitBarDraw() {
+  const ok = gst && !gst.error, web = gst?.remota, rem = ok && gst.remotos.length > 0;
+  const n = ok ? gst.preparados.length + gst.cambios.length + gst.conflictos.length : 0, mid = ok && gst.fusionando;
+  const set = (id, label, dis, tip, cls = '') => { const b = $(id); if (!b) return;
+    b.querySelector('span').textContent = label; b.disabled = !!dis; b.title = tip; b.className = 'small gfa' + (cls ? ' ' + cls : ''); };
+  set('#gfPull', ok && web && gst.atras ? `⇣ Traer ${gst.atras}` : '⇣ Traer', !ok || !web,
+    !ok ? '' : !rem ? 'Este proyecto no tiene servidor' : !web ? `«${gst.rama}» aún no está en el servidor: no hay de dónde traer` : `Traer los commits nuevos de ${web} (git pull)`, ok && gst.atras ? 'down' : '');
+  set('#gfPush', ok && gst.adelante ? `⇡ Subir ${gst.adelante}` : '⇡ Subir', !rem,
+    !ok ? '' : !rem ? 'Este proyecto no tiene servidor: Conectar con un servidor en el menú ⋯ de Ramas' : web ? `Subir tus commits a ${web} (git push)` : `Publicar «${gst.rama}» en el servidor (git push -u)`, ok && gst.adelante ? 'up' : '');
+  set('#gfFetch', '⟳ Comprobar', !rem, rem ? 'Mirar si hay novedades en el servidor, sin tocar tus archivos (git fetch)' : 'Este proyecto no tiene servidor');
+  set('#gfMerge', mid ? '⤵ Fusión en curso' : '⤵ Fusionar', !ok || (!mid && !gitMergeable().length),
+    mid ? 'Hay una fusión a medias: termínala o cancélala' : ok ? `Traer los cambios de otra rama a «${gst.rama}» (git merge)` : '', mid ? 'up' : '');
+  set('#gfStash', '📦 Apartar', !n, n ? `Guardar aparte tus ${n} cambios sin commit, con un nombre, y dejar la rama limpia (git stash)` : 'No hay cambios que apartar');
+  set('#gfTag', '🏷 Versión', !ok || !(gst.punta || '').split(':')[0], 'Ponerle un nombre fijo («v1.0») a tu último commit (git tag)');
+  set('#gfBranch', '⎇ Nueva rama', !ok, ok ? `Crear una rama desde «${gst.rama}» y pasar a ella (git switch -c)` : '');
+  const S = $('#gfSync'); if (!S) return;
+  const t = ok && gst.comprobado, m = t ? Math.round((Date.now() / 1000 - t) / 60) : null, when = m === null ? '' : m < 1 ? ' · ahora' : m < 60 ? ` · hace ${m} min` : '';
+  S.className = 'gfsync' + (ok && web && (gst.atras || gst.adelante) ? ' pend' : ok && !web ? ' off' : '');
+  S.textContent = !ok ? '' : !rem ? 'Sin servidor' : !web ? 'Rama solo en tu PC' : gst.atras || gst.adelante
+    ? [gst.atras && `↓${gst.atras} por traer`, gst.adelante && `↑${gst.adelante} por subir`].filter(Boolean).join(' · ') + when : `✓ Al día${when}`;
+  S.title = ok && web ? `Comparado con ${web}` : '';
+}
+// 📦 Apartar: tabla de los archivos con cambios, cada uno con su casilla (todos marcados; con `solo`, solo ese), y un
+// nombre ya puesto. Se apartan los marcados (git stash push -- …); los demás siguen en la rama.
+function gitStashDialog(solo = null) {
+  const fs = [...gst.conflictos, ...gst.preparados, ...gst.cambios].filter((f, i, a) => a.findIndex(x => x.rel === f.rel) === i);
+  if (!fs.length) return flash('No hay cambios que apartar');
+  const now = new Date().toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const on = new Set(solo ? [solo] : fs.map(f => f.rel)), d = $('#dlg');
+  d.className = 'sets swd'; d.oninput = d.onchange = null; d.onclose = null;
+  d.innerHTML = `<header><b>📦 Guardar cambios aparte [stash]</b><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+    <div class="swbody"><label class="gcopt2" style="margin:0 0 8px"><input type="checkbox" data-all> Todos (${fs.length})</label>
+      <div class="swtab swsel"><table class="cbt"><thead><tr><th></th><th>#</th><th>Estado</th><th>Archivo</th><th>Carpeta</th><th>+</th><th>−</th></tr></thead><tbody>
+        ${fs.map((f, i) => { const name = f.rel.split('/').pop(), dir = f.rel.slice(0, -name.length - 1);
+          return `<tr data-rel="${esc(f.rel)}"><td><input type="checkbox"${on.has(f.rel) ? ' checked' : ''}></td><td class="mgn">${i + 1}</td>`
+            + `<td><span class="gst" data-s="${esc(f.estado)}" title="${esc(GST_TXT[f.estado] || f.estado)}">${esc(f.estado)}</span></td>`
+            + `<td class="cbf" title="${esc(f.rel)}">${esc(name)}</td><td class="cbd" title="${esc(dir)}">${esc(dir)}</td>`
+            + `<td class="cbp">${f.mas == null ? '' : `+${f.mas}`}</td><td class="cbm2">${f.menos ? `−${f.menos}` : ''}</td></tr>`; }).join('')}
+      </tbody></table></div>
+      <label class="swin" style="margin-top:12px">Nombre <input data-n value="${esc(`${gst.rama} · ${now}`)}" spellcheck="false"></label>
+      <p class="swhelp" data-h></p></div>
+    <footer><span class="sp"></span><button data-x>Cancelar</button><button class="primary" data-go></button></footer>`;
+  const all = d.querySelector('[data-all]'), go = d.querySelector('[data-go]'), H = d.querySelector('[data-h]');
+  const pl = k => `${k} archivo${k === 1 ? '' : 's'}`;
+  const draw = () => {
+    const k = on.size, rest = fs.length - k;
+    all.checked = k === fs.length; all.indeterminate = k > 0 && k < fs.length;
+    go.textContent = k ? `📦 Apartar ${pl(k)}` : '📦 Apartar'; go.disabled = !k;
+    H.textContent = !k ? 'Marca al menos un archivo.' : rest ? `Se apartan ${pl(k)}; ${rest === 1 ? 'el otro sigue' : `los otros ${rest} siguen`} en tu rama. Se recuperan en «Guardados aparte».`
+      : 'Se apartan todos; la rama queda limpia. Se recuperan en «Guardados aparte».';
+  };
+  d.querySelectorAll('tbody tr').forEach(r => {
+    const c = r.querySelector('input');
+    c.onchange = () => { c.checked ? on.add(r.dataset.rel) : on.delete(r.dataset.rel); draw(); };
+    r.onclick = e => { if (e.target !== c) { c.checked = !c.checked; c.onchange(); } }; // clic en la fila = la casilla
+  });
+  all.onchange = () => { fs.forEach(f => all.checked ? on.add(f.rel) : on.delete(f.rel)); d.querySelectorAll('tbody input').forEach(c => c.checked = all.checked); draw(); };
+  d.querySelectorAll('[data-x]').forEach(x => x.onclick = () => d.close());
+  go.onclick = async () => {
+    if (go.disabled) return;
+    const name = d.querySelector('[data-n]').value.trim(), todos = on.size === fs.length, sel = fs.filter(f => on.has(f.rel));
+    d.close();
+    if (await gitDo('apartar', todos ? [] : sel, { mensaje: name, modo: 'nuevos' }))
+      flash(`📦 ${todos ? 'Cambios apartados' : `${pl(sel.length)} apartado${sel.length === 1 ? '' : 's'}`} como «${name || gst.rama}»`);
+  };
+  d.onkeydown = e => { if (e.key === 'Enter' && e.target.matches('[data-n]')) { e.preventDefault(); go.click(); } };
+  d.showModal(); draw(); d.querySelector('[data-n]').focus();
+}
+// 🏷 Versión: nombre, nota y «subirla al servidor»; se pone en el último commit de la rama
+function gitTagDialog() {
+  const d = $('#dlg'), head = (gst.punta || '').split(':')[0], rem = gst.remotos.length > 0;
+  const last = (gst.etiquetas || [])[0]?.nombre, next = last && /\d+$/.test(last) ? last.replace(/\d+$/, x => +x + 1) : 'v1.0';
+  d.className = 'sets swd'; d.oninput = d.onchange = null; d.onclose = null;
+  d.innerHTML = `<header><b>🏷 Nueva versión [tag]</b><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+    <div class="swbody"><p class="swhelp" style="margin:0 0 12px">Un nombre fijo para tu último commit de «${esc(gst.rama)}» (${esc(head.slice(0, 7))}): no se mueve aunque sigas trabajando.</p>
+      <label class="swin">Nombre <input data-n value="${esc(next)}" spellcheck="false" placeholder="v1.0"></label>
+      <label class="swin" style="margin-top:8px">Nota <input data-m spellcheck="true" placeholder="Opcional: primera versión estable, entregado al cliente…"></label>
+      <label class="gcopt2"><input type="checkbox" data-up ${rem ? 'checked' : 'disabled'}> Subirla también al servidor${rem ? '' : ' (este proyecto no tiene servidor)'}</label></div>
+    <footer><span class="sp"></span><button data-x>Cancelar</button><button class="primary" data-go>🏷 Crear</button></footer>`;
+  const N = d.querySelector('[data-n]'), go = d.querySelector('[data-go]');
+  N.oninput = () => { go.disabled = !N.value.trim() || /\s/.test(N.value.trim()); };
+  d.querySelectorAll('[data-x]').forEach(x => x.onclick = () => d.close());
+  go.onclick = async () => {
+    if (go.disabled) return;
+    const name = N.value.trim(), up = d.querySelector('[data-up]').checked;
+    d.close();
+    if (!await gitDo('etiqueta', [], { rama: name, mensaje: d.querySelector('[data-m]').value })) return;
+    flash(`🏷 Versión «${name}» creada`);
+    if (up) gitLong('push_etiqueta', { rama: name });
+  };
+  d.onkeydown = e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') { e.preventDefault(); go.click(); } };
+  d.showModal(); N.focus(); N.select();
+}
+async function gitNewBranch() {
+  const rama = await ask('Nueva rama [branch]', `Se crea desde «${gst.rama}» y pasas a ella:`, ['Crear', 'Cancelar'], { input: '' });
+  if (rama?.trim()) gitDo('nueva_rama', [], { rama: rama.trim() });
+}
 async function gitSync() {
   if (!gst.remota) return gitPush(); // publicar la rama
   if (!gst.atras && !gst.adelante) return gitLong('fetch'); // al día: comprobar ahora
@@ -3798,13 +3934,13 @@ async function gitBranchElsewhere(rama, carpeta) {
   if (await ask('Rama abierta en otra carpeta', msg, p ? [ir, 'Cancelar'] : ['Entendido']) === ir) { LS('desklens.git.repo', p.ruta); gitLoad(); }
   return false;
 }
-async function gitSwitch(rama, modo = '') {
+async function gitSwitch(rama, modo = '', nombre = '') {
   if (gbusy) return false; gbusy = true;
   gitPending(rama);
   try {
-    const r = await api('/api/git/accion', { ruta: gst.ruta, accion: 'cambiar_rama', rama, modo });
+    const r = await api('/api/git/accion', { ruta: gst.ruta, accion: 'cambiar_rama', rama, modo, mensaje: nombre });
     gst = { ...r, ruta: gst.ruta }; gitDraw(); loadSide();
-    flash(modo === 'apartar' ? `✓ En «${rama}» · tus cambios quedaron guardados en el stash` : modo === 'llevar' ? `✓ En «${rama}» con tus cambios` : `✓ En «${rama}»`);
+    flash(modo === 'apartar' ? `✓ En «${rama}» · tus cambios quedaron en «Guardados aparte»${nombre ? ` como «${nombre}»` : ''}` : modo === 'llevar' ? `✓ En «${rama}» con tus cambios` : `✓ En «${rama}»`);
     return true;
   } catch (e) {
     gbusy = false;
@@ -3927,7 +4063,7 @@ function gitLong(accion, extra = {}) {
   const ruta = gst.ruta;
   const [rm, rb] = String(extra.rama || '').split(/\/(.*)/);
   const cmd = { pull: 'git pull --no-rebase', push: 'git push', fetch: 'git fetch --prune', fusionar: 'git merge --no-edit ' + extra.rama,
-    probar: 'git ls-remote --heads origin', pull_desde: `git pull --no-rebase ${rm} ${rb}`, push_a: `git push ${rm} HEAD:${rb}`, pull_rama: `git fetch (actualizar ${extra.rama})`, push_rama: `git push ${extra.rama}`,
+    probar: 'git ls-remote --heads origin', push_etiqueta: `git push origin refs/tags/${extra.rama}`, pull_desde: `git pull --no-rebase ${rm} ${rb}`, push_a: `git push ${rm} HEAD:${rb}`, pull_rama: `git fetch (actualizar ${extra.rama})`, push_rama: `git push ${extra.rama}`,
     sincronizar: 'git pull --no-rebase' + (gst.adelante ? ' && git push' : '') }[accion];
   // la consola se ve mientras corre y, si terminó bien, se oculta sola (la ejecución queda en su pestaña ✓ para verla);
   // si falló, o si ya estaba abierta antes, se queda como está
@@ -3959,18 +4095,54 @@ const gitNo = title => ({ disabled: true, title });
 // Ramas que se pueden fusionar en la actual: las otras locales y las que solo están en el remoto
 const gitMergeable = () => [...gst.ramas.filter(b => b !== gst.rama),
   ...gst.ramas_remotas.filter(r => !gst.ramas.includes(r.split('/').slice(1).join('/')))];
-// Clic en una rama del panel: cambiar a ella. Con cambios sin commit pregunta antes qué hacer con ellos (como cuando
-// git se niega); abierta en otra carpeta del repositorio, explica y ofrece ir allí.
+// Clic en una rama del panel: cambiar a ella. Con cambios sin commit, primero una ventana con esos archivos en tabla
+// y tres salidas: 📦 guardarlos aparte (con nombre), 🧳 llevarlos a la otra rama, o ✓ commit primero (con mensaje)
+// y después cambiar. Abierta en otra carpeta del repositorio: explica y ofrece ir allí.
 async function gitSwitchAsk(b) {
   if (gst.en_otra_carpeta?.[b]) return gitBranchElsewhere(b, gst.en_otra_carpeta[b]);
-  const n = gst.preparados.length + gst.cambios.length + gst.conflictos.length;
-  if (!n) return gitSwitch(b);
-  const llevar = `Llevarlos a «${b}»`, apartar = 'Guardarlos aparte y cambiar';
-  const c = await ask(`Cambiar a «${b}»`, `Tienes ${n} archivo${n === 1 ? '' : 's'} con cambios sin commit en «${gst.rama}».\n\n` +
-    `· Guardarlos aparte: cambias con la rama limpia; los recuperas luego en «Guardados aparte».\n` +
-    `· Llevarlos: cambias y tus cambios siguen contigo (si chocan con «${b}», quedan en conflicto para resolverlos).`,
-    [apartar, llevar, 'Cancelar']);
-  if (c === llevar || c === apartar) return gitSwitch(b, c === llevar ? 'llevar' : 'apartar');
+  const fs = [...gst.conflictos, ...gst.preparados, ...gst.cambios].filter((f, i, a) => a.findIndex(x => x.rel === f.rel) === i);
+  if (!fs.length) return gitSwitch(b);
+  const d = $('#dlg'), from = gst.rama, n = fs.length;
+  const now = new Date().toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  let op = 'apartar';
+  d.className = 'sets swd'; d.oninput = d.onchange = null; d.onclose = null;
+  d.innerHTML = `<header><b>⎇ Cambiar de «${esc(from)}» a «${esc(b)}»</b><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+    <div class="swbody"><p class="swn">${n} archivo${n === 1 ? '' : 's'} con cambios sin commit</p>
+      <div class="swtab"><table class="cbt"><thead><tr><th>#</th><th>Estado</th><th>Archivo</th><th>Carpeta</th><th>+</th><th>−</th></tr></thead><tbody>
+        ${fs.map((f, i) => { const name = f.rel.split('/').pop(), dir = f.rel.slice(0, -name.length - 1);
+          return `<tr><td class="mgn">${i + 1}</td><td><span class="gst" data-s="${esc(f.estado)}" title="${esc(GST_TXT[f.estado] || f.estado)}">${esc(f.estado)}</span></td>`
+            + `<td class="cbf" title="${esc(f.rel)}">${esc(name)}</td><td class="cbd" title="${esc(dir)}">${esc(dir)}</td>`
+            + `<td class="cbp">${f.mas == null ? (f.estado === 'D' ? '' : '<span class="gc">—</span>') : `+${f.mas}`}</td><td class="cbm2">${f.menos ? `−${f.menos}` : ''}</td></tr>`; }).join('')}
+      </tbody></table></div>
+      <div class="swops">
+        <label><input type="radio" name="swop" value="apartar" checked> 📦 Guardarlos aparte</label>
+        <label><input type="radio" name="swop" value="llevar"> 🧳 Llevarlos a «${esc(b)}»</label>
+        <label><input type="radio" name="swop" value="commit"> ✓ Commit primero</label></div>
+      <div class="swfld"></div></div>
+    <footer><span class="sp"></span><button data-x>Cancelar</button><button class="primary" data-go></button></footer>`;
+  const F = d.querySelector('.swfld'), go = d.querySelector('[data-go]'), names = { apartar: `${from} · ${now}`, commit: '' };
+  const draw = () => {
+    F.innerHTML = op === 'llevar' ? `<p class="swhelp">Siguen contigo en «${esc(b)}»; si «${esc(b)}» cambió los mismos archivos, quedan en conflicto para resolverlos.</p>`
+      : `<label class="swin">${op === 'apartar' ? 'Nombre' : 'Mensaje'} <input value="${esc(names[op])}" spellcheck="${op === 'commit'}" placeholder="${op === 'commit' ? 'Qué cambiaste (obligatorio)' : ''}"></label>
+         <p class="swhelp">${op === 'apartar' ? 'Llegas a la rama limpia; se recuperan en «Guardados aparte».' : `Se hace commit de ${n === 1 ? 'este archivo' : `los ${n} archivos`} en «${esc(from)}» y después cambias a «${esc(b)}».`}</p>`;
+    const inp = F.querySelector('input');
+    if (inp) { inp.oninput = () => { names[op] = inp.value; ready(); }; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); run(); } }; inp.focus(); inp.select(); }
+    go.textContent = op === 'commit' ? `✓ Commit y cambiar a «${b}»` : `⎇ Cambiar a «${b}»`;
+    ready();
+  };
+  const ready = () => { go.disabled = op === 'commit' && !names.commit.trim(); };
+  const run = async () => {
+    if (go.disabled) return;
+    d.close();
+    if (op === 'apartar') return gitSwitch(b, 'apartar', names.apartar.trim() || `${from} · ${now}`);
+    if (op === 'llevar') return gitSwitch(b, 'llevar');
+    if (await gitDo('commit', [], { mensaje: names.commit.trim(), todo: true })) { flash('✓ Commit hecho'); loadSide(); return gitSwitch(b); } // si falla, no se cambia
+  };
+  d.querySelectorAll('[name=swop]').forEach(r => r.onchange = () => { op = r.value; draw(); });
+  d.querySelectorAll('[data-x]').forEach(x => x.onclick = () => d.close());
+  go.onclick = run;
+  d.onkeydown = e => { if (e.key === 'Enter' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') { e.preventDefault(); run(); } };
+  d.showModal(); draw();
 }
 // ⇆ Comparar otra rama con la tuya (doble clic en una rama). Solo lee. Arriba, en dos columnas, los commits que solo
 // tiene cada una (clic: ver solo sus archivos; Ctrl+clic: varios; otro clic: quitar); abajo, los archivos distintos
@@ -4248,8 +4420,12 @@ function gitFullOpen() {
   G.innerHTML = `<div class="gfptabs" id="gfTabs"><div class="gfpts"></div><button class="ic gfptm" title="Todos los proyectos, también los que no usan git">▾</button></div>
     <div class="gfbar"><b>Git</b><span class="gft" id="gfTitle"></span><span class="sp"></span>
       <label title="Ver también las demás ramas locales y remotas"><input type="checkbox" id="gfAll"> Todas las ramas</label>
-      <button class="small" id="gfPull" title="git pull">⇣ Pull</button><button class="small" id="gfPush" title="git push">⇡ Push</button>
-      <button class="small" id="gfFetch" title="Ver si hay novedades en el remoto">⟳ Fetch</button></div>
+      <span class="gfsync" id="gfSync"></span>
+      <button class="small gfa" id="gfPull"><span>⇣ Traer</span><small>[pull]</small></button><button class="small gfa" id="gfPush"><span>⇡ Subir</span><small>[push]</small></button>
+      <button class="small gfa" id="gfFetch"><span>⟳ Comprobar</span><small>[fetch]</small></button><button class="small gfa" id="gfMerge"><span>⤵ Fusionar</span><small>[merge]</small></button>
+      <span class="gfsep"></span>
+      <button class="small gfa" id="gfStash"><span>📦 Apartar</span><small>[stash]</small></button><button class="small gfa" id="gfTag"><span>🏷 Versión</span><small>[tag]</small></button>
+      <button class="small gfa" id="gfBranch"><span>⎇ Nueva rama</span><small>[branch]</small></button></div>
     <div class="gfbody"><div class="gfside"><h4>Estás en</h4><button class="gfrepo" id="gfRepo" title="Elegir otro proyecto"></button><div class="gfst" id="gfSt"></div>
       <h4 id="gfBrH">Ramas</h4><div id="gfBr"></div><div id="gfMore"></div></div><div class="gfrs l"></div>
       <div class="gfmain"><div class="gfgraph" id="gfGraph"></div><div class="gfrs d"></div><div class="gfdetail" id="gfDetail"></div></div>
@@ -4270,6 +4446,7 @@ function gitFullOpen() {
   $('#gfAll').checked = LS('desklens.git.todas') === '1';
   $('#gfAll').onchange = e => { LS('desklens.git.todas', e.target.checked ? '1' : ''); gfKey = ''; gitFullDraw(); };
   $('#gfPull').onclick = () => mergeOneDialog('pull'); $('#gfPush').onclick = gitPush; $('#gfFetch').onclick = () => gitLong('fetch');
+  $('#gfMerge').onclick = gitMergeBtn; $('#gfStash').onclick = () => gitStashDialog(); $('#gfTag').onclick = gitTagDialog; $('#gfBranch').onclick = gitNewBranch;
   G.querySelector('.gfptm').onclick = e => { e.stopPropagation(); gitRepoMenu(e.currentTarget); };
   G.querySelector('.gfpts').onwheel = e => { if (!e.deltaY || e.shiftKey) return; e.preventDefault(); e.currentTarget.scrollLeft += e.deltaY; }; // rueda = de lado
   document.body.classList.add('gitfull', 'vgit');
@@ -4287,7 +4464,7 @@ async function gitFullDraw() {
   gitProjTabs();
   if (gst.error) return gitSetupDraw(); // sin git: asistente (y nada del proyecto anterior se queda a la vista)
   $('#gfTitle').textContent = `⎇ ${gst.rama}` + (gst.remota ? ` ↔ ${gst.remota}` : ' (sin remota)'); // el proyecto lo dice su pestaña
-  $('#gfPull').disabled = !gst.remota; $('#gfPush').disabled = $('#gfFetch').disabled = !gst.remotos.length;
+  gitBarDraw();
   gitFullSide();
   const todas = $('#gfAll').checked, key = `${gst.ruta}|${gst.punta}|${todas}`;
   if (key === gfKey) { $('#gfGraph').style.opacity = ''; gfRestore = false; return; }
@@ -4300,7 +4477,7 @@ async function gitFullDraw() {
 let gfIdent = null; // nombre y correo de git ya configurados en este equipo, para rellenar
 async function gitSetupDraw() {
   $('#gfTitle').textContent = 'sin git';
-  $('#gfPull').disabled = $('#gfPush').disabled = $('#gfFetch').disabled = true;
+  ['#gfPull', '#gfPush', '#gfFetch', '#gfMerge', '#gfStash', '#gfTag', '#gfBranch'].forEach(id => { if ($(id)) $(id).disabled = true; }); $('#gfSync').textContent = '';
   $('#gfRepo').innerHTML = `<b>${esc(projLabel(gst.ruta))}</b><span>▾</span>`;
   $('#gfRepo').onclick = e => { e.stopPropagation(); gitRepoMenu(e.currentTarget); };
   $('#gfSt').textContent = 'Este proyecto no usa git'; $('#gfBrH').textContent = 'Ramas'; $('#gfBr').innerHTML = ''; $('#gfMore').innerHTML = ''; $('#gfBr').classList.remove('gfwait');
