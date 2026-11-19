@@ -3797,11 +3797,11 @@ class GitMergeStop(ValueError):
         super().__init__(texto)
 
 
-def _merge_commits(repo, target, n=50):
+def _merge_commits(repo, target, n=50, rng=None):
     """Los commits que llegan (los n más nuevos) con lo que cambió cada uno: [{hash, padre, union, fecha, autor,
     mensaje, archivos: [{rel, estado A/M/D, mas, menos}]}]. Una unión de ramas (merge) no trae archivos propios:
     git log no la compara, y lo que junta ya sale en los commits de los que viene. Sin renombres (borrar + nuevo)."""
-    q, rng = ("-c", "core.quotePath=false"), f"HEAD..{target}"
+    q, rng = ("-c", "core.quotePath=false"), rng or f"HEAD..{target}"
     head = "--format=\x1e%H\x1f%P\x1f%at\x1f%an\x1f%s"
     out, by = [], {}
     for blk in git_run(repo, *q, "log", "-n", str(n), head, "--name-status", "--no-renames", rng).split("\x1e"):
@@ -3825,6 +3825,40 @@ def _merge_commits(repo, target, n=50):
             if f and a.isdigit():
                 f["mas"], f["menos"] = int(a), int(d)
     return out
+
+
+def git_compare(path, otra, n=200):
+    """Comparar tu rama con otra, sin tocar nada: los commits que solo tiene la otra y los que solo tienes tú (cada uno
+    con sus archivos), y los archivos que difieren entre las dos puntas con +/− (de la tuya a la otra) y dónde cambiaron
+    desde que se separaron: «suya», «tuya» o «las2» (puede chocar al fusionar)."""
+    repo = repo_of(path)
+    if not otra or otra.startswith("-") or not re.fullmatch(r"[\w./@+-]+", otra) or ".." in otra:
+        raise ValueError("rama no válida")
+    if not git_run(repo, "rev-parse", "-q", "--verify", otra + "^{commit}"):
+        raise ValueError(f"No existe la rama «{otra}»")
+    q = ("-c", "core.quotePath=false")
+    base = git_run(repo, "merge-base", "HEAD", otra)
+    suya = _merge_commits(repo, otra, n, f"HEAD..{otra}")
+    mia = _merge_commits(repo, otra, n, f"{otra}..HEAD")
+    cuenta = lambda rng: int(git_run(repo, "rev-list", "--count", rng) or 0)
+    nums = {}
+    for ln in git_run(repo, *q, "diff", "--numstat", "--no-renames", "HEAD", otra).splitlines():
+        a, d, rel = (ln.split("\t", 2) + ["", ""])[:3]
+        if rel:
+            nums[rel] = (int(a), int(d)) if a.isdigit() else (None, None)
+    cambio = lambda a, b: set(git_run(repo, *q, "diff", "--name-only", "--no-renames", a, b).splitlines()) if base else set()
+    en_suya, en_mia = cambio(base, otra), cambio(base, "HEAD")
+    archivos = []
+    for ln in git_run(repo, *q, "diff", "--name-status", "--no-renames", "HEAD", otra).splitlines():
+        st, _, rel = ln.partition("\t")
+        if rel:
+            mas, menos = nums.get(rel, (None, None))
+            archivos.append({"rel": rel, "estado": st[:1], "mas": mas, "menos": menos,
+                             "en": "las2" if rel in en_suya and rel in en_mia else "suya" if rel in en_suya else "tuya"})
+    return {"rama": git_run(repo, "rev-parse", "--abbrev-ref", "HEAD"), "otra": otra, "base": base,
+            "mia_hash": git_run(repo, "rev-parse", "HEAD"), "otra_hash": git_run(repo, "rev-parse", otra),
+            "solo_suya": suya, "solo_mia": mia, "n_suya": cuenta(f"HEAD..{otra}"), "n_mia": cuenta(f"{otra}..HEAD"),
+            "archivos": archivos, "cambiados_suya": sorted(en_suya), "cambiados_mia": sorted(en_mia)}
 
 
 def git_merge_check(path, accion, rama):
@@ -4558,6 +4592,11 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/git/archivos":
                 try:
                     return self.send_json(200, git_files(ruta, q.get("hash", "")))
+                except (ValueError, OSError, subprocess.TimeoutExpired) as e:
+                    return self.send_json(400, {"error": str(e)})
+            if url.path == "/api/git/comparar":  # doble clic en una rama: compararla con la tuya (solo lee)
+                try:
+                    return self.send_json(200, git_compare(ruta, q.get("otra", "")))
                 except (ValueError, OSError, subprocess.TimeoutExpired) as e:
                     return self.send_json(400, {"error": str(e)})
             if url.path in ("/api/git/fusion", "/api/git/fusion/archivo", "/api/git/conflicto"):  # pantalla única de fusionar

@@ -1,6 +1,27 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.158 · 2026-11-19 · Git: clic cambia de rama, doble clic la compara con la tuya
+- En el panel izquierdo de Git, un clic en una rama cambia a ella. Si tienes cambios sin commit, antes pregunta: guardarlos aparte o llevarlos contigo.
+- Doble clic abre «⇆ Comparar»: arriba, en dos columnas, los commits que solo tiene esa rama y los que solo tienes tú; abajo, los archivos distintos, con dónde cambió cada uno («Cambió en»: en la otra, en la tuya o ⚠ en las 2, que puede chocar al fusionar). Un clic en un commit muestra solo sus archivos (Ctrl+clic: varios; «✕ Ver todos» vuelve). «Ver» abre el archivo en dos columnas: tu rama | la otra, o antes | después del commit elegido. Abajo: fusionar esa rama o cambiar a ella. Solo mira: no cambia nada hasta pulsar una acción.
+- Lo que antes hacía el clic (ver su último commit en el historial) está ahora en el clic derecho, junto a «Comparar».
+
+## v1.157 · 2026-11-19 · Git: el panel izquierdo en cajas
+- Ramas, Guardados aparte y Versiones [tags] van cada una en su caja, con una banda de título (icono, nombre, número y ⓘ con la explicación). Un clic en la banda pliega la caja.
+- Dentro, filas como las del explorador: la rama en la que estás con fondo morado y raya a la izquierda; a la derecha, en columna, su estado con un símbolo de color: ✓ al día (verde), ↑ por subir (morado), ↓ por traer (azul), 💻 solo en tu PC, ☁ en el servidor, 📂 abierta en otra carpeta (ámbar). Al pasar el ratón se explica.
+- Las ramas con «/» («feature/pagos», «claude/…») se agrupan en una carpeta que se abre y se cierra; así los nombres largos ya no se amontonan.
+- Las cajas vacías dicen solo «Ninguno»; la explicación está en el ⓘ.
+
+## v1.156 · 2026-11-19 · Git: guardados y versiones siempre a la vista
+- En el panel izquierdo de Git, «Cambios guardados aparte» y «Versiones marcadas [tags]» se ven aunque estén vacías, con una frase que dice para qué sirven. Antes solo aparecían si ya había alguno, y no se sabía que existían.
+- «Versiones marcadas» lleva «[tags]» en el título: es el nombre que les da git. Crear guardados y versiones llegará más adelante.
+
+## v1.155 · 2026-11-18 · Git: un proyecto por pestaña
+- En Git a pantalla completa, arriba hay una pestaña por proyecto con git, con su resumen siempre a la vista: ↓ por traer (azul), ↑ por subir (morado), cambios sin commit (ámbar) o ✓ al día, y la rama debajo. Al pasar el ratón se ve todo: carpeta, rama, servidor y cada número explicado.
+- La pestaña abierta se distingue de un vistazo: fondo de color, raya arriba y abajo y el nombre en el color de DeskLens.
+- Un clic cambia de proyecto; la rueda del ratón mueve la barra de lado. El ▾ del final abre la lista de siempre, también con los proyectos sin git.
+- El selector «Estás en» del panel izquierdo ya no hace falta en pantalla completa: lo dice la pestaña. En el panel pequeño sigue la lista.
+
 ## v1.154 · 2026-11-18 · DeskLens se siente menos «navegador» y con icono nítido
 - La ventana usa un perfil propio de Edge, sin extensiones, traductor, barra lateral ni sincronización: arranca más ligera. Tus pestañas y preferencias pasan solas al perfil nuevo la próxima vez que abras DeskLens.
 - Las teclas y gestos del navegador que no sirven aquí ya no hacen nada: F5, Ctrl+D/H/J/U, zoom de Edge con Ctrl+rueda, Alt+← fuera de DeskLens…

@@ -401,7 +401,18 @@ body:not(.noside):not(.vsearch):not(.vgit) #ribbon [data-v=e],body.vsearch:not(.
 #gitfull{display:none}
 body.gitfull{grid-template-columns:44px minmax(0,1fr)!important}
 body.gitfull :is(aside,#ia,#panes){display:none!important}
-body.gitfull #gitfull{grid-row:1;display:grid;grid-template-rows:auto minmax(0,1fr);min-height:0;background:var(--bg)}
+body.gitfull #gitfull{grid-row:1;display:grid;grid-template-rows:auto auto minmax(0,1fr);min-height:0;background:var(--bg)}
+.gfptabs{display:flex;align-items:stretch;background:var(--side);border-bottom:1px solid var(--line);min-width:0}
+.gfpts{flex:1;display:flex;overflow-x:auto;scrollbar-width:none;min-width:0}.gfpts::-webkit-scrollbar{display:none} /* se mueve con la rueda; la abierta siempre a la vista */
+.gfpt{display:grid;gap:1px;flex:none;max-width:230px;padding:5px 12px 4px;border:0;border-right:1px solid var(--line);border-radius:0;background:none;text-align:left;cursor:pointer;color:var(--muted);border-top:2px solid transparent}
+.gfpt:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+.gfpt.on{background:color-mix(in srgb,var(--accent) 16%,var(--bg));color:var(--ink);border-top:3px solid var(--accent);padding-top:4px;box-shadow:inset 0 -2px 0 var(--accent)}
+.gfpt.on b{color:var(--accent);font-weight:700}.gfpt.on .pt2{color:var(--muted)}.gfpt.wait{opacity:.6} /* la abierta: fondo, raya arriba y abajo y nombre en el color de acento */
+.gfpt .pt1{display:flex;align-items:baseline;gap:6px;min-width:0}.gfpt b{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gfpt .pt1 i{font-style:normal;font-size:11px;font-weight:700;flex:none}.gfpt .pt2{font-size:11px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pt-down{color:#2f7fd8}.pt-up{color:var(--accent)}.pt-ch{color:#b07800}.pt-ok{color:#2e8b57}.gfpt .pt-off{color:var(--faint);font-weight:400;font-style:italic}
+.gfptm{flex:none;align-self:stretch;height:auto!important;width:34px!important;padding:0;border-left:1px solid var(--line)!important;border-radius:0!important;font-size:14px;color:var(--muted)}
+body.gitfull .gfside>h4:first-child,body.gitfull #gfRepo{display:none} /* «Estás en»: ya lo dice la pestaña */
 .gfbar{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--line);background:var(--side)}
 .gfbar b{font-size:13px}.gfbar .gft{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .gfbar .sp{flex:1}.gfbar label{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--muted)}
@@ -478,6 +489,44 @@ dialog#dlg.sets.win.uni{width:fit-content;min-width:min(640px,calc(100vw - 32px)
 .gfside .node{font-size:12.5px}.gfside .node.on{font-weight:600;color:var(--ink)}
 .gfrepo{display:flex;align-items:center;justify-content:space-between;width:calc(100% - 12px);margin:0 6px;padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);font-size:13px;text-align:left}
 .gfrepo:hover{border-color:var(--accent)}.gfrepo span{color:var(--muted);font-size:11px}
+/* panel «Dónde estoy» en cajas: banda de título y filas de explorador con el estado en columna */
+.gfbox{margin:8px 6px 0;border:1px solid var(--line);border-radius:8px;background:var(--paper);overflow:hidden}
+.gfbh{display:flex;align-items:center;gap:6px;padding:5px 8px;background:color-mix(in srgb,var(--ink) 5%,transparent);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);cursor:pointer;user-select:none}
+.gfbh:hover{color:var(--ink)}.gfbox:not(.fold) .gfbh{border-bottom:1px solid var(--line)}
+.gfbh .tw{width:9px;color:var(--faint)}.gfbh .gfbi{text-transform:none}.gfbh .gfbn{font-weight:500;color:var(--faint)}.gfbh .sp{flex:1}
+.gfbh .gfbq{font-weight:400;color:var(--faint);cursor:help}.gfbh .gfbm{width:22px;height:18px;padding:0;font-size:14px;line-height:1}
+.gfbb{padding:3px 0}.gfbb .gffilt{width:calc(100% - 12px);margin:4px 6px}
+.gfside .gfbb .gfb{display:flex;align-items:center;flex-wrap:nowrap;gap:6px;min-height:22px;padding:0 8px 0 6px;border-left:3px solid transparent;border-radius:0;font:13px "Segoe UI",Inter,sans-serif;cursor:default}
+.gfbb .gfb:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.gfbb .gfb.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-left-color:var(--accent)}
+.gfbb .gfb.on .gbn{color:var(--accent);font-weight:700}.gfbb .gfb .gbn{font-weight:400;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gfbb .gbd{width:12px;flex:none;text-align:center;color:var(--faint);font-size:10px}.gfbb .gfb.on .gbd{color:var(--accent)}
+.gfside .gfbb .gfb.gfin{padding-left:24px}.gfbb .gfdir{cursor:pointer}.gfbb .gfdir .gbn{color:var(--muted)}
+.gfbb .gbst{flex:none;display:flex;gap:5px;font-size:11.5px;font-weight:600;white-space:nowrap}.gfbb .gbst i{font-style:normal}
+.gfbb .gbs{margin-left:0;flex:none}
+.s-ok{color:#2e8b57}.s-up{color:var(--accent)}.s-down,.s-web{color:#2f7fd8}.s-off{color:var(--faint);font-weight:400}.s-else{color:#b07800}.s-tag{color:var(--navy)}
+.gfnone{margin:3px 12px 4px 27px;font-size:12px;color:var(--faint)}
+/* ⇆ Comparar ramas: resumen, dos columnas de commits (clic: filtrar archivos) y tabla de archivos */
+.cbsum{background:color-mix(in srgb,#2f7fd8 9%,var(--paper))!important}
+.cbcols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.cbcol{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--paper)}
+.cbcol h5{margin:0;padding:6px 10px;font-size:11px;letter-spacing:.04em;text-transform:uppercase;background:color-mix(in srgb,var(--ink) 5%,transparent);border-bottom:1px solid var(--line)}
+.cbcol.suya h5{color:#2f7fd8}.cbcol.mia h5{color:var(--accent)}
+.cbl{max-height:232px;overflow:auto;padding:3px 0}
+.cbc{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:baseline;padding:4px 10px;cursor:pointer;font-size:13px;border-left:3px solid transparent}
+.cbc:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}.cbc.on{background:color-mix(in srgb,var(--accent) 14%,transparent);border-left-color:var(--accent)}
+.cbc .cbm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cbc .cba,.cbc .cbn{font-size:11.5px;color:var(--faint);white-space:nowrap}
+.cbmore{margin:4px 10px;font-size:12px}
+.cbfh{display:flex;align-items:center;gap:10px;margin:4px 0 6px}.cbfh h4{margin:0!important}.cbfh .sp{flex:1}.cbq{height:26px;font-size:12px;width:200px}
+.cbt{width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed}
+.cbt th{text-align:left;font-size:11.5px;color:var(--muted);font-weight:600;padding:5px 8px;border-bottom:1px solid var(--line);cursor:pointer;user-select:none;white-space:nowrap}
+.cbt th.on{color:var(--ink)}.cbt th:nth-child(1){width:34px;cursor:default;text-align:right}.cbt th:nth-child(2){width:56px}.cbt th:nth-child(4){width:26%}.cbt th:nth-child(5){width:150px}.cbt th:nth-child(6),.cbt th:nth-child(7){width:56px}.cbt th:nth-child(8){width:60px;cursor:default}
+.cbt td{padding:4px 8px;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cbt .gst{font:600 11px Consolas,monospace}.cbt .gst[data-s=M]{color:#c08a00}.cbt .gst[data-s=A]{color:#2e8b57}.cbt .gst[data-s=D]{color:#d33}
+.cbt .cbd{color:var(--muted);direction:rtl;text-align:left}.cbt .cbp{color:#2e8b57}.cbt .cbm2{color:#d33}.cbt .cben{font-size:12px}
+.cbt .en-suya{color:#2f7fd8}.cbt .en-tuya{color:var(--accent)}.cbt .en-las2{color:#b07800;font-weight:600}
+.cbt tr.cbw td{background:color-mix(in srgb,#c08a00 9%,transparent)}
+dialog#dlg.sets.mg.cmpb>footer .sp{flex:1}
 .gfst{margin:6px 8px 4px;font-size:12px;color:var(--muted);line-height:1.4}.gfst .gbok{color:#2e8b57}
 .gfside .gfb{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;row-gap:0}.gfb .gbn{font-weight:500}.gfb.on .gbn{font-weight:700;color:var(--ink)}
 .gfb .gbh{font-size:11px;color:var(--accent)}.gfb .gbs{margin-left:auto;font-size:11.5px;white-space:nowrap}
@@ -486,6 +535,7 @@ dialog#dlg.sets.win.uni{width:fit-content;min-width:min(640px,calc(100vw - 32px)
 /* «Dónde estoy»: títulos que pliegan su sección, línea gris de ayuda, 💻☁ (en tu PC / en el servidor) y filtro */
 .gfside h4.gfsec{display:flex;align-items:center;gap:4px;cursor:pointer;user-select:none;margin-top:14px;padding-top:8px;border-top:1px solid var(--line)}
 .gfside h4.gfsec:hover{color:var(--ink)}.gfsec .tw{width:10px;color:var(--faint)}.gfsec .sp{flex:1}
+.gfempty{margin:2px 8px 8px 20px;padding:6px 8px;border:1px dashed var(--line);border-radius:6px;font-size:11.5px;color:var(--muted);line-height:1.4}.gfterm{font-weight:500;color:var(--faint);letter-spacing:0;text-transform:none}
 .gfhelp{margin:-2px 8px 6px 20px;font-size:11px;color:var(--faint);line-height:1.35}
 .gfb .gbw{font-size:11px;letter-spacing:1px;opacity:.8}.gfx .gbn{font-weight:400}
 .gffilt{width:calc(100% - 12px);margin:0 6px 6px;height:26px;font-size:12px}
@@ -3909,6 +3959,116 @@ const gitNo = title => ({ disabled: true, title });
 // Ramas que se pueden fusionar en la actual: las otras locales y las que solo están en el remoto
 const gitMergeable = () => [...gst.ramas.filter(b => b !== gst.rama),
   ...gst.ramas_remotas.filter(r => !gst.ramas.includes(r.split('/').slice(1).join('/')))];
+// Clic en una rama del panel: cambiar a ella. Con cambios sin commit pregunta antes qué hacer con ellos (como cuando
+// git se niega); abierta en otra carpeta del repositorio, explica y ofrece ir allí.
+async function gitSwitchAsk(b) {
+  if (gst.en_otra_carpeta?.[b]) return gitBranchElsewhere(b, gst.en_otra_carpeta[b]);
+  const n = gst.preparados.length + gst.cambios.length + gst.conflictos.length;
+  if (!n) return gitSwitch(b);
+  const llevar = `Llevarlos a «${b}»`, apartar = 'Guardarlos aparte y cambiar';
+  const c = await ask(`Cambiar a «${b}»`, `Tienes ${n} archivo${n === 1 ? '' : 's'} con cambios sin commit en «${gst.rama}».\n\n` +
+    `· Guardarlos aparte: cambias con la rama limpia; los recuperas luego en «Guardados aparte».\n` +
+    `· Llevarlos: cambias y tus cambios siguen contigo (si chocan con «${b}», quedan en conflicto para resolverlos).`,
+    [apartar, llevar, 'Cancelar']);
+  if (c === llevar || c === apartar) return gitSwitch(b, c === llevar ? 'llevar' : 'apartar');
+}
+// ⇆ Comparar otra rama con la tuya (doble clic en una rama). Solo lee. Arriba, en dos columnas, los commits que solo
+// tiene cada una (clic: ver solo sus archivos; Ctrl+clic: varios; otro clic: quitar); abajo, los archivos distintos
+// («En»: dónde cambiaron desde que se separaron; «Ver»: dos columnas). Abajo, fusionar o cambiar a ella.
+async function gitCompareDialog(b) {
+  const localOf = r => r.split('/').slice(1).join('/');
+  const ref = gst.ramas.includes(b) ? b : gst.ramas_remotas.find(r => localOf(r) === b) || b, mine = gst.rama;
+  const d = $('#dlg'); d.className = 'sets mg cmpb'; d.oninput = d.onchange = null; d.onclose = null;
+  const shell = body => `<header><b>⇆ Comparar «${esc(b)}» con tu rama «${esc(mine)}»</b><span class="sp"></span>
+      <button class="small" data-rev title="Ver la comparación desde el otro lado">⇄ Al revés</button><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+    <div class="mgbody">${body}</div>
+    <footer><button class="primary" data-merge>⤵ Fusionar «${esc(b)}» en «${esc(mine)}»…</button><button data-sw>⎇ Cambiar a «${esc(b)}»</button><span class="sp"></span><button data-x>Cerrar</button></footer>`;
+  d.innerHTML = shell('<p class="gc">Comparando…</p>');
+  const bind = () => {
+    d.querySelectorAll('[data-x]').forEach(x => x.onclick = () => d.close());
+    d.querySelector('[data-merge]').onclick = () => { d.close(); gitMerge(ref); };
+    d.querySelector('[data-sw]').onclick = () => { d.close(); gitSwitchAsk(b); };
+  };
+  bind(); if (!d.open) d.showModal();
+  let c;
+  try { c = await api(`/api/git/comparar?ruta=${encodeURIComponent(gst.ruta)}&otra=${encodeURIComponent(ref)}`); }
+  catch (e) { d.querySelector('.mgbody').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const pl = (k, s, p = s + 's') => `${k} ${k === 1 ? s : p}`, sel = new Set();
+  const commits = new Map([...c.solo_suya.map(x => [x.hash, { ...x, lado: 'suya' }]), ...c.solo_mia.map(x => [x.hash, { ...x, lado: 'mia' }])]);
+  const enSuya = new Set(c.cambiados_suya), enMia = new Set(c.cambiados_mia);
+  let rev = false, q = '', sk = 'rel', sdir = 1;
+  const files = () => {
+    if (!sel.size) return c.archivos.map(f => ({ ...f }));
+    const by = new Map();
+    for (const h of sel) for (const f of commits.get(h).archivos) {
+      const x = by.get(f.rel) || by.set(f.rel, { rel: f.rel, estado: f.estado, mas: 0, menos: 0, commit: commits.get(h), binario: false }).get(f.rel);
+      if (f.mas == null) x.binario = true; else { x.mas += f.mas; x.menos += f.menos; }
+      x.aviso = commits.get(h).lado === 'suya' ? enMia.has(f.rel) && '⚠ también en la tuya' : enSuya.has(f.rel) && `⚠ también en «${b}»`;
+    }
+    return [...by.values()].map(x => x.binario ? { ...x, mas: null, menos: null } : x);
+  };
+  const draw = () => {
+    const top = d.querySelector('.mgbody')?.scrollTop || 0;
+    const sum = !c.n_suya && !c.n_mia ? `✓ «${esc(b)}» y «${esc(mine)}» están en el mismo punto: no hay nada que comparar.`
+      : [c.n_suya ? `«${esc(b)}» tiene ${pl(c.n_suya, 'commit')} que tú no` : `«${esc(b)}» ya está entera en tu rama`,
+        c.n_mia ? `tú tienes ${c.n_mia} que «${esc(b)}» no` : `tu rama ya está entera en «${esc(b)}»`, pl(c.archivos.length, 'archivo distinto', 'archivos distintos')].join(' · ');
+    const col = lado => {
+      const list = lado === 'suya' ? c.solo_suya : c.solo_mia, n = lado === 'suya' ? c.n_suya : c.n_mia;
+      const t = lado === 'suya' ? `↓ Solo en «${esc(b)}» (${n})` : `↑ Solo en «${esc(mine)}» · tuya (${n})`;
+      return `<div class="cbcol ${lado}"><h5>${t}</h5><div class="cbl">${list.length ? list.map(x => `<div class="cbc${sel.has(x.hash) ? ' on' : ''}" data-h="${x.hash}" title="${esc(x.hash.slice(0, 7))} · ${esc(x.autor)} · ${esc(dayKey(x.fecha))} ${hhmm(x.fecha)}\n\n${esc(x.mensaje)}\nClic: ver solo sus archivos · Ctrl+clic: varios">`
+        + `<span class="cbm">${x.union ? '⤵ ' : ''}${esc(x.mensaje)}</span><span class="cba">${esc(x.autor)} · ${esc(fmtRel(x.fecha))}</span><span class="cbn">📄 ${x.archivos.length}</span></div>`).join('')
+        + (n > list.length ? `<p class="gc cbmore">… y ${n - list.length} más antiguos</p>` : '') : '<p class="gc cbmore">Ninguno</p>'}</div></div>`;
+    };
+    const fs = files().filter(f => !q || plainTxt(f.rel).includes(plainTxt(q)));
+    const key = f => sk === 'mas' ? f.mas ?? -1 : sk === 'menos' ? f.menos ?? -1 : sk === 'en' ? f.en || '' : sk === 'estado' ? f.estado : sk === 'dir' ? f.rel.slice(0, f.rel.lastIndexOf('/') + 1) : f.rel.split('/').pop().toLowerCase();
+    fs.sort((x, y) => (key(x) > key(y) ? 1 : key(x) < key(y) ? -1 : 0) * sdir);
+    const EN = { suya: `«${esc(b)}»`, tuya: 'tuya', las2: 'las 2' };
+    const one = sel.size === 1 ? commits.get([...sel][0]) : null;
+    const ftitle = !sel.size ? `Archivos distintos (${fs.length})` : one ? `Archivos de «${esc(one.mensaje)}» (${fs.length})` : `Archivos de ${sel.size} commits (${fs.length})`;
+    const th = (k, t) => `<th data-k="${k}"${sk === k ? ` class="on"` : ''}>${t}${sk === k ? (sdir > 0 ? ' ▴' : ' ▾') : ''}</th>`;
+    d.querySelector('.mgbody').innerHTML = `<p class="mgsum cbsum">${sum}</p>
+      <div class="cbcols">${(rev ? ['mia', 'suya'] : ['suya', 'mia']).map(col).join('')}</div>
+      <div class="cbfh"><h4>${ftitle}</h4>${sel.size ? `<button class="small" data-all>✕ Ver todos (${c.archivos.length})</button>` : ''}<span class="sp"></span><input class="cbq" placeholder="🔍 Filtrar…" value="${esc(q)}" spellcheck="false"></div>
+      ${fs.length ? `<table class="cbt"><thead><tr><th>#</th>${th('estado', 'Estado')}${th('rel', 'Archivo')}${th('dir', 'Carpeta')}${sel.size ? '<th></th>' : th('en', 'Cambió en')}${th('mas', '+')}${th('menos', '−')}<th></th></tr></thead><tbody>`
+        + fs.map((f, i) => { const name = f.rel.split('/').pop(), dir = f.rel.slice(0, -name.length - 1);
+          const warn = sel.size ? f.aviso : f.en === 'las2' && '⚠ cambió en las 2: puede chocar al fusionar';
+          return `<tr${warn ? ' class="cbw"' : ''}><td class="mgn">${i + 1}</td><td><span class="gst" data-s="${esc(f.estado)}" title="${esc(sel.size ? GST_TXT[f.estado] || f.estado : { A: `Solo está en «${b}»`, D: `Solo está en tu rama «${mine}»`, M: 'Está en las dos, con contenido distinto' }[f.estado] || f.estado)}">${esc(f.estado)}</span></td><td class="cbf" title="${esc(f.rel)}">${esc(name)}</td>`
+            + `<td class="cbd" title="${esc(dir)}">${esc(dir)}</td><td class="cben">${sel.size ? (warn ? esc(warn) : '') : `<span class="en-${f.en}"${warn ? ` title="${esc(warn)}"` : ''}>${warn ? '⚠ ' : ''}${EN[f.en]}</span>`}</td>`
+            + `<td class="cbp">${f.mas == null ? '<span class="gc">bin.</span>' : `+${f.mas}`}</td><td class="cbm2">${f.menos ? `−${f.menos}` : ''}</td><td><button class="small" data-ver="${esc(f.rel)}">Ver</button></td></tr>`; }).join('') + '</tbody></table>'
+        : `<p class="gc">${q ? 'Ningún archivo coincide con el filtro.' : 'No hay archivos distintos.'}</p>`}`;
+    const B = d.querySelector('.mgbody'); B.scrollTop = top;
+    B.querySelectorAll('.cbc').forEach(r => r.onclick = e => {
+      const h = r.dataset.h;
+      if (e.ctrlKey) sel.has(h) ? sel.delete(h) : sel.add(h);
+      else if (sel.size === 1 && sel.has(h)) sel.clear(); else { sel.clear(); sel.add(h); }
+      draw();
+    });
+    B.querySelector('[data-all]')?.addEventListener('click', () => { sel.clear(); draw(); });
+    const qi = B.querySelector('.cbq'); qi.oninput = () => { q = qi.value; draw(); const n = d.querySelector('.cbq'); n.focus(); n.setSelectionRange(q.length, q.length); };
+    B.querySelectorAll('th[data-k]').forEach(t => t.onclick = () => { if (sk === t.dataset.k) sdir = -sdir; else { sk = t.dataset.k; sdir = 1; } draw(); });
+    B.querySelectorAll('[data-ver]').forEach(x => x.onclick = () => {
+      const f = fs.find(y => y.rel === x.dataset.ver);
+      if (sel.size && f.commit) return mergeCommitView(f.commit, f, b); // antes → después de ese commit
+      gitCompareFile(f, c, b, mine);
+    });
+  };
+  d.querySelector('[data-rev]').onclick = () => { rev = !rev; draw(); };
+  draw();
+}
+// «Ver» un archivo en la comparación de ramas: tu rama | la otra, en dos columnas con su barra de marcas
+async function gitCompareFile(f, c, b, mine) {
+  const d = dlg2(); d.className = 'mgv';
+  d.innerHTML = `<header><button class="small" data-back>← Volver a la lista</button><b>${esc(f.rel)}</b><span class="gc">«${esc(mine)}» ↔ «${esc(b)}»</span><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header><div class="mgvbody"><p class="gc" style="padding:16px">Cargando…</p></div>`;
+  d.querySelector('[data-x]').onclick = d.querySelector('[data-back]').onclick = () => d.close();
+  if (!d.open) d.showModal();
+  const ver = h => api(`/api/git/version?ruta=${encodeURIComponent(pjoin(gst.ruta, '_'))}&hash=${h}&rel=${encodeURIComponent(f.rel)}`).then(r => r.texto);
+  let a, z;
+  try { [a, z] = await Promise.all([f.estado === 'A' ? null : ver(c.mia_hash), f.estado === 'D' ? null : ver(c.otra_hash), loadMerge()]); }
+  catch (e) { d.querySelector('.mgvbody').innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  d.querySelector('.mgvbody').innerHTML = `<p class="mglegend">A la izquierda el archivo en tu rama «${esc(mine)}»; a la derecha, en «${esc(b)}». En <span class="del">rojo</span> lo que no está en «${esc(b)}» y en <span class="add">verde</span> lo que «${esc(b)}» tiene de más.</p>
+    ${mgSbs(a, z, `EN «${esc(b)}»`).replace('LO QUE TIENES AHORA', `EN TU RAMA «${esc(mine)}»`)}`;
+  mgCenter(d); mgMarks(d);
+}
 async function gitMerge(b) {
   mergeOneDialog('fusionar', b); // pantalla única: nada se toca hasta «⤵ Fusionar»
 }
@@ -3963,8 +4123,11 @@ function gitBranchMenu(anchor) {
 function gitOtherBranchMenu(anchor, b, estado) {
   const web = gitWeb(), local = gst.ramas.includes(b), i = (gst.ramas_info || []).find(x => x.rama === b);
   const src = local ? b : gst.ramas_remotas.find(r => r.split('/').slice(1).join('/') === b) || b; // solo remota: se fusiona origin/b
+  const tip = gst.puntas?.[b] || gst.puntas?.[src];
   openMenu(anchor, [{ head: `${b} · ${estado}` },
-    ['⎇  Cambiar a esta rama', () => gitSwitch(b), { title: local ? `Pasar a trabajar en «${b}»` : `Traerla de ${web} y pasar a trabajar en ella` }],
+    ['⎇  Cambiar a esta rama', () => gitSwitchAsk(b), { title: local ? `Pasar a trabajar en «${b}»` : `Traerla de ${web} y pasar a trabajar en ella` }],
+    ['⇆  Comparar con «' + gst.rama + '»…', () => gitCompareDialog(b), { title: 'Qué commits y archivos tiene cada una (doble clic en la rama)' }],
+    ['👁  Ver su último commit en el historial', () => tip && gitShowCommit(tip), tip ? {} : gitNo('No se encontró su último commit')],
     ['⤵  Fusionar en ' + gst.rama, () => gitMerge(src), { title: `Traer los cambios de «${b}» a «${gst.rama}» (la rama actual)` }],
     '-',
     ['⇣  Pull', () => gitLong('pull_rama', { rama: b }), !local ? gitNo(`Aún no está en tu PC: «Cambiar a esta rama» la trae`)
@@ -4000,6 +4163,44 @@ async function gitRepoMenu(anchor) {
     m.querySelectorAll('button[title]').forEach(b => { const p = ps.find(x => x.ruta === b.title); if (p) b.innerHTML = html(p); });
     m.place(); // ahora es más ancha: se vuelve a colocar para que no se salga de la ventana
   }
+}
+// Pestañas de proyectos en Git a pantalla completa: nombre + señales (↓ por traer, ↑ por subir, cambios, ✓ al día) y la
+// rama debajo; el título dice todo. El proyecto abierto usa su estado en vivo (gst); los demás, el resumen (gitSum),
+// que se pide como mucho cada 15 s. Los proyectos sin git no tienen pestaña (salvo el abierto): van en ▾ con todos.
+let gitSumAt = 0;
+function gitProjTabs() {
+  const T = $('#gfTabs'); if (!T) return;
+  if (Date.now() - gitSumAt > 15000) { gitSumAt = Date.now(); api('/api/git/resumen').then(s => { gitSum = s; gitProjTabs(); }).catch(() => {}); }
+  const sum = r => gitSum?.find(x => x.ruta === r), now = gst?.ruta;
+  const live = g => g && !g.error ? { rama: g.rama, remota: g.remota, atras: g.atras, adelante: g.adelante,
+    cambios: g.preparados.length + g.cambios.length + g.conflictos.length } : null;
+  const ps = (side?.proyectos || []).filter(p => p.ruta === now || !gitSum || sum(p.ruta)?.rama);
+  const html = ps.map(p => {
+    const g = p.ruta === now ? live(gst) || sum(p.ruta) : sum(p.ruta), on = p.ruta === now;
+    const sig = !g ? '' : !g.rama ? '<i class="pt-off">sin git</i>'
+      : (g.remota && g.atras ? `<i class="pt-down">↓${g.atras}</i>` : '') + (g.remota && g.adelante ? `<i class="pt-up">↑${g.adelante}</i>` : '')
+        + (g.cambios ? `<i class="pt-ch">${g.cambios}</i>` : '') + (g.remota && !g.atras && !g.adelante && !g.cambios ? '<i class="pt-ok">✓</i>' : '');
+    const tip = [p.nombre, p.ruta, g?.rama ? `⎇ ${g.rama}` + (g.remota ? ` ↔ ${g.remota}` : ' · sin remoto') : '',
+      g?.remota && g.atras ? `↓ ${g.atras} por traer` : '', g?.remota && g.adelante ? `↑ ${g.adelante} por subir` : '',
+      g?.cambios ? `${g.cambios} cambio${g.cambios === 1 ? '' : 's'} sin commit` : '', g?.remota && !g.atras && !g.adelante ? '✓ al día con el servidor' : ''].filter(Boolean).join('\n');
+    return `<button class="gfpt${on ? ' on' : ''}" data-ruta="${esc(p.ruta)}" title="${esc(tip)}"><span class="pt1"><b>${esc(p.nombre)}</b>${sig}</span>`
+      + `<span class="pt2">${g?.rama ? '⎇ ' + esc(g.rama) : g ? '' : '…'}</span></button>`;
+  }).join('');
+  const box = T.querySelector('.gfpts');
+  if (box.dataset.h !== html) {
+    box.dataset.h = html; box.innerHTML = html;
+    box.querySelectorAll('.gfpt').forEach(b => b.onclick = () => {
+      if (b.classList.contains('on')) return;
+      LS('desklens.git.repo', b.dataset.ruta); gfSel = gfL.sel[b.dataset.ruta] || null; gfRestore = true;
+      box.querySelectorAll('.gfpt.on').forEach(x => x.classList.remove('on')); b.classList.add('on', 'wait'); // respuesta al clic
+      $('#gfBr')?.classList.add('gfwait'); const g = $('#gfGraph'); if (g) g.style.opacity = '.45';
+      gitLoad();
+    });
+  }
+  const on = box.querySelector('.gfpt.on'); // al cambiar de proyecto, la abierta a la vista (el refresco no mueve lo desplazado a mano)
+  if (box.dataset.now !== now) box.dataset.now = now; else return;
+  if (on && (on.offsetLeft < box.scrollLeft || on.offsetLeft + on.offsetWidth > box.scrollLeft + box.clientWidth))
+    box.scrollLeft = on.offsetLeft - (box.clientWidth - on.offsetWidth) / 2;
 }
 // ---------- Git a pantalla completa (⤢): proyectos y ramas · grafo con entrantes y salientes · detalle · cambios ----------
 // La columna derecha es la propia vista Git (#gitv), que se muda aquí mientras dura y vuelve a la barra al salir.
@@ -4044,7 +4245,8 @@ function gitFullOpen() {
   if (gitFullOn()) gitFullClose(true); // ya abierta: devolver #gitv a su sitio antes de rehacerla, o se pierde con el innerHTML
   LS('desklens.git.full', '1');
   const G = $('#gitfull');
-  G.innerHTML = `<div class="gfbar"><b>Git</b><span class="gft" id="gfTitle"></span><span class="sp"></span>
+  G.innerHTML = `<div class="gfptabs" id="gfTabs"><div class="gfpts"></div><button class="ic gfptm" title="Todos los proyectos, también los que no usan git">▾</button></div>
+    <div class="gfbar"><b>Git</b><span class="gft" id="gfTitle"></span><span class="sp"></span>
       <label title="Ver también las demás ramas locales y remotas"><input type="checkbox" id="gfAll"> Todas las ramas</label>
       <button class="small" id="gfPull" title="git pull">⇣ Pull</button><button class="small" id="gfPush" title="git push">⇡ Push</button>
       <button class="small" id="gfFetch" title="Ver si hay novedades en el remoto">⟳ Fetch</button></div>
@@ -4068,6 +4270,8 @@ function gitFullOpen() {
   $('#gfAll').checked = LS('desklens.git.todas') === '1';
   $('#gfAll').onchange = e => { LS('desklens.git.todas', e.target.checked ? '1' : ''); gfKey = ''; gitFullDraw(); };
   $('#gfPull').onclick = () => mergeOneDialog('pull'); $('#gfPush').onclick = gitPush; $('#gfFetch').onclick = () => gitLong('fetch');
+  G.querySelector('.gfptm').onclick = e => { e.stopPropagation(); gitRepoMenu(e.currentTarget); };
+  G.querySelector('.gfpts').onwheel = e => { if (!e.deltaY || e.shiftKey) return; e.preventDefault(); e.currentTarget.scrollLeft += e.deltaY; }; // rueda = de lado
   document.body.classList.add('gitfull', 'vgit');
   gitfullLayout(false);
   gfKey = ''; gfSel = gfL.sel[gst.ruta] || null; gfRestore = true; gitFullDraw();
@@ -4080,8 +4284,9 @@ function gitFullClose(keep = false) {
 // Dibuja título, proyectos, ramas y (si cambió la punta de la rama o de su remota) el grafo
 async function gitFullDraw() {
   if (!gitFullOn() || !gst) return;
+  gitProjTabs();
   if (gst.error) return gitSetupDraw(); // sin git: asistente (y nada del proyecto anterior se queda a la vista)
-  $('#gfTitle').textContent = `${projLabel(gst.ruta)} · ⎇ ${gst.rama}` + (gst.remota ? ` ↔ ${gst.remota}` : ' (sin remota)');
+  $('#gfTitle').textContent = `⎇ ${gst.rama}` + (gst.remota ? ` ↔ ${gst.remota}` : ' (sin remota)'); // el proyecto lo dice su pestaña
   $('#gfPull').disabled = !gst.remota; $('#gfPush').disabled = $('#gfFetch').disabled = !gst.remotos.length;
   gitFullSide();
   const todas = $('#gfAll').checked, key = `${gst.ruta}|${gst.punta}|${todas}`;
@@ -4094,7 +4299,7 @@ async function gitFullDraw() {
 // ---------- proyecto sin git: asistente (① empezar · ② conectar con un servidor, opcional · ③ iniciar sesión, opcional) ----------
 let gfIdent = null; // nombre y correo de git ya configurados en este equipo, para rellenar
 async function gitSetupDraw() {
-  $('#gfTitle').textContent = `${projLabel(gst.ruta)} · sin git`;
+  $('#gfTitle').textContent = 'sin git';
   $('#gfPull').disabled = $('#gfPush').disabled = $('#gfFetch').disabled = true;
   $('#gfRepo').innerHTML = `<b>${esc(projLabel(gst.ruta))}</b><span>▾</span>`;
   $('#gfRepo').onclick = e => { e.stopPropagation(); gitRepoMenu(e.currentTarget); };
@@ -4176,60 +4381,106 @@ function gitFullSide() {
     const t = [i.adelante && `↑${i.adelante} por subir`, i.atras && `↓${i.atras} por traer`].filter(Boolean);
     return t.length ? ['gbmove', t.join(' · '), `Comparada con ${i.remota}`] : ['gbok', '✓ al día', `Igual que ${i.remota}`];
   };
-  // Panel «Dónde estoy»: una sola lista de ramas (💻 en tu PC, ☁ en el servidor: no se repiten como en «Remotos»);
-  // debajo, solo si hay, los cambios guardados aparte (stash) y las versiones marcadas (etiquetas). Cada título pliega
-  // su sección (se recuerda) y lleva una línea gris que dice para qué sirve.
-  const shut = gitSideFold(), head = (id, k, t, n, help) => {
-    const h = $(id); h.className = 'gfsec' + (shut[k] ? ' fold' : ''); h.dataset.k = k;
-    h.innerHTML = `<span class="tw">${shut[k] ? '▸' : '▾'}</span><span>${t}${n == null ? '' : ` (${n})`}</span><span class="sp"></span>`;
-    h.onclick = e => { if (e.target.closest('button')) return; shut[k] = !shut[k]; LS('desklens.git.secciones', JSON.stringify(shut)); gitFullSide(); };
-    return shut[k] ? '' : `<p class="gfhelp">${help}</p>`;
+  // Panel «Dónde estoy» en cajas: cada sección es una caja con su banda de título (icono, nombre, número, ⓘ con la
+  // ayuda y sus botones); dentro, filas como las del explorador con el estado en una columna alineada a la derecha
+  // (✓ al día, ↑ por subir, ↓ por traer, 💻 solo en tu PC, ☁ en el servidor, 📂 abierta en otra carpeta). Un clic en
+  // la banda pliega la caja (se recuerda). Las ramas con «/» van en una carpeta plegable (desklens.git.carpetas).
+  const shut = gitSideFold(), saveShut = () => LS('desklens.git.secciones', JSON.stringify(shut));
+  const box = (into, k, icon, title, n, help, extra) => {
+    const b = Object.assign(document.createElement('div'), { className: 'gfbox' + (shut[k] ? ' fold' : '') });
+    const h = Object.assign(document.createElement('div'), { className: 'gfbh', title: help + '\nClic: plegar o desplegar' });
+    h.innerHTML = `<span class="tw">${shut[k] ? '▸' : '▾'}</span><span class="gfbi">${icon}</span><span class="gfbt">${title}</span>`
+      + `<span class="gfbn">${n}</span><span class="sp"></span><span class="gfbq">ⓘ</span>`;
+    if (extra) h.append(extra);
+    h.onclick = e => { if (e.target.closest('button')) return; shut[k] = !shut[k]; saveShut(); gitFullSide(); };
+    const body = Object.assign(document.createElement('div'), { className: 'gfbb' });
+    b.append(h, body); into.append(b);
+    return shut[k] ? null : body;
   };
-  const enWeb = b => gst.ramas_remotas.some(r => localOf(r) === b);
-  const B = $('#gfBr'); B.innerHTML = head('#gfBrH', 'ramas', 'Ramas', rows.length, 'líneas de trabajo · clic: ver en el historial · doble clic: cambiar'); B.classList.remove('gfwait');
-  $('#gfBrH').append(Object.assign(button('⋯', e => { e.stopPropagation(); gitBranchMenu(e.currentTarget); }),
-    { className: 'ic gfbm', title: `Traer, Subir, Fusionar y más para «${gst.rama}»` }));
-  if (!shut.ramas) {
-    if (rows.length > 10) { // muchas ramas: filtro (lo escrito se conserva al refrescar)
+  const enWeb = b => gst.ramas_remotas.some(r => localOf(r) === b), hasWeb = gst.remotos.length > 0;
+  // símbolos de la columna de estado y su explicación
+  const sym = b => {
+    const cloud = enWeb(b) ? '<i class="s-off">☁</i>' : '';
+    if (otra[b]) return '<i class="s-else">📂</i>';
+    if (!gst.ramas.includes(b)) return '<i class="s-web">☁</i>';
+    if (!hasWeb) return '';
+    const i = info.get(b);
+    if (!i?.remota || i.borrada) return '<i class="s-off">💻</i>' + cloud;
+    return (i.adelante ? `<i class="s-up">↑${i.adelante}</i>` : '') + (i.atras ? `<i class="s-down">↓${i.atras}</i>` : '')
+      + (!i.adelante && !i.atras ? '<i class="s-ok">✓</i>' : '') + cloud;
+  };
+  const B = $('#gfBr'); B.innerHTML = ''; B.classList.remove('gfwait'); $('#gfBrH').style.display = 'none'; // el título va en la banda de la caja
+  const more = Object.assign(button('⋯', e => { e.stopPropagation(); gitBranchMenu(e.currentTarget); }),
+    { className: 'ic gfbm', title: `Traer, Subir, Fusionar y más para «${gst.rama}»` });
+  const RB = box(B, 'ramas', '⎇', 'Ramas', rows.length, 'Líneas de trabajo.\nClic: cambiar a esa rama · doble clic: compararla con la tuya · clic derecho: más opciones (ver su último commit, fusionar…)', more);
+  if (RB) {
+    if (rows.length > 10) { // muchas ramas: filtro (lo escrito se conserva al refrescar); filtrando, sin carpetas
       const q = Object.assign(document.createElement('input'), { className: 'gffilt', placeholder: 'Filtrar ramas…', value: gitBrQ, spellcheck: false });
-      q.oninput = () => { gitBrQ = q.value; B.querySelectorAll('.gfb').forEach(r => r.hidden = !!gitBrQ && !fold(r.dataset.rama).includes(fold(gitBrQ))); };
-      B.append(q);
+      q.oninput = () => { gitBrQ = q.value; gitFullSide(); setTimeout(() => { const n = $('#gfBr .gffilt'); n?.focus(); n?.setSelectionRange(n.value.length, n.value.length); }); };
+      RB.append(q);
     }
-    for (const b of rows) {
-      const [cls, txt, tip] = state(b), cur = b === gst.rama, tipHash = gst.puntas?.[b] || gst.puntas?.[gst.ramas_remotas.find(r => localOf(r) === b)];
-      const r = Object.assign(document.createElement('div'), { className: 'node gfb' + (cur ? ' on' : ''),
-        title: (cur ? 'Estás en esta rama' : 'Doble clic: cambiar a esta rama') + ' · clic: su último commit en el historial · clic derecho: más opciones\n' + tip });
-      r.dataset.rama = b; r.hidden = !!gitBrQ && !fold(b).includes(fold(gitBrQ));
-      r.innerHTML = `<span class="gbn">${cur ? '● ' : ''}${esc(b)}</span><span class="gbw" title="${gst.ramas.includes(b) ? 'En tu PC' : ''}${gst.ramas.includes(b) && enWeb(b) ? ' y ' : ''}${enWeb(b) ? 'en el servidor' : ''}">${gst.ramas.includes(b) ? '💻' : ''}${enWeb(b) ? '☁' : ''}</span>${cur ? '<span class="gbh">estás aquí</span>' : ''}${gst.remotos.length || cls === 'gbelse' ? `<span class="gbs ${cls}">${esc(txt)}</span>` : ''}`; // sin servidor, «solo en tu PC» en todas no dice nada
-      r.onclick = () => tipHash && gitShowCommit(tipHash);
-      r.ondblclick = () => cur ? null : otra[b] ? gitBranchElsewhere(b, otra[b]) : gitSwitch(b);
+    const brRow = (b, label, into, sub) => {
+      const [, txt, tip] = state(b), cur = b === gst.rama, tipHash = gst.puntas?.[b] || gst.puntas?.[gst.ramas_remotas.find(r => localOf(r) === b)];
+      const r = Object.assign(document.createElement('div'), { className: 'node gfb' + (cur ? ' on' : '') + (sub ? ' gfin' : ''),
+        title: `${b}\n${tip}\n` + (cur ? 'Estás en esta rama · clic derecho: más opciones' : 'Clic: cambiar a esta rama · doble clic: compararla con la tuya · clic derecho: más opciones') });
+      r.dataset.rama = b;
+      r.innerHTML = `<span class="gbd">${cur ? '●' : '○'}</span><span class="gbn">${esc(label)}</span><span class="gbst">${sym(b)}</span>`;
+      let wait; // clic: cambiar (tras 250 ms, por si es un doble clic) · doble clic: comparar
+      r.onclick = () => { if (cur) return; clearTimeout(wait); wait = setTimeout(() => gitSwitchAsk(b), 250); };
+      r.ondblclick = () => { clearTimeout(wait); if (!cur) gitCompareDialog(b); };
       r.oncontextmenu = e => { e.preventDefault(); const at = { x: e.clientX, y: e.clientY }; cur ? gitBranchMenu(at) : gitOtherBranchMenu(at, b, txt); };
-      B.append(r);
+      into.append(r);
+    };
+    const shown = rows.filter(b => !gitBrQ || fold(b).includes(fold(gitBrQ)));
+    if (gitBrQ) shown.forEach(b => brRow(b, b, RB));
+    else {
+      const dirs = (() => { try { return new Set(JSON.parse(LS('desklens.git.carpetas') || '[]')); } catch { return new Set(); } })();
+      const groups = new Map(); // «claude/x» → carpeta «claude»
+      for (const b of shown) { const i = b.indexOf('/'); if (i > 0) (groups.get(b.slice(0, i)) || groups.set(b.slice(0, i), []).get(b.slice(0, i))).push(b); }
+      const done = new Set();
+      for (const b of shown) {
+        const i = b.indexOf('/');
+        if (i <= 0) { brRow(b, b, RB); continue; }
+        const g = b.slice(0, i); if (done.has(g)) continue; done.add(g);
+        const list = groups.get(g), open = dirs.has(g) || list.includes(gst.rama);
+        const d = Object.assign(document.createElement('div'), { className: 'node gfb gfdir', title: `Ramas que empiezan por «${g}/»\nClic: abrir o cerrar` });
+        d.innerHTML = `<span class="gbd">${open ? '▾' : '▸'}</span><span class="gbn">📁 ${esc(g)}</span><span class="gbst"><i class="s-off">${list.length}</i></span>`;
+        d.onclick = () => { open ? dirs.delete(g) : dirs.add(g); LS('desklens.git.carpetas', JSON.stringify([...dirs])); gitFullSide(); };
+        RB.append(d);
+        if (open) list.forEach(x => brRow(x, x.slice(i + 1), RB, true));
+      }
     }
   }
   const M = $('#gfMore'); M.innerHTML = '';
-  const sec = (k, t, n, help) => { const h = document.createElement('h4'); h.id = 'gfS_' + k; M.append(h); const hp = head('#gfS_' + k, k, t, n, help); if (hp) M.insertAdjacentHTML('beforeend', hp); return !shut[k]; };
-  const row = (html, title, click, menu) => {
+  const row = (into, html, title, click, menu) => {
     const r = Object.assign(document.createElement('div'), { className: 'node gfb gfx', title, innerHTML: html });
-    r.onclick = click; r.oncontextmenu = e => { e.preventDefault(); menu?.({ x: e.clientX, y: e.clientY }); }; M.append(r);
+    r.onclick = click; r.oncontextmenu = e => { e.preventDefault(); menu?.({ x: e.clientX, y: e.clientY }); }; into.append(r);
   };
-  if (gst.stashes.length && sec('guardados', 'Cambios guardados aparte', gst.stashes.length, 'cambios a medias, sin commit · clic: ver sus archivos · clic derecho: recuperar'))
-    for (const s of gst.stashes) {
-      const m = s.mensaje.match(/^(?:WIP on|On) ([^:]+): (.*)$/) || [, '', s.mensaje], txt = m[2].replace(/^[0-9a-f]{7,} /, '');
-      row(`<span class="gbn">📦 ${esc(txt)}</span><span class="gbs">${m[1] ? `en ${esc(m[1])} · ` : ''}${fmtRel(+s.fecha)}</span>`, `${s.id} · ${s.mensaje}\nClic: ver sus archivos abajo · clic derecho: recuperar o borrar`,
-        () => { if (!s.hash) return; gfSel = s.hash; gitCommitDetail({ hash: s.hash, mensaje: '📦 ' + txt, padres: [], corto: s.hash.slice(0, 7), ts: 0 }); },
-        at => openMenu(at, [{ head: '📦 ' + txt },
-          ['↩  Recuperar y quitar del cajón', () => gitDo('recuperar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados')), { title: 'Vuelven a tus archivos y el guardado desaparece (git stash pop)' }],
-          ['↩  Recuperar y dejar una copia', () => gitDo('aplicar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados; la copia sigue guardada')), { title: 'Vuelven a tus archivos y el guardado sigue en el cajón (git stash apply)' }],
-          '-', ['🗑  Borrar…', async () => {
-            if (await ask('Borrar cambios guardados', `¿Borrar «${txt}»? Esos cambios a medias se pierden: no van a la papelera.`, ['Borrar', 'Cancelar'], { danger: true }) === 'Borrar'
-              && await gitDo('borrar_stash', [], { rama: s.id })) flash('🗑 Guardado borrado');
-          }, { danger: true }]]));
-    }
-  if (gst.etiquetas?.length && sec('versiones', 'Versiones marcadas', gst.etiquetas.length, 'commits con nombre fijo (etiquetas) · clic: ver en el historial'))
-    for (const t of gst.etiquetas)
-      row(`<span class="gbn">🏷 ${esc(t.nombre)}</span><span class="gbs">${t.fecha ? esc(dayKey(t.fecha)) : ''}</span>`, `${t.nombre} · ${t.hash.slice(0, 7)}\nClic: ver ese commit en el historial`,
-        () => gitShowCommit(t.hash), at => openMenu(at, [{ head: '🏷 ' + t.nombre }, ['⧉  Copiar el nombre', () => copyText(t.nombre, 'Nombre copiado')]]));
+  const none = (into, t) => into.insertAdjacentHTML('beforeend', `<p class="gfnone">${t}</p>`);
+  const SB = box(M, 'guardados', '📦', 'Guardados aparte', gst.stashes.length,
+    'Cambios a medias que apartas sin hacer commit (git stash), para cambiar de rama y recuperarlos después.\nClic: ver sus archivos · clic derecho: recuperar o borrar');
+  if (SB && !gst.stashes.length) none(SB, 'Ninguno');
+  if (SB) for (const s of gst.stashes) {
+    const m = s.mensaje.match(/^(?:WIP on|On) ([^:]+): (.*)$/) || [, '', s.mensaje], txt = m[2].replace(/^[0-9a-f]{7,} /, '');
+    row(SB, `<span class="gbd">📦</span><span class="gbn">${esc(txt)}</span><span class="gbst"><i class="s-off">${m[1] ? `${esc(m[1])} · ` : ''}${fmtRel(+s.fecha)}</i></span>`,
+      `${s.id} · ${s.mensaje}\nClic: ver sus archivos abajo · clic derecho: recuperar o borrar`,
+      () => { if (!s.hash) return; gfSel = s.hash; gitCommitDetail({ hash: s.hash, mensaje: '📦 ' + txt, padres: [], corto: s.hash.slice(0, 7), ts: 0 }); },
+      at => openMenu(at, [{ head: '📦 ' + txt },
+        ['↩  Recuperar y quitar del cajón', () => gitDo('recuperar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados')), { title: 'Vuelven a tus archivos y el guardado desaparece (git stash pop)' }],
+        ['↩  Recuperar y dejar una copia', () => gitDo('aplicar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados; la copia sigue guardada')), { title: 'Vuelven a tus archivos y el guardado sigue en el cajón (git stash apply)' }],
+        '-', ['🗑  Borrar…', async () => {
+          if (await ask('Borrar cambios guardados', `¿Borrar «${txt}»? Esos cambios a medias se pierden: no van a la papelera.`, ['Borrar', 'Cancelar'], { danger: true }) === 'Borrar'
+            && await gitDo('borrar_stash', [], { rama: s.id })) flash('🗑 Guardado borrado');
+        }, { danger: true }]]));
+  }
+  const tags = gst.etiquetas || [];
+  const TB = box(M, 'versiones', '🏷', 'Versiones <span class="gfterm">[tags]</span>', tags.length,
+    'Versiones marcadas: un nombre fijo («v1.0») puesto a un commit. No se mueve aunque sigas trabajando: sirve para saber qué está en producción o volver a una versión.\nClic: ver ese commit en el historial');
+  if (TB && !tags.length) none(TB, 'Ninguna');
+  if (TB) for (const t of tags)
+    row(TB, `<span class="gbd s-tag">🏷</span><span class="gbn">${esc(t.nombre)}</span><span class="gbst"><i class="s-off">${t.fecha ? esc(dayKey(t.fecha)) : ''}</i></span>`,
+      `${t.nombre} · ${t.hash.slice(0, 7)}\nClic: ver ese commit en el historial`,
+      () => gitShowCommit(t.hash), at => openMenu(at, [{ head: '🏷 ' + t.nombre }, ['⧉  Copiar el nombre', () => copyText(t.nombre, 'Nombre copiado')]]));
 }
 let gitBrQ = ''; // lo escrito en «Filtrar ramas…»
 const gitSideFold = () => { try { return JSON.parse(LS('desklens.git.secciones') || '{}'); } catch { return {}; } };

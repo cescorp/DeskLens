@@ -932,6 +932,20 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     assert out(rep, "rev-parse", "lado") == out(otro, "rev-parse", "HEAD") and out(rep, "rev-parse", "--abbrev-ref", "HEAD") == "main"
     assert act("pull_rama", "main")[0] == 400 and act("push_a", "nada/x")[0] == 400 and act("push_a", "origin/-x")[0] == 400
     assert act("cancelar_fusion", "")[0] == 400  # no hay fusión en curso
+    # comparar dos ramas (doble clic): commits de cada lado, archivos distintos y dónde cambiaron
+    git(rep, "checkout", "-q", "-b", "cmp-a"); (rep / "cmp1.md").write_text("a\n"); git(rep, "add", "-A"); git(rep, "commit", "-q", "-m", "en a")
+    git(rep, "checkout", "-q", "main"); (rep / "cmp2.md").write_text("m\n"); git(rep, "add", "-A"); git(rep, "commit", "-q", "-m", "en main")
+    cmp = desklens.git_compare(str(rep), "cmp-a")
+    assert [c["mensaje"] for c in cmp["solo_suya"]] == ["en a"] and [c["mensaje"] for c in cmp["solo_mia"]] == ["en main"], cmp
+    assert {f["rel"]: (f["estado"], f["en"]) for f in cmp["archivos"]} == {"cmp1.md": ("A", "suya"), "cmp2.md": ("D", "tuya")}
+    assert cmp["solo_suya"][0]["archivos"][0]["rel"] == "cmp1.md" and (cmp["n_suya"], cmp["n_mia"]) == (1, 1)
+    for bad in ("", "-x", "a..b", "no-existe"):
+        try:
+            desklens.git_compare(str(rep), bad)
+            raise AssertionError("debió negarse: " + bad)
+        except ValueError:
+            pass
+    git(rep, "reset", "-q", "--hard", "HEAD~1"); git(rep, "branch", "-q", "-D", "cmp-a")
     git(otro, "checkout", "-q", "main")
     # fusionar pisaría un cambio sin commit: 409 con la tabla y no se lanza nada; «apartar» y «commit» fusionan sin perderlo
     (rep / ".gitignore").write_text("*.log\nb\nc\n"); git(rep, "add", "-A"); git(rep, "commit", "-q", "-m", "gi")

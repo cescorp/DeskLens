@@ -9,11 +9,31 @@ Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qu�
 - **Cada cambio:** una versión nueva arriba en `novedades.md` (`## vX · fecha · título` + 1–3 líneas sencillas; el número sale en ⓘ de la cinta) y una entrada aquí. Ver `reglas.md`.
 - **Para verificar sin tocar su DeskLens:** levantar `desklens.Handler` en el puerto 8799 con `CONFIG`, `CONV_DIR`, `RECOVERY_DIR`, `INDEX_DB` **y `HIST_DIR`** en una carpeta temporal (sin `HIST_DIR` los pasos del historial caen en su `historial/versiones`). Para git, el script crea un repositorio de ejemplo en esa carpeta (ramas `calidad`, `pruebas` sin conflictos pero con un cambio sin commit en `shape/vite.config.js` y un `notas.txt` sin seguimiento, `cesare` con conflictos de contenido y borrado/modificado, `vieja` sin nada que traer) y lo añade como único proyecto. Se prueba en el panel del navegador (Claude Browser) con `gitMerge('pruebas')` etc. y clics reales. Ojo: en Windows dos servidores pueden escuchar el mismo puerto sin error; si hay otra sesión probando, usa otro puerto.
 
-## Estado al 2026-11-16 (para retomar)
-- **Rama `publico`, subida a GitHub (`origin/publico`) hasta v1.137** (`9ffa55b`). v1.138 (diálogo «Guardar» de los «nuevo N») y v1.139 (filtro del árbol desde el índice) en `a468f1e`, sin subir; v1.140 (Ctrl+Shift+F desde Ctrl+F) en `8a04c08`; v1.141 (filtro sin esperas) en `d2ba9fb`; v1.142 (ventana del índice) sin commit. `python test_desklens.py` pasa.
+## Estado al 2026-11-18 (para retomar)
+- **Rama `publico`**, con commit hasta v1.154 (`52f89bd`); v1.155 (pestañas de proyectos), v1.156 (guardados y versiones a la vista) v1.157 (panel izquierdo en cajas) y v1.158 (clic cambia, doble clic compara) sin commit; la pestaña «✎ Cambios» se probó y se deshizo. Ojo: Edge sin ventana no crea PDF en este equipo ahora y `test_desklens.py` se corta ahí. Revisar con `git log origin/publico..publico` qué falta subir a GitHub. Salvo el PDF, `python test_desklens.py` pasa.
 - **Fusionar / Pull / Pull desde = pantalla única** (`mergeOneDialog` en index.html; servidor `git_merge_check` GET `/api/git/fusion`, `git_merge_file` GET `/api/git/fusion/archivo`, `git_merge_apply` POST `/api/git/fusion`). Lista solo problemas (conflicto, ambos, tuyo_nuevo, bloqueado) en una tabla ordenable con un desplegable por archivo (v1.126); las vistas previas van siempre en otro modal (`#dlg2`, `mergeTwoView`): pestañas por opción y dos columnas alineadas «lo que tienes ahora | así quedará» (`sideBySideRows`), barra de marcas (`mgMarks`). «Editar manualmente» se escribe en ese modal y viaja como `textos`.
 - **Lo que sigue en pie de antes:** `gitMergeBanner` (fusión empezada fuera de DeskLens o con «Editar manualmente» sin texto), `mergeChooseDialog`/`mergeDiffView`/`mergeFinalDialog` para terminarla, y `gitMergeBlocked` solo para **Sincronizar** (pull+push), que aún no pasa por la pantalla única.
 - **Pendiente / ideas:** medir el freno de CPU del índice con una carpeta grande (la medición se cortó); explorador: probar el teclado del árbol en Edge con el DeskLens real; el historial de un archivo no lo sigue al renombrarlo; explorador: arrastrar y soltar para mover archivos entre carpetas (aprobado «para después»; hoy arrastrar adjunta al chat, hay que distinguir el destino); Sincronizar por la pantalla única; «⇆ Comparar lado a lado» de tu versión y la que llega si el usuario lo echa en falta; archivos binarios en la vista previa (ahora se ven como texto vacío); `git_merge_check` hace un `git log` y un `merge-file` por archivo (con cientos de archivos con problemas puede tardar).
+
+## 2026-11-19 · Git: clic = cambiar de rama, doble clic = comparar (v1.158)
+El usuario no entendía qué hacía el clic en una rama (saltaba a su punta en el historial y a veces encendía «Todas las ramas» sin decirlo). Pidió clic = cambiar y eligió para el doble clic «Comparar con la mía» (de tres opciones; las otras, ver la punta y ficha de la rama, quedan en el clic derecho o sin hacer).
+- **Servidor:** `git_compare(path, otra)` (GET `/api/git/comparar?otra=`, solo lee; nombre validado y `..` negado): `solo_suya`/`solo_mia` con `_merge_commits` (ahora acepta `rng`), `n_suya`/`n_mia` (`rev-list --count`), `archivos` = `diff HEAD otra` (name-status + numstat) con `en` = suya/tuya/las2 según `diff --name-only merge-base..cada punta`, y `cambiados_suya/mia` para los avisos por commit. Prueba en test_desklens.py.
+- **Ventana:** `brRow`: clic espera 250 ms (si llega el doble clic se cancela) y llama a `gitSwitchAsk` (pregunta apartar/llevar si hay cambios sin commit; 📂 → `gitBranchElsewhere`); doble clic → `gitCompareDialog` en `#dlg` (`sets mg cmpb`): resumen, `.cbcols` (clic filtra la tabla, Ctrl+clic suma, `sel`), tabla `.cbt` ordenable con filtro, «Ver» → `gitCompareFile` (en `dlg2`, `mgSbs` tu punta | la otra) o `mergeCommitView` (antes | después del commit), «⇄ Al revés» invierte las columnas, pie con Fusionar (`gitMerge(ref)`) y Cambiar. `gitOtherBranchMenu` añade «⇆ Comparar…» y «👁 Ver su último commit en el historial», y su «Cambiar» usa `gitSwitchAsk`.
+- **Probado** en el 8799 con ramas separadas (2 commits cada lado, un archivo cambiado en las 2): doble clic no cambia de rama, filtro por commit, las dos vistas «Ver», clic con un cambio sin commit → pregunta → «Guardarlos aparte y cambiar» (queda 1 guardado).
+
+## 2026-11-19 · Git: panel izquierdo en cajas (v1.157)
+Captura del usuario: el panel «se amontona» (cada rama con nombre, 💻☁, «estás aquí» y estado en 220 px saltaba de línea; ayudas y recuadros vacíos grandes). Rechazó una lista simple y un solo árbol; eligió la combinación: una caja por sección con filas de explorador. En `gitFullSide`, `box(into, clave, icono, título, n, ayuda, extra)` hace `.gfbox` con banda `.gfbh` (la ayuda va en su `title` y en ⓘ; clic pliega con `desklens.git.secciones`) y cuerpo `.gfbb`. Ramas: `brRow` = `.gbd` (●/○) + `.gbn` (con «…») + `.gbst` (`sym`: `s-ok` ✓, `s-up` ↑, `s-down` ↓, `s-off` 💻/☁, `s-web` ☁ solo servidor, `s-else` 📂); las de «a/b» van en `.gfdir` plegable (`desklens.git.carpetas`; abierta si contiene la actual) con sangría `.gfin`; con filtro (más de 10) la lista va plana. `#gfBrH` se oculta (el ⋯ pasa a la banda). Guardados y versiones usan las mismas filas; vacías, `.gfnone` «Ninguno». Colores: los de las pestañas de proyecto (morado ↑, azul ↓, verde ✓). Probado en el 8799 con ramas «feature/…», «claude/…», sin enlazar, solo servidor, ↑2, un stash y una etiqueta; claro y oscuro; doble clic cambia de rama.
+
+## 2026-11-19 · Git: guardados y versiones siempre a la vista (v1.156)
+Pedido del usuario tras explicarle qué son las etiquetas (nombre fijo a un commit: producción, volver, comparar entregas). En `gitFullSide` las secciones `guardados` y `versiones` se dibujan siempre; vacías llevan `.gfempty` (recuadro punteado con para qué sirven) y su título no lleva `.gfhelp` (`head` ya no pinta un `<p>` vacío). Título «Versiones marcadas <span class=gfterm>[tags]</span>». Sin acciones nuevas: crear stash/etiquetas, renombrar/borrar ramas y la sección Servidor quedan para después, en el panel derecho según el usuario. Probado en el 8799 vacío y con una etiqueta `v1.0`.
+
+## 2026-11-18 · Probado y deshecho: pestaña «✎ Cambios» (iba a ser v1.156)
+Se construyó una pestaña «✎ Cambios» al estilo GitHub Desktop (lista con casillas y commit a la izquierda, diff a la derecha, últimos commits debajo como VS Code) y se quitó la columna derecha. Al usuario no le gustó: «difícil de entender; las distribuciones de antes eran más sencillas». Se deshizo entero (opción B) antes del commit; la v1.155 se conserva.
+**Lección:** su distribución de Git (historial en el centro, detalle debajo, cambios en una columna a la derecha) es la de GitKraken y le resulta clara; no partir el historial ni mover el commit a otra pestaña. Si se retoman mejoras del panel de cambios (casillas, +/−, «corregir el último commit», botón que dice qué hará, diff en el detalle de abajo), hacerlas dentro de esa columna derecha. La copia de lo hecho quedó en el scratchpad de la sesión (`antes_de_deshacer_v1156`), que puede borrarse.
+
+## 2026-11-18 · Git: pestañas de proyectos (v1.155)
+Pedido del usuario: pasar a pestañas el selector de proyecto sin perder el resumen de cada uno. `gitProjTabs` (fila `#gfTabs` encima de `.gfbar`; `#gitfull` pasa a 3 filas): un `.gfpt` por proyecto con git (y el abierto aunque no tenga), nombre + señales (`pt-down` ↓, `pt-up` ↑, `pt-ch` cambios, `pt-ok` ✓) y la rama debajo; `title` con todo. El abierto usa `gst` en vivo; los demás `gitSum` (`/api/git/resumen`, como mucho cada 15 s). Se rehace solo si cambia el HTML (`dataset.h`); la rueda mueve de lado; la abierta se centra solo al cambiar de proyecto (`dataset.now`), así el refresco de 5 s no deshace lo desplazado. ▾ `.gfptm` = `gitRepoMenu` (todos, también sin git). En pantalla completa se ocultan «Estás en» y `#gfRepo`; `#gfTitle` queda en «⎇ rama ↔ remota». Probado en el 8799 con 10 proyectos de prueba (cambios, por subir, por traer y uno sin git), claro y oscuro. Después, a pedido del usuario (no se notaba cuál estaba abierta), `.gfpt.on` con fondo al 16 % del acento, raya de 3 px arriba, `inset` de 2 px abajo y el nombre en acento.
+También se anotó en «Pendientes» el inventario de lo propio de DeskLens en Git y el plan basado en Sourcetree; el usuario pidió después trabajar solo en lo que él diga (los pendientes, solo como sugerencia).
 
 ## 2026-11-18 · Menos «navegador»: perfil propio, gestos y icono (v1.154)
 El usuario notaba DeskLens más lento y menos natural que Obsidian (Electron, con su propio Chromium), y el icono pixelado. Con la caché llena, la página carga en 0,08 s y el estado de git en 0,15–0,18 s. Lo que pesaba era el Edge de siempre: su perfil con extensiones, sincronización, traductor y barra lateral, y sus gestos.
@@ -352,3 +372,57 @@ En otro equipo sin Python, al aceptar instalarlo con winget, el instalador falla
 - [ ] Decidir: aviso «⏳ Sin actividad», nivel 4 de formatos (LibreOffice/ffmpeg).
 - [ ] Probar en el Explorador real «🪟 Abrir desde Windows» (hecho el 2026-11-04, probado solo en una clave de prueba).
 - [ ] Nota de Obsidian sobre el modo mínimo de Claude: propuesta, pendiente de aprobación del usuario.
+
+### Git mejorado tomando Sourcetree como base (acordado el 2026-11-18)
+No copiarlo: quedarse con sus fortalezas y corregir sus debilidades. Sencillo, pero para profesionales. Cada punto se dibuja en detalle y espera el «ok» antes de construirlo. Orden: panel 2 → 3 → 4 → 5 → 1, y después lo general.
+
+**Lo que ya es propio de DeskLens y no se pierde** (inventario del 2026-11-18; cada cambio debe conservarlo):
+- **Pantalla:** panel pequeño en la barra lateral y pantalla completa (⤢, Ctrl+Shift+G, se recuerda); paneles que se ocultan, amplían y cambian de tamaño (`gfL`); elegir proyecto con su estado (rama, cambios, por subir); refresco cada 5 s y al volver a la ventana.
+- **Pestañas del centro:** **Historial** · **🙈 Ignorados** (árbol de lo que git no sigue, tamaños por carpeta y la regla del .gitignore que lo ignora) · **📊 Estadística** (resumen, horas estimadas, palabras, días activos, commits por día/semana/mes, por autor o por rama, unir autores, filtros de fecha/rama/autor/proyecto).
+- **Historial:** «solo mi rama» con las fusiones plegadas («Fusionó «x» · N commits», ▸ para ver lo que entró) o «todas las ramas» con carriles de colores y nombres arriba; ↓ por traer / ↑ por subir en cada fila y en el título; etiquetas de rama/🏷; 📄 nº de archivos; 300 commits; recuerda el commit elegido y el scroll.
+- **Detalle del commit:** cabecera en dos líneas (resto plegado), hash con copiar, archivos con +/−, ver el diff, ⎇ crear una rama aquí, ↶ revertir este commit, ⧉ copiar hash.
+- **Dónde estoy (v1.153):** ramas 💻/☁ con su estado frente al servidor (al día, ↑/↓, solo en tu PC, sin enlazar, ya no está en el servidor, abierta en otra carpeta = worktree), filtro con más de 10, clic = ver en el historial, doble clic = cambiar; guardados aparte (recuperar, recuperar dejando copia, borrar); etiquetas (ver, copiar).
+- **Menú ⋯ de la rama actual:** Pull, Pull desde…, Push, Push a…, Fetch, Fusionar otra rama…, Nueva rama aquí…, Recuperar guardados…, Deshacer último commit (solo si no se subió), Conectar con un servidor…, Iniciar sesión / comprobar acceso, Archivos ignorados. **Otra rama:** cambiar a ella, fusionar en la actual, pull/push sin cambiarse.
+- **Mis cambios (derecha):** lista con estado (M/U/D…), preparar/quitar/↶ descartar por archivo, mensaje y Commit (Ctrl+Enter), «Sin remoto» / Sincronizar, Fusionar…
+- **Fusionar / Pull / Pull desde:** pantalla única (`mergeOneDialog`): comprobación previa, cambios sin commit que chocan (commit de esos archivos o 📦 apartar), tabla ordenable y numerada, vistas «Por archivo» y «Por commit», «✓ Se fusionan sin problemas», vista previa en dos columnas «lo que tienes ahora | así quedará» con barra de marcas, pestañas por opción, «Editar manualmente», fusiones empezadas fuera (`gitMergeBanner`), confirmar o cancelar la fusión.
+- **Sin git:** asistente «Empezar a usar git aquí» (nombre, correo, rama, .gitignore habitual) → conectar con un servidor (opcional) → iniciar sesión con Git Credential Manager (DeskLens no ve la contraseña); recuadro «Conectar con un servidor» con «Ahora no» por proyecto.
+- **Fuera de la vista Git:** punto de estado git en el árbol, «⇆ Comparar versiones (git)» de un archivo en 2 o 3 columnas, historial de una línea (💾 disco y ⎇ git), consola con la salida en vivo de pull/push/fetch/merge.
+
+**Panel 2 · Dónde estoy** (v1.153 hizo la lista única de ramas 💻/☁, guardados y etiquetas)
+- [ ] ＋ en cada sección; las secciones vacías se ven y dicen qué hacer (hoy guardados y etiquetas se esconden si no hay).
+- [ ] ＋ Guardar cambios aparte (stash con nombre; casilla «incluir archivos nuevos»).
+- [ ] ＋ Nueva etiqueta (nombre, en qué commit, nota, casilla «subirla al servidor»).
+- [ ] Rama (clic derecho): ✎ Renombrar y 🗑 Borrar, avisando si tiene commits que no están en otra parte.
+- [ ] Etiqueta (clic derecho): ver su commit, ⇡ subir al servidor, 🗑 borrar (en tu PC o también en el servidor).
+- [ ] Sección «Servidor»: remotos con su dirección; copiar, abrir en el navegador, cambiar la dirección, quitar; ＋ = conectar.
+
+**Panel 3 · Historial**
+- [ ] Buscar en mensaje, autor, hash o archivo (lo que no coincide se atenúa).
+- [ ] «Ver»: todas las ramas / solo la mía / solo locales (sustituye la casilla «Todas las ramas»); «Orden»: por fecha o por rama.
+- [ ] Columnas con cabecera (Ramas, Descripción, 📄, Autor, Fecha, Commit): clic ordena, arrastrar cambia el ancho, se recuerda; fecha «hoy 10:42».
+- [ ] Fila «✎ Cambios sin commit (N)» arriba; clic → panel 5.
+- [ ] Menú del commit: copiar hash/mensaje, ⎇ crear rama aquí, 🏷 etiqueta aquí, ⇆ comparar con lo que tengo, ↶ deshacer este commit (revert), ⤵ traer solo este commit (cherry-pick), ⟲ volver mi rama aquí (reset, con aviso en rojo).
+- [ ] «Cargar 300 más» al final, en vez de cortar.
+- [ ] «Reordenar o juntar mis commits sin subir» (rebase interactivo) arrastrando, solo con commits aún no subidos.
+
+**Panel 4 · Detalle**
+- [ ] Archivos del commit con +/− y su diff al lado, sin abrir otra ventana.
+
+**Panel 5 · Mis cambios**
+- [ ] Preparar y descartar por bloque o por línea en el diff (la mayor fortaleza de Sourcetree).
+- [ ] «Corregir el último commit» (amend), solo si aún no se subió.
+- [ ] Ctrl+Enter hace el commit (comprobar que siga funcionando en todas partes).
+
+**Panel 1 · Barra**
+- [ ] Acciones más usadas con ↓↑ en vivo: Traer, Subir, Comprobar, Fusionar, Apartar, Etiqueta.
+- [ ] Paleta de comandos de git (Ctrl+K) que dice qué hace cada uno.
+- [ ] «↶ Deshacer la última acción» con el registro de git (reflog), mostrando antes qué se deshace.
+
+**En toda la vista (contra las debilidades de Sourcetree)**
+- [ ] Rendimiento en repos grandes: pedir solo lo que se ve, historial bajo demanda, nada que bloquee la ventana (medir con homeshape).
+- [ ] Estabilidad: cada acción con su error explicado y sin dejar el repositorio a medias.
+- [ ] Sin abrumar: mostrar solo lo que existe o hace falta; secciones plegables con una línea de ayuda.
+- [ ] Palabras de git: nombre en español que dice lo que pasa + el término de git pequeño al lado.
+- [ ] Acciones peligrosas (reset, force push, borrar): aviso en rojo con lo que se pierde y cómo deshacerlo.
+- [ ] El comando de git de cada acción visible al pasar el ratón y en la consola.
+- [ ] Teclado en toda la vista (moverse por el historial, preparar, commit) como Fork / Sublime Merge.
