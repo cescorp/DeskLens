@@ -517,6 +517,20 @@ dialog#dlg.sets.swd{width:min(720px,calc(100vw - 32px));height:fit-content;displ
 .swops label:has(input:checked){color:var(--accent);font-weight:600}
 .swin{display:grid;grid-template-columns:64px 1fr;align-items:center;gap:8px;font-size:13px;color:var(--muted)}.swin input{flex:1;height:30px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0 8px}.swin input:focus{outline:none;border-color:var(--accent)}
 .swhelp{margin:6px 0 0;font-size:12px;color:var(--faint)}
+/* 🏷 Nueva versión: pestañas y caja */
+.tagd .swbody{display:grid;gap:10px}.tagd>header .gc{font-size:12px}
+.tagintro{margin:0;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between}
+.tagtabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tagtabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;padding:6px 12px;color:var(--muted);font-weight:600}
+.tagtabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tagbox{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:8px;background:color-mix(in srgb,var(--ink) 3%,transparent);min-height:170px;align-content:start}
+.tagbox .swin{grid-template-columns:90px 1fr}.tagbox select{height:30px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:0 6px}
+.tagname{display:flex;align-items:center;gap:8px}.tagname input{flex:1}.tagst{font-size:12px;white-space:nowrap}.tagst.ok{color:#2e8b57}.tagst.bad{color:#d33}
+.tagbox .gcopt2{margin:0}.tagwarn{margin:0;font-size:12.5px;color:#b07800}
+.taginch{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600}.taginch .sp{flex:1}
+.taglist{max-height:220px;overflow:auto;font-size:13px}.taglist>div{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
+.taglist .gm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.taglist .gc{font-size:12px;white-space:nowrap}
+.tagcmd{display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:start}.tagcmd code{white-space:pre-wrap;font:12px Consolas,monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
 /* ⇆ Comparar ramas: resumen, dos columnas de commits (clic: filtrar archivos) y tabla de archivos */
 .cbsum{background:color-mix(in srgb,#2f7fd8 9%,var(--paper))!important}
 .cbcols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
@@ -3854,8 +3868,9 @@ function gitStashDialog(solo = null) {
   const draw = () => {
     const k = on.size, rest = fs.length - k;
     all.checked = k === fs.length; all.indeterminate = k > 0 && k < fs.length;
-    go.textContent = k ? `📦 Apartar ${pl(k)}` : '📦 Apartar'; go.disabled = !k;
-    H.textContent = !k ? 'Marca al menos un archivo.' : rest ? `Se apartan ${pl(k)}; ${rest === 1 ? 'el otro sigue' : `los otros ${rest} siguen`} en tu rama. Se recuperan en «Guardados aparte».`
+    const named = !!d.querySelector('[data-n]').value.trim(); // el nombre es obligatorio: sin él no se sabe qué es cada guardado
+    go.textContent = k ? `📦 Apartar ${pl(k)}` : '📦 Apartar'; go.disabled = !k || !named;
+    H.textContent = !k ? 'Marca al menos un archivo.' : !named ? 'Escribe un nombre para reconocerlo en «Guardados aparte».' : rest ? `Se apartan ${pl(k)}; ${rest === 1 ? 'el otro sigue' : `los otros ${rest} siguen`} en tu rama. Se recuperan en «Guardados aparte».`
       : 'Se apartan todos; la rama queda limpia. Se recuperan en «Guardados aparte».';
   };
   d.querySelectorAll('tbody tr').forEach(r => {
@@ -3870,35 +3885,91 @@ function gitStashDialog(solo = null) {
     const name = d.querySelector('[data-n]').value.trim(), todos = on.size === fs.length, sel = fs.filter(f => on.has(f.rel));
     d.close();
     if (await gitDo('apartar', todos ? [] : sel, { mensaje: name, modo: 'nuevos' }))
-      flash(`📦 ${todos ? 'Cambios apartados' : `${pl(sel.length)} apartado${sel.length === 1 ? '' : 's'}`} como «${name || gst.rama}»`);
+      flash(`📦 ${todos ? 'Cambios apartados' : `${pl(sel.length)} apartado${sel.length === 1 ? '' : 's'}`} como «${name}»`);
   };
+  d.querySelector('[data-n]').oninput = draw;
   d.onkeydown = e => { if (e.key === 'Enter' && e.target.matches('[data-n]')) { e.preventDefault(); go.click(); } };
   d.showModal(); draw(); d.querySelector('[data-n]').focus();
 }
-// 🏷 Versión: nombre, nota y «subirla al servidor»; se pone en el último commit de la rama
-function gitTagDialog() {
-  const d = $('#dlg'), head = (gst.punta || '').split(':')[0], rem = gst.remotos.length > 0;
-  const last = (gst.etiquetas || [])[0]?.nombre, next = last && /\d+$/.test(last) ? last.replace(/\d+$/, x => +x + 1) : 'v1.0';
-  d.className = 'sets swd'; d.oninput = d.onchange = null; d.onclose = null;
-  d.innerHTML = `<header><b>🏷 Nueva versión [tag]</b><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
-    <div class="swbody"><p class="swhelp" style="margin:0 0 12px">Un nombre fijo para tu último commit de «${esc(gst.rama)}» (${esc(head.slice(0, 7))}): no se mueve aunque sigas trabajando.</p>
-      <label class="swin">Nombre <input data-n value="${esc(next)}" spellcheck="false" placeholder="v1.0"></label>
-      <label class="swin" style="margin-top:8px">Nota <input data-m spellcheck="true" placeholder="Opcional: primera versión estable, entregado al cliente…"></label>
-      <label class="gcopt2"><input type="checkbox" data-up ${rem ? 'checked' : 'disabled'}> Subirla también al servidor${rem ? '' : ' (este proyecto no tiene servidor)'}</label></div>
-    <footer><span class="sp"></span><button data-x>Cancelar</button><button class="primary" data-go>🏷 Crear</button></footer>`;
-  const N = d.querySelector('[data-n]'), go = d.querySelector('[data-go]');
-  N.oninput = () => { go.disabled = !N.value.trim() || /\s/.test(N.value.trim()); };
-  d.querySelectorAll('[data-x]').forEach(x => x.onclick = () => d.close());
+// 🏷 Nueva versión, en tres pestañas: «Versión» (tipo → número propuesto, nombre, nota, subir), «Qué incluye» (commits
+// desde la última versión de esta rama, con «Usar como nota») y «Avanzado» (en qué commit y el comando de git).
+// El número sigue el formato de la última versión: X.Y.Z (corrección sube Z, mejora Y, cambio grande X).
+async function gitTagDialog() {
+  const d = $('#dlg'), rem = gst.remotos.length > 0, remote = gst.remotos.includes('origin') ? 'origin' : gst.remotos[0];
+  const n = gst.preparados.length + gst.cambios.length + gst.conflictos.length;
+  d.className = 'sets swd tagd'; d.oninput = d.onchange = null; d.onclose = null;
+  d.innerHTML = `<header><b>🏷 Nueva versión [tag]</b><span class="sp"></span><span class="gc">${esc(projLabel(gst.ruta))} · ⎇ ${esc(gst.rama)}</span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+    <div class="swbody"><p class="gc">Cargando…</p></div>`;
+  d.querySelector('[data-x]').onclick = () => d.close();
+  d.showModal();
+  let cs = [];
+  try { cs = (await api(`/api/git/grafo?ruta=${encodeURIComponent(gst.ruta)}&todas=0`)).commits; } catch {}
+  if (!d.open) return;
+  // la última versión de esta rama: la primera etiqueta que aparece al bajar por su historial
+  const tagOf = c => (c.refs || []).filter(r => r.startsWith('tag: ')).map(r => r.slice(5));
+  const li = cs.findIndex(c => tagOf(c).length), last = li >= 0 ? tagOf(cs[li])[0] : null, lastC = li >= 0 ? cs[li] : null;
+  const since = li >= 0 ? cs.slice(0, li) : cs, names = new Set((gst.etiquetas || []).map(t => t.nombre));
+  const m = last && last.match(/^(\D*)(\d+)(?:\.(\d+))?(?:\.(\d+))?$/);
+  const next = k => { // k: 0 corrección, 1 mejora, 2 cambio grande
+    if (!m) return last ? '' : ['v1.0.0', 'v1.0.0', 'v1.0.0'][k];
+    const [, p, a, b = '0', c = '0'] = m, X = +a, Y = +b, Z = +c;
+    return p + (k === 2 ? `${X + 1}.0.0` : k === 1 ? `${X}.${Y + 1}.0` : `${X}.${Y}.${Z + 1}`);
+  };
+  const TIPOS = [['🔧 Corrección', 'arreglos pequeños'], ['✨ Mejora', 'algo nuevo que no rompe'], ['🚀 Cambio grande', 'cambia cómo se usa']];
+  let tipo = 0, name = next(0) || '', nota = '', at = cs[0]?.hash || '', tab = 'ver', up = rem;
+  const when = c => c ? fmtRel(c.ts) : '';
+  d.querySelector('.swbody').innerHTML = `
+    <p class="tagintro">Un nombre fijo para un punto de tu proyecto: no se mueve aunque sigas trabajando.
+      <span class="gc">${last ? `Última: ${esc(last)} · ${esc(when(lastC))}` : 'Aún no hay versiones en esta rama'}</span></p>
+    <div class="tagtabs"><button data-t="ver">Versión</button><button data-t="inc">Qué incluye (${since.length})</button><button data-t="adv">Avanzado</button></div>
+    <div class="tagbox"></div>`;
+  const B = d.querySelector('.tagbox'), go = Object.assign(document.createElement('button'), { className: 'primary' });
+  d.insertAdjacentHTML('beforeend', `<footer><span class="sp"></span><button data-x>Cancelar</button></footer>`);
+  d.querySelector('footer').append(go); d.querySelectorAll('[data-x]').forEach(x => x.onclick = () => d.close());
+  const check = () => !name ? ['bad', 'Escribe un nombre'] : /\s/.test(name) ? ['bad', '⚠ sin espacios'] : names.has(name) ? ['bad', '⚠ ya existe'] : ['ok', '✓ libre'];
+  const cmd = () => `git tag -a ${name || '…'} -m "${(nota || name).replace(/"/g, '\\"')}" ${at.slice(0, 7)}` + (up && rem ? `\ngit push ${remote} ${name || '…'}` : '');
+  const foot = () => { const [k] = check(); go.disabled = k === 'bad' || !at; go.textContent = `🏷 Crear ${name || 'versión'}`;
+    const st = B.querySelector('.tagst'); if (st) { const [c, t] = check(); st.className = 'tagst ' + c; st.textContent = t; }
+    const cm = B.querySelector('.tagcmd code'); if (cm) cm.textContent = cmd(); };
+  const draw = () => {
+    d.querySelectorAll('.tagtabs button').forEach(b => b.classList.toggle('on', b.dataset.t === tab));
+    if (tab === 'ver') {
+      const custom = tipo === -1;
+      B.innerHTML = `<label class="swin">Tipo <select data-tipo>${TIPOS.map(([t, w], k) => `<option value="${k}"${k === tipo ? ' selected' : ''}${next(k) ? '' : ' disabled'}>${t}: ${w}${next(k) ? ` → ${next(k)}` : ''}</option>`).join('')}
+          <option value="-1"${custom ? ' selected' : ''}>✎ Personalizado</option></select></label>
+        <label class="swin">Nombre <span class="tagname"><input data-n value="${esc(name)}" spellcheck="false" placeholder="v1.0.0"><span class="tagst"></span></span></label>
+        <label class="swin">Nota <input data-m value="${esc(nota)}" spellcheck="true" placeholder="Opcional: qué trae esta versión"></label>
+        <label class="gcopt2"><input type="checkbox" data-up${up && rem ? ' checked' : ''}${rem ? '' : ' disabled'}> Subirla también al servidor${rem ? '' : ' (este proyecto no tiene servidor)'}</label>
+        ${n ? `<p class="tagwarn">⚠ ${n} archivo${n === 1 ? '' : 's'} sin commit no entra${n === 1 ? '' : 'n'} en esta versión.</p>` : ''}
+        ${at !== cs[0]?.hash ? `<p class="tagwarn">⚠ Se pone en otro commit (${esc(at.slice(0, 7))}): ver «Avanzado».</p>` : ''}`;
+      B.querySelector('[data-tipo]').onchange = e => { tipo = +e.target.value; if (tipo >= 0) { name = next(tipo); B.querySelector('[data-n]').value = name; } foot(); };
+      B.querySelector('[data-n]').oninput = e => { name = e.target.value.trim(); tipo = TIPOS.findIndex((_, k) => next(k) === name); B.querySelector('[data-tipo]').value = String(tipo); foot(); };
+      B.querySelector('[data-m]').oninput = e => { nota = e.target.value; foot(); };
+      B.querySelector('[data-up]').onchange = e => { up = e.target.checked; foot(); };
+    } else if (tab === 'inc') {
+      B.innerHTML = `<div class="taginch"><span>${last ? `Desde ${esc(last)}` : 'Primera versión: todo el historial'}: ${since.length} commit${since.length === 1 ? '' : 's'}</span><span class="sp"></span>`
+        + `${since.length ? '<button class="small" data-use>📋 Usar como nota</button>' : ''}</div>`
+        + (since.length ? `<div class="taglist">${since.map(c => `<div><span class="gm">● ${esc(c.mensaje)}</span><span class="gc">${esc(c.autor)} · ${esc(when(c))}</span></div>`).join('')}</div>`
+          : '<p class="gc">No hay commits nuevos desde la última versión.</p>');
+      B.querySelector('[data-use]')?.addEventListener('click', () => { nota = since.map(c => c.mensaje).join(' · ').slice(0, 300); tab = 'ver'; draw(); flash('📋 Nota escrita con los commits'); });
+    } else {
+      B.innerHTML = `<label class="swin">En el commit <select data-at>${cs.slice(0, 20).map((c, k) => `<option value="${c.hash}"${c.hash === at ? ' selected' : ''}>${k ? '' : `Último de «${esc(gst.rama)}» · `}${c.corto} · ${esc(c.mensaje.slice(0, 60))} · ${esc(when(c))}</option>`).join('')}</select></label>
+        <div class="tagcmd"><span class="gc">Comando</span><code></code><button class="ic" data-copy title="Copiar el comando">⧉</button></div>`;
+      B.querySelector('[data-at]').onchange = e => { at = e.target.value; foot(); };
+      B.querySelector('[data-copy]').onclick = () => copyText(cmd(), 'Comando copiado');
+    }
+    foot();
+  };
+  d.querySelectorAll('.tagtabs button').forEach(b => b.onclick = () => { tab = b.dataset.t; draw(); });
   go.onclick = async () => {
     if (go.disabled) return;
-    const name = N.value.trim(), up = d.querySelector('[data-up]').checked;
     d.close();
-    if (!await gitDo('etiqueta', [], { rama: name, mensaje: d.querySelector('[data-m]').value })) return;
+    if (!await gitDo('etiqueta', [], { rama: name, mensaje: nota, modo: at })) return;
     flash(`🏷 Versión «${name}» creada`);
-    if (up) gitLong('push_etiqueta', { rama: name });
+    if (up && rem) gitLong('push_etiqueta', { rama: name });
   };
   d.onkeydown = e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') { e.preventDefault(); go.click(); } };
-  d.showModal(); N.focus(); N.select();
+  draw(); B.querySelector('[data-n]')?.focus(); B.querySelector('[data-n]')?.select();
 }
 async function gitNewBranch() {
   const rama = await ask('Nueva rama [branch]', `Se crea desde «${gst.rama}» y pasas a ella:`, ['Crear', 'Cancelar'], { input: '' });

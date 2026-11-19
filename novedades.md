@@ -1,10 +1,17 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.162 · 2026-11-19 · Git: crear una versión, paso a paso y sin saber de números
+- «🏷 Versión» abre una ventana con tres pestañas. **Versión**: eliges el tipo de cambio en una lista (🔧 Corrección, ✨ Mejora o 🚀 Cambio grande) y propone el número siguiente (v1.0.1, v1.1.0, v2.0.0, siguiendo el formato de tu última versión; la primera es v1.0.0); nombre con aviso al momento («✓ libre», «⚠ ya existe», «⚠ sin espacios»), nota y «Subirla también al servidor». Avisa si hay archivos sin commit, que no entran.
+- **Qué incluye (N)**: los commits desde la última versión de esa rama; «📋 Usar como nota» los copia en la nota.
+- **Avanzado**: en qué commit ponerla (los 20 más recientes) y el comando de git que se ejecutará, con botón para copiarlo.
+- El botón dice qué hará: «🏷 Crear v1.1.0».
+
 ## v1.161 · 2026-11-19 · Git: apartar solo los archivos que elijas
 - «📦 Apartar» abre una ventana con tus archivos con cambios en una tabla, cada uno con su casilla (todos marcados al abrir; «Todos» marca o desmarca). Se apartan solo los marcados y los demás siguen en tu rama; la línea de abajo lo dice («Se apartan 3 archivos; los otros 2 siguen en tu rama») y el botón cuántos.
 - Clic derecho en un archivo de la columna de cambios: «📦 Apartar este archivo…» abre la misma ventana con solo ese archivo marcado (también «Abrir» y «Comparar versiones»).
 - «Sin servidor» en la barra ya no sale en verde.
+- El nombre es obligatorio: sin nombre, «Apartar» se apaga y la línea de abajo pide escribirlo.
 
 ## v1.160 · 2026-11-19 · Git: todas las acciones arriba, en español, y la columna de cambios en cajas
 - La barra de arriba de Git tiene todas las acciones con su nombre en español y el de git entre [ ]: ⇣ Traer [pull], ⇡ Subir [push], ⟳ Comprobar [fetch], ⤵ Fusionar [merge], 📦 Apartar [stash], 🏷 Versión [tag] y ⎇ Nueva rama [branch]. Con poco ancho se esconden los [ ] y la barra usa dos líneas.
