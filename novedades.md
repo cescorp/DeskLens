@@ -1,11 +1,19 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.163 · 2026-11-19 · Guardar versión: qué marca cada versión
+- Nueva lista «¿Qué marca?», la primera de la ventana: ✅ Versión funcional · 🧩 Fin de un módulo (pide cuál) · 📦 Entrega al cliente · 🚀 Puesta en producción · 💾 Respaldo antes de un cambio grande · ✎ Otro (lo escribes). Se guarda al principio de la nota de la versión.
+- En el panel izquierdo, cada versión lleva el icono de lo que marca (🧩 v1.0.0) y, al pasar el ratón, su nota completa.
+- «Tipo» pasa a llamarse «Número» (🔧 Corrección, ✨ Mejora, 🔺 Cambio grande, según la regla estándar X.Y.Z). La primera versión muestra una sola opción: «⭐ Primera versión → v1.0.0».
+- La ventana tiene la misma altura en sus tres pestañas, para que el botón no se mueva.
+- Con un commit de mensaje muy largo, la ventana ya no se ensancha ni sale una barra de desplazamiento abajo.
+- En Git a pantalla completa, «Traer», «Subir» y «Fusionar» pasan de la barra de arriba a debajo del commit, iguales.
+
 ## v1.162 · 2026-11-19 · Git: crear una versión, paso a paso y sin saber de números
-- «🏷 Versión» abre una ventana con tres pestañas. **Versión**: eliges el tipo de cambio en una lista (🔧 Corrección, ✨ Mejora o 🚀 Cambio grande) y propone el número siguiente (v1.0.1, v1.1.0, v2.0.0, siguiendo el formato de tu última versión; la primera es v1.0.0); nombre con aviso al momento («✓ libre», «⚠ ya existe», «⚠ sin espacios»), nota y «Subirla también al servidor». Avisa si hay archivos sin commit, que no entran.
+- «🏷 Guardar versión» (antes «Versión») abre una ventana con tres pestañas. **Versión**: eliges el tipo de cambio en una lista (🔧 Corrección, ✨ Mejora o 🚀 Cambio grande) y propone el número siguiente (v1.0.1, v1.1.0, v2.0.0, siguiendo el formato de tu última versión; la primera es v1.0.0); nombre con aviso al momento («✓ libre», «⚠ ya existe», «⚠ sin espacios»), nota y «Subirla también al servidor». Avisa si hay archivos sin commit, que no entran.
 - **Qué incluye (N)**: los commits desde la última versión de esa rama; «📋 Usar como nota» los copia en la nota.
 - **Avanzado**: en qué commit ponerla (los 20 más recientes) y el comando de git que se ejecutará, con botón para copiarlo.
-- El botón dice qué hará: «🏷 Crear v1.1.0».
+- El botón de la barra se llama «🏷 Guardar versión» y el de la ventana dice qué hará: «🏷 Guardar v1.1.0».
 
 ## v1.161 · 2026-11-19 · Git: apartar solo los archivos que elijas
 - «📦 Apartar» abre una ventana con tus archivos con cambios en una tabla, cada uno con su casilla (todos marcados al abrir; «Todos» marca o desmarca). Se apartan solo los marcados y los demás siguen en tu rama; la línea de abajo lo dice («Se apartan 3 archivos; los otros 2 siguen en tu rama») y el botón cuántos.

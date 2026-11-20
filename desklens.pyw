@@ -3318,7 +3318,7 @@ def git_overview(path):
             "remotos": ("remote",),
             "stash": ("-c", "core.quotePath=false", "stash", "list", "--format=%gd\x1f%s\x1f%ct\x1f%H"),  # %ct: la ventana pone «hace 2 h» en español
             # versiones marcadas (etiquetas), la más reciente primero; %(*objectname): el commit de una etiqueta anotada
-            "tags": ("for-each-ref", "--sort=-creatordate", "--format=%(refname:short)\x1f%(*objectname)\x1f%(objectname)\x1f%(creatordate:unix)", "refs/tags"),
+            "tags": ("for-each-ref", "--sort=-creatordate", "--format=%(refname:short)\x1f%(*objectname)\x1f%(objectname)\x1f%(creatordate:unix)\x1f%(contents:subject)", "refs/tags"),
             # último commit de cada rama (tuya y del remoto): clic en el panel → el historial salta ahí
             "puntas": ("for-each-ref", "--format=%(refname:short)\x1f%(objectname)", "refs/heads", "refs/remotes"),
             "merge": ("rev-parse", "-q", "--verify", "MERGE_HEAD"),
@@ -3345,8 +3345,9 @@ def git_overview(path):
             "remotos": q["remotos"].splitlines(),
             # cambios guardados aparte (stash): [{id: stash@{N}, mensaje, fecha}], el más reciente primero
             "stashes": [dict(zip(("id", "mensaje", "fecha", "hash"), ln.split("\x1f"))) for ln in q["stash"].splitlines() if ln],
-            "etiquetas": [{"nombre": n, "hash": h1 or h2, "fecha": int(t or 0)}
-                          for n, h1, h2, t in (ln.split("\x1f") for ln in q["tags"].splitlines() if ln.count("\x1f") == 3)],
+            # nota: la primera línea del mensaje de la versión (la ventana pone ahí el hito: «✅ Versión funcional · …»)
+            "etiquetas": [{"nombre": n, "hash": h1 or h2, "fecha": int(t or 0), "nota": nota}
+                          for n, h1, h2, t, nota in (ln.split("\x1f", 4) for ln in q["tags"].splitlines() if ln.count("\x1f") >= 4)],
             "puntas": dict(ln.split("\x1f", 1) for ln in q["puntas"].splitlines() if "\x1f" in ln),
             "fusionando": bool(q["merge"] or q["revert"]),  # merge o revert a medias
             "fusion_de": git_merge_name(repo) if q["merge"] else "",

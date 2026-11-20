@@ -1206,7 +1206,7 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": ov["stashes"][0]["id"]})
     assert (rep / "solo.md").exists(); (rep / "solo.md").unlink()
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "v9.9", "mensaje": "prueba"})
-    assert code == 200 and any(x["nombre"] == "v9.9" for x in ov["etiquetas"])
+    assert code == 200 and {x["nombre"]: x["nota"] for x in ov["etiquetas"]}.get("v9.9") == "prueba"
     assert post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "v9.9"})[0] == 400  # ya existe
     assert post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "con espacio"})[0] == 400
     git(rep, "tag", "-d", "v9.9")
