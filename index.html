@@ -6202,7 +6202,7 @@ async function settingsDialog() {
       <input type="search" class="sfind" placeholder="Filtrar ajustes…" aria-label="Filtrar ajustes">
       <label class="sonly"><input type="checkbox"> Solo cambiados</label><span class="scount"></span></header>
     <div class="sbody"><nav>${groups.map(g => `<a data-g="${esc(g)}">${esc(g)}<span></span></a>`).join('')}
-      <a data-g="${KEYS_G}" class="kfirst">${KEYS_G}<span></span></a></nav>
+      ${window.orgAjustes ? orgAjustes.nav() : ''}<a data-g="${KEYS_G}" class="kfirst">${KEYS_G}<span></span></a></nav>
     <div class="slist">${groups.map(g => `<section data-g="${esc(g)}"><h4>${esc(g)}</h4>${s.lista.filter(a => a.grupo === g).map(a => {
       const v = s.valores[a.clave], bool = typeof a.defecto === 'boolean', opts = typeof a.defecto === 'string' && a.min; // opts: [[valor, nombre]]
       const def = bool ? (a.defecto ? 'sí' : 'no') : opts ? opts.find(o => o[0] === a.defecto)?.[1] : a.defecto;
@@ -6214,6 +6214,7 @@ async function settingsDialog() {
         <span class="shint">${bool || opts ? '' : `${a.min}–${a.max}`}</span>
         <button class="sreset" title="Volver al valor por defecto">↺ ${esc(String(def))}</button></div>`;
     }).join('')}</section>`).join('')}
+    ${window.orgAjustes ? orgAjustes.seccion() : '' /* 🗂 Proyectos: lo pone el organizador (organizador/), si está */}
     <section data-g="${KEYS_G}" class="keys"><h4>${KEYS_G}</h4><table>${KEYS.map(([z, list]) => `<tbody><tr class="kzone"><th colspan="2">${esc(z)}</th></tr>
       ${list.map(([k, t]) => `<tr class="krow" data-t="${esc(plainTxt(`${k.replace(/\+/g, ' ')} ${t} ${z}`))}"><td>${kbdHtml(k)}</td><td>${esc(t)}</td></tr>`).join('')}</tbody>`).join('')}</table>
       <p class="ok">Solo para consultar: estos atajos no se cambian desde aquí.</p></section>
@@ -6258,11 +6259,13 @@ async function settingsDialog() {
     Object.assign(button('Guardar', async () => {
       const before = s.valores.puerto;
       AJ = (await api('/api/ajustes', values())).valores;
+      await window.orgAjustes?.guardar(d); // los del organizador van a historial/organizador/ajustes.json
       d.close(); await loadSettings(); render();
       loadSide(); // avisos de los proyectos (p. ej. «Sin reglas/bitácora») según los ajustes nuevos
       flash('✓ Ajustes guardados' + (AJ.puerto !== before ? ' · el puerto se aplica al reabrir DeskLens' : ''));
     }), { className: 'primary' }),
     button('Cancelar', () => d.close()));
+  window.orgAjustes?.enlazar(d); // rellena su apartado y vuelve a contar (d.oninput = refresh)
   refresh(); if (!reopen) d.showModal(); find.focus();
 }
 const copyText = (t, msg) => navigator.clipboard.writeText(t).catch(() => { // sin permiso del portapapeles: el método clásico

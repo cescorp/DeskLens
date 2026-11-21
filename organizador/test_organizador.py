@@ -13,6 +13,7 @@ import organizador as org  # noqa: E402
 
 tmp = Path(tempfile.mkdtemp(prefix="org-test-"))
 org.configurar(tmp / "datos")
+org.MAPA_AUTO[0] = False  # el mapa se escribe a mano en la prueba
 disco = tmp / "disco"
 
 
@@ -215,6 +216,51 @@ try:
     viejo = carpeta("ProyectoViejo", git=True)
     hechas, _ = org.convertir_proyectos([str(viejo), str(hs)])
     assert [h["nombre"] for h in hechas] == ["ProyectoViejo"], "lo que ya está en una ficha no se repite"
+
+    # índice por tipo de parte: respaldos nunca; material con su modo; una carpeta en varios proyectos, el modo que más lee
+    ri = dict(org.rutas_indice())
+    assert ri[str(hs)] == "todo" and ri[str(vid)] == "nombres_pdf" and str(otro) not in ri, ri
+    org.guardar_ajustes({"indice": {"material": "nombres"}})
+    assert dict(org.rutas_indice())[str(vid)] == "nombres"
+    org.guardar_ajustes({"indice": {"material": "nombres_pdf"}, "historial_dias": 9999})
+    assert org.ajustes()["historial_dias"] == 365, "los números se quedan en su rango"
+
+    # MAPA.md: proyectos, partes y rutas actuales (para «lee mis anclas»)
+    ruta_mapa = org.escribir_mapa()
+    mapa = Path(ruta_mapa).read_text(encoding="utf-8")
+    assert "## homeshape" in mapa and str(vid) in mapa and "compartida con: curso-biblico" in mapa, mapa[:600]
+    assert json.loads((tmp / "datos" / "MAPA.json").read_text(encoding="utf-8"))[0]["partes"]
+    org.guardar_ajustes({"mapa": False})
+    assert org.escribir_mapa() == ""
+    org.guardar_ajustes({"mapa": True})
+
+    # respaldo diario: copia los datos (sin carpetas.db) y deja las últimas N
+    destino = tmp / "disco-respaldo"
+    destino.mkdir()
+    real = org.letra_de_serie
+    org.letra_de_serie = lambda s: str(destino) if s == "ABCD1234" else real(s)
+    try:
+        try:
+            org.respaldar()
+            raise AssertionError("sin disco elegido no hay respaldo")
+        except ValueError:
+            pass
+        org.guardar_ajustes({"respaldo_disco": "ABCD1234", "respaldo_guardar": 2})
+        for viejo in ("2026-01-01", "2026-01-02", "2026-01-03"):
+            (destino / "DeskLens-respaldo" / "organizador" / viejo).mkdir(parents=True)
+        info = org.respaldar()
+        copias = sorted(x.name for x in (destino / "DeskLens-respaldo" / "organizador").iterdir())
+        assert len(copias) == 2 and copias[-1] == info["ultimo"][:10], copias
+        hoy = destino / "DeskLens-respaldo" / "organizador" / copias[-1]
+        assert (hoy / "anclas.json").exists() and (hoy / "proyectos").is_dir() and not (hoy / "carpetas.db").exists()
+        try:
+            org.guardar_ajustes({"respaldo_disco": "../x"})
+            raise AssertionError("disco no válido")
+        except ValueError:
+            pass
+    finally:
+        org.letra_de_serie = real
+        org.guardar_ajustes({"respaldo_disco": ""})
 
     # quitar del organizador: no borra nada del disco
     org.quitar_ficha("homeshape-2")

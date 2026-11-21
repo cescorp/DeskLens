@@ -97,8 +97,14 @@ def guardar_ajustes(cambios):
             a["indice"].update({t: m for t, m in v.items() if t in TIPOS and m in INDICE})
         elif k in a and type(v) is type(a[k]):
             a[k] = v
+    limites = {"historial_dias": (1, 365), "historial_mb": (0, 100000), "respaldo_guardar": (1, 365)}
+    for k, (lo, hi) in limites.items():
+        a[k] = max(lo, min(hi, a[k]))
+    if a["respaldo_disco"] and not re.fullmatch(r"[0-9A-F]{1,16}", a["respaldo_disco"]):
+        raise ValueError("Disco de respaldo no válido")
     escribir_json(DATA / "ajustes.json", a)
     actividad("ajustes", "Ajustes del organizador guardados", str(DATA / "ajustes.json"))
+    mapa_luego()
     return a
 
 
@@ -317,6 +323,8 @@ def _registrar(i, carpeta, reg=None):
         except OSError:
             ino = 0
         d = reg.get(i, {})
+        if d.get("ruta") and d["ruta"] != str(c):
+            mapa_luego()  # el ancla está en otro sitio: el mapa dice la ruta nueva
         d.update({"ruta": str(c), "serie": serie(larga(c)), "ino": ino, "visto": datetime.now().isoformat(timespec="seconds")})
         d.setdefault("creada", d["visto"])
         for k in ("papelera", "eliminada", "borrada"):  # está en una carpeta de verdad: ya no en la papelera
@@ -939,6 +947,7 @@ def crear_ficha(datos):
         f = {"id": i, **f, "partes": _partes(datos.get("partes"), avisos)}
         escribir_json(_ficha_path(i), f)
         actividad("ficha", f"Ficha creada: {f['nombre']}", str(_ficha_path(i)))
+        mapa_luego()
         return f, avisos
 
 
@@ -955,6 +964,7 @@ def guardar_ficha(i, datos):
             f["partes"] = _partes(datos["partes"], avisos)
         escribir_json(p, f)
         actividad("ficha", f"Ficha guardada: {f['nombre']}", str(p))
+        mapa_luego()
         return f, avisos
 
 
@@ -969,6 +979,7 @@ def quitar_ficha(i):
         papelera.parent.mkdir(parents=True, exist_ok=True)
         os.replace(p, papelera)  # se puede recuperar a mano
         actividad("ficha", f"Proyecto quitado del organizador: {f.get('nombre', i)} (copia en quitados/)", str(papelera))
+        mapa_luego()
 
 
 def fichas(ubicar_anclas=True):
@@ -1000,6 +1011,24 @@ def fichas(ubicar_anclas=True):
     return todas
 
 
+def rutas_indice():
+    """Carpetas de las fichas que el índice de DeskLens debe leer, con su modo: el de la carpeta si se eligió a mano,
+    si no el de su tipo de parte (⚙ Ajustes › Proyectos). Respaldos y bases de datos nunca (solo se ven).
+    Si una carpeta está en varios proyectos manda el modo que más lee."""
+    a, reg, out = ajustes(), registro(), {}
+    peso = {m: i for i, m in enumerate(INDICE[::-1])}  # no < nombres < nombres_pdf < todo
+    for f in fichas_crudas():
+        for p in f.get("partes", []):
+            for c in p.get("carpetas", []):
+                if p.get("tipo") in ("respaldos", "base_datos") or c["ancla"] not in reg or not c.get("activa", True):
+                    continue
+                modo = c.get("indice") or a["indice"].get(p.get("tipo"), "nombres")
+                ruta = reg[c["ancla"]]["ruta"]
+                if modo != "no" and not en_papelera(ruta) and peso[modo] > peso.get(out.get(ruta, "no"), 0):
+                    out[ruta] = modo
+    return sorted(out.items())
+
+
 _permitidas = {"marca": None, "rutas": []}
 
 
@@ -1013,7 +1042,7 @@ def rutas_permitidas():
     if marca != _permitidas["marca"]:
         reg = registro()
         ids = {c["ancla"] for f in fichas_crudas() for p in f.get("partes", []) for c in p.get("carpetas", [])}
-        _permitidas.update(marca=marca, rutas=[Path(reg[i]["ruta"]).resolve() for i in ids if i in reg])
+        _permitidas.update(marca=marca, rutas=[Path(reg[i]["ruta"]).resolve() for i in ids if i in reg] + [DATA.resolve()])
     return _permitidas["rutas"]
 
 
@@ -1033,6 +1062,7 @@ def quitar_carpeta(proyecto_id, ancla):
         f["actualizado"] = datetime.now().date().isoformat()
         escribir_json(p, f)
         actividad("ficha", f"Carpeta quitada de {f['nombre']}", ruta)
+    mapa_luego()
     return f
 
 
@@ -1071,6 +1101,146 @@ def convertir_proyectos(rutas):
         hechas.append(f)
         avisos.extend(av)
     return hechas, avisos
+
+
+# ---------- MAPA.md: «lee mi DeskLens / mis anclas» (M1) ----------
+
+def _rama(ruta):
+    """Rama de git leyendo .git/HEAD (sin lanzar git: el mapa se rehace a menudo)."""
+    try:
+        h = (Path(ruta) / ".git" / "HEAD").read_text(encoding="utf-8").strip()
+        return h.rsplit("/", 1)[-1] if h.startswith("ref:") else h[:8]
+    except OSError:
+        return ""
+
+
+def escribir_mapa():
+    """MAPA.md (para leer, también una IA) y MAPA.json (para programas) en historial/organizador/: cada proyecto con sus
+    partes, la ruta ACTUAL de cada carpeta, su estado y sus conexiones. Sin credenciales ni IPs: solo nombres y rutas.
+    Funciona aunque DeskLens esté cerrado (es un archivo). Se rehace tras cada cambio de ficha o de ancla."""
+    if not ajustes()["mapa"]:
+        return ""
+    fs = fichas()
+    estado = {"ok": "✓", "movida": "✓ (movida)", "papelera": "🗑 en la papelera", "eliminada": "✗ eliminada",
+              "desconectado": "⚠ disco no conectado", "falta": "⚠ no encontrada"}
+    ln = ["# Mapa de proyectos de DeskLens",
+          f"Generado: {datetime.now().strftime('%Y-%m-%d %H:%M')} · {len(fs)} proyecto(s). Lo mantiene DeskLens: no lo edites a mano.",
+          "Solo lectura: no muevas, renombres ni borres los archivos `.desklens-ancla` (unen cada carpeta con su proyecto).", ""]
+    for f in sorted(fs, key=lambda x: x["nombre"].lower()):
+        tec = ", ".join(f.get("tecnologia", []))
+        ln.append(f"## {f['nombre']}  ({f['estado']} · {f['avance']} %{' · ' + tec if tec else ''})")
+        if f.get("descripcion"):
+            ln.append(f["descripcion"])
+        if f.get("nota"):
+            ln.append(f"Nota del vault: [[{f['nota']}]]")
+        for e in f.get("enlaces", []):
+            ln.append(f"Enlace: {e['nombre']} → {e['url']}")
+        ln += ["", "| Parte | Ruta actual | Estado |", "|---|---|---|"]
+        for p in f["partes"]:
+            for c in p["carpetas"]:
+                extra = []
+                if c["git"]:
+                    extra.append(f"⎇ {_rama(c['ruta']) or 'git'}")
+                otros = [x for x in c["proyectos"] if x != f["id"]]
+                if otros:
+                    extra.append("compartida con: " + ", ".join(otros))
+                ln.append(f"| {TIPO_ICONO.get(p['tipo'], '📁')} {p['nombre']} | {c['ruta']} | {estado.get(c['estado'], c['estado'])}"
+                          f"{' · ' + ' · '.join(extra) if extra else ''} |")
+        nombres = {c["ancla"]: c["nombre"] for p in f["partes"] for c in p["carpetas"]}
+        for k in f.get("conexiones") or []:
+            ln.append(f"Conexión: {nombres.get(k.get('de'), k.get('de'))} «{k.get('etiqueta', '')}» {nombres.get(k.get('a'), k.get('a'))}")
+        ln.append("")
+    texto = "\n".join(ln)
+    (DATA / "MAPA.md").write_text(texto, encoding="utf-8")
+    escribir_json(DATA / "MAPA.json", [{"id": f["id"], "nombre": f["nombre"], "estado": f["estado"], "avance": f["avance"],
+                                        "partes": [{"nombre": p["nombre"], "tipo": p["tipo"],
+                                                    "carpetas": [{"ruta": c["ruta"], "estado": c["estado"]} for c in p["carpetas"]]}
+                                                   for p in f["partes"]]} for f in fs])
+    return str(DATA / "MAPA.md")
+
+
+TIPO_ICONO = {"codigo": "💻", "material": "🎬", "web": "🌐", "respaldos": "🗄", "base_datos": "🛢", "documentos": "📄", "otro": "📁"}
+_mapa_timer = [None]
+
+
+MAPA_AUTO = [True]  # las pruebas lo apagan (escriben el mapa a mano)
+
+
+def mapa_luego():
+    """Rehace el mapa 2 s después del último cambio (varios cambios seguidos = una sola escritura)."""
+    if not MAPA_AUTO[0]:
+        return
+    if _mapa_timer[0]:
+        _mapa_timer[0].cancel()
+    t = threading.Timer(2.0, _mapa_seguro)
+    t.daemon = True
+    _mapa_timer[0] = t
+    t.start()
+
+
+def _mapa_seguro():
+    try:
+        if escribir_mapa():
+            actividad("mapa", "MAPA.md actualizado", str(DATA / "MAPA.md"))
+    except Exception as e:  # noqa: BLE001 — el mapa nunca rompe nada
+        actividad("mapa", f"No se pudo escribir MAPA.md: {e}", str(DATA / "MAPA.md"), "error")
+
+
+# ---------- respaldo diario de historial/organizador ----------
+
+def info_respaldo():
+    d = leer_json(DATA / "respaldo.json", {})
+    a = ajustes()
+    letra = letra_de_serie(a["respaldo_disco"]) if a["respaldo_disco"] else ""
+    return {"ultimo": d.get("ultimo", ""), "ruta": d.get("ruta", ""), "disco": a["respaldo_disco"], "letra": letra,
+            "guardar": a["respaldo_guardar"]}
+
+
+def respaldar():
+    """Copia fichas, anclas, discos, ajustes, actividad y mapa al disco elegido: <disco>\\DeskLens-respaldo\\organizador\\
+    <fecha>. Deja las últimas N copias. carpetas.db no se copia (son nombres de carpetas: se rehace recorriendo)."""
+    a = ajustes()
+    if not a["respaldo_disco"]:
+        raise ValueError("Elige en ⚙ Ajustes › Proyectos el disco del respaldo")
+    letra = letra_de_serie(a["respaldo_disco"])
+    if not letra:
+        actividad("respaldo", "Respaldo pospuesto: el disco elegido no está conectado", "", "aviso")
+        raise ValueError("El disco del respaldo no está conectado")
+    base = Path(letra) / "DeskLens-respaldo" / "organizador"
+    dest = base / datetime.now().strftime("%Y-%m-%d")
+    if dest.exists():
+        shutil.rmtree(dest)
+    shutil.copytree(DATA, dest, ignore=shutil.ignore_patterns("carpetas.db*", "*.tmp"))
+    viejas = sorted(x for x in base.iterdir() if x.is_dir() and re.fullmatch(r"\d{4}-\d{2}-\d{2}", x.name))
+    for x in viejas[:-max(1, a["respaldo_guardar"])]:
+        shutil.rmtree(x, ignore_errors=True)
+    tam = sum(p.stat().st_size for p in dest.rglob("*") if p.is_file())
+    escribir_json(DATA / "respaldo.json", {"ultimo": datetime.now().isoformat(timespec="seconds"), "ruta": str(dest)})
+    actividad("respaldo", f"Respaldo diario · {tam / 1e6:.1f} MB".replace(".", ","), str(dest))
+    return info_respaldo()
+
+
+def vigilante():
+    """Hilo del organizador (lo arranca DeskLens): una vez al día, el respaldo (si hay disco elegido); al arrancar, el
+    mapa. Duerme una hora entre vueltas."""
+    time.sleep(20)  # que DeskLens arranque primero
+    mapa_luego()
+    while True:
+        try:
+            r = info_respaldo()
+            if r["disco"] and r["ultimo"][:10] != datetime.now().date().isoformat() and r["letra"]:
+                respaldar()
+        except Exception as e:  # noqa: BLE001
+            actividad("respaldo", f"El respaldo falló: {e}", "", "error")
+        time.sleep(3600)
+
+
+def abrir_datos(cual=""):
+    """Abre en el Explorador la carpeta de datos del organizador o la del último respaldo."""
+    ruta = info_respaldo()["ruta"] if cual == "respaldo" else str(DATA)
+    if not ruta or not Path(ruta).exists():
+        raise ValueError("Esa carpeta todavía no existe")
+    subprocess.Popen(["explorer.exe", ruta] if WINDOWS else ["xdg-open", ruta])
 
 
 def lanzar(programa, proyecto_id):
@@ -1130,7 +1300,10 @@ def get(ruta, q, proyectos_desklens=()):
     if r == "actividad":
         return 200, leer_actividad()
     if r == "ajustes":
-        return 200, ajustes()
+        return 200, {**ajustes(), "respaldo": info_respaldo(), "datos": str(DATA), "mapa_ruta": str(DATA / "MAPA.md"),
+                     "mapa_fecha": datetime.fromtimestamp((DATA / "MAPA.md").stat().st_mtime).isoformat(timespec="seconds") if (DATA / "MAPA.md").exists() else "",
+                     "n_fichas": len(fichas_crudas()), "n_anclas": len(registro()),
+                     "discos": [{"serie": d["serie"], "letra": d["letra"], "nombre": d["nombre"], "conectado": d["conectado"], "activo": d["activo"]} for d in discos()]}
     return 404, {"error": "no existe"}
 
 
@@ -1175,6 +1348,13 @@ def post(ruta, datos):
             return 200, {"recorrido": detener_recorrido()}
         if r == "ajustes":
             return 200, guardar_ajustes(datos)
+        if r == "respaldo/ahora":
+            return 200, respaldar()
+        if r == "abrir_datos":
+            abrir_datos(datos.get("cual", ""))
+            return 200, {}
+        if r == "mapa":
+            return 200, {"ruta": escribir_mapa()}
         if r == "lanzar":
             return 200, lanzar(datos.get("programa", ""), datos.get("id", ""))
         if r == "actividad/limpiar":

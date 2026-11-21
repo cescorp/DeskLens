@@ -1,6 +1,10 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-21 · Organizador: Fase 1a completa (v1.168)
+Vista por proyecto en localStorage `desklens.org.vista.<id>` (tab, q, arbolW, scroll, abiertas, ultimo). Índice: `org.rutas_indice()` da (carpeta, modo) por tipo de parte; `idx_targets` las recorre y `IDX_MODO` decide en `idx_file` (estado «nombre» = solo nombre; si cambia el modo, se reindexa); `/api/org/ficha|fichas|convertir|ajustes` despiertan el índice. ⚙ Ajustes: `index.html` llama a `orgAjustes.nav/seccion/enlazar/guardar` (filas `.orow.krow` para el buscador). MAPA.md/MAPA.json con `mapa_luego()` (2 s tras cada cambio; `MAPA_AUTO` apagado en pruebas). Respaldo: `vigilante()` (hilo desde `main`) una vez al día a `<disco>\DeskLens-respaldo\organizador\<fecha>`, sin carpetas.db. Ctrl+E: `#orgPal` flotante, búsqueda de archivos con `/api/arbol/filtro`. Probado en la copia del puerto 8799.
+Pendiente: Fase 1b (Flujo y Red en pizarra, historial de estructura y comparativo, notas en nodos).
+
 ## 2026-11-21 · Organizador: vista del proyecto, papelera y ventanas sin bloquear (v1.167)
 Clic en una tarjeta → `admin()` en organizador.js: cabecera (estado, avance con clic en la barra, git, botones) y pestañas. En Archivos, `#panes` de DeskLens se mueve dentro de la vista (`panesHome`, como `#gitv` en Git a pantalla completa) y vuelve con `devolverPanes()` al salir o cambiar de pestaña; árbol con `/api/dir` (carpetas ancladas ya pasan `allowed`), búsqueda con `/api/arbol/filtro`, tamaños con `/api/carpeta/tam`. Git: si la carpeta de código no es proyecto de DeskLens ofrece añadirla (la vista Git trabaja con `side.proyectos`). Papelera: `ubicar()` distingue `$Recycle.Bin` (estado papelera, guarda la ruta de antes; vaciada → eliminada; restaurada → ok). `orgDlg` con `show()` en vez de `showModal()`: clic fuera o Esc cierra, solo pregunta si hubo `input`. Carpetas con espacio o punto final: `larga()` (\\?\). Probado en la copia del puerto 8799.
 Pendiente: índice por tipo de parte, apartado en ⚙ Ajustes, MAPA.md (M1), Ctrl+E (M2), respaldo diario; luego Fase 1b.

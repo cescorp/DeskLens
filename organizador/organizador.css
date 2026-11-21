@@ -5,6 +5,8 @@ body.orgfull{grid-template-columns:44px minmax(0,1fr)!important}
 body.orgfull :is(aside,#ia,#panes,#gitfull){display:none!important}
 body.orgfull #org{grid-row:1;display:flex;flex-direction:column;min-height:0;background:var(--bg)}
 body.orgfull #ribbon [data-v=o]{color:var(--accent);box-shadow:inset 2px 0 var(--accent)}
+/* con el tablero abierto solo se marca 🗂: Explorador, Buscar y Git siguen con su vista guardada, pero no se ven */
+body.orgfull #ribbon [data-v]:not([data-v=o]){box-shadow:none!important}body.orgfull #ribbon [data-v]:not([data-v=o]):not(:hover){color:var(--muted)!important}
 #ribbon [data-v=o]{position:relative}
 #ribbon [data-v=o] .obadge{position:absolute;top:1px;right:1px;min-width:14px;height:14px;padding:0 3px;border-radius:7px;background:var(--warn);color:var(--bg);font:600 9.5px/14px system-ui;text-align:center}
 
@@ -180,3 +182,28 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .opage{padding:16px;overflow:auto;flex:1;min-height:0}
 .opage .ofoot{margin:16px 0 0;position:static}
 .oclic{cursor:pointer}
+
+/* ⚙ Ajustes › 🗂 Proyectos (dentro de la ventana de Ajustes de DeskLens) */
+.orow{display:grid;grid-template-columns:170px minmax(0,1fr);gap:16px;align-items:start;padding:9px 0 9px 14px;border-bottom:1px solid var(--line);font-size:13.5px}
+.orow[hidden]{display:none}
+.orow>label{color:var(--ink);padding-top:3px}
+.orow small{display:block;color:var(--faint);font-size:12px;margin-top:3px}
+.orow label{display:block}
+.orow input[type=number]{width:70px;font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);text-align:right}
+.orow select{font:inherit;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
+.orow .oline{display:flex;gap:10px;align-items:center;margin:2px 0}.orow .oline>span{width:130px}
+.orow code{font-size:12px}
+
+/* Ctrl+E: lo abierto por proyecto y búsqueda (flotante arriba, sin bloquear) */
+#orgPal{position:fixed;top:60px;left:50%;transform:translateX(-50%);width:min(680px,calc(100vw - 32px));max-height:min(560px,calc(100vh - 100px));z-index:60;display:flex;flex-direction:column;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 16px 48px rgba(0,0,0,.35);overflow:hidden}
+#orgPal[hidden]{display:none}
+#orgPal input{font:inherit;font-size:14px;padding:12px 14px;border:0;border-bottom:1px solid var(--line);background:var(--bg);color:var(--ink);outline:0}
+#palL{overflow:auto;padding:4px 0}
+#palL h5{margin:8px 14px 2px;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.palit{display:flex;align-items:center;gap:8px;padding:5px 14px 5px 26px;cursor:pointer;font-size:13px;white-space:nowrap;min-width:0}
+.palit b{font-weight:500;overflow:hidden;text-overflow:ellipsis}
+.palit small{color:var(--muted);overflow:hidden;text-overflow:ellipsis}
+.palit em{font-style:normal;font-size:11.5px;color:var(--warn)}
+.palit.on{background:var(--active)}
+#orgPal footer{padding:6px 14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
+#orgPal .ohint{padding:10px 14px;margin:0}

@@ -2663,9 +2663,12 @@ def idx_file(c, p, root, hist=False):
         st = p.stat()
     except OSError:
         return False
-    row = c.execute("select size, mtime from files where path=?", (str(p),)).fetchone()
-    if row and row[0] == st.st_size and row[1] == st.st_mtime_ns:
-        return False
+    # organizador: las carpetas de un proyecto se indexan según su tipo de parte (todo · nombres + PDF/Word · solo nombres)
+    modo = IDX_MODO.get(str(root), "todo")
+    solo_nombre = modo == "nombres" or (modo == "nombres_pdf" and p.suffix.lower() not in (".pdf", ".docx"))
+    row = c.execute("select size, mtime, estado from files where path=?", (str(p),)).fetchone()
+    if row and row[0] == st.st_size and row[1] == st.st_mtime_ns and (row[2] == "nombre") == solo_nombre:
+        return False  # sin cambios (y con el mismo modo: si cambió el ajuste de su tipo, se vuelve a indexar)
     if row and hist:
         old = c.execute("select body from docs where path=? and page=0", (str(p),)).fetchone()
         try:
@@ -2674,7 +2677,9 @@ def idx_file(c, p, root, hist=False):
             pass
     estado, error, text = "ok", None, None
     try:
-        if p.suffix.lower() == ".pdf":
+        if solo_nombre:
+            estado = "nombre"  # se busca por su nombre; el contenido no se lee
+        elif p.suffix.lower() == ".pdf":
             estado = "pdf_pendiente"  # lo lee la ventana con pdf.js
         elif p.suffix.lower() == ".docx":
             text = docx_text(p)
@@ -2717,14 +2722,26 @@ def idx_background():
         k.SetThreadPriority(k.GetCurrentThread(), 0x00010000)  # THREAD_MODE_BACKGROUND_BEGIN
 
 
+IDX_MODO = {}  # carpeta del organizador → modo de índice de su tipo de parte (las demás raíces: «todo»)
+
+
 def idx_targets():
-    """Todos los archivos a indexar: los de cada proyecto (sin .git) y los sueltos, cada uno con su proyecto."""
+    """Todos los archivos a indexar: los de cada proyecto (sin .git), los sueltos y las carpetas de las fichas del
+    organizador (con el modo de su tipo de parte; respaldos y bases de datos no se indexan), cada uno con su raíz."""
     cfg = load_config()
-    for r in map(Path, cfg["proyectos"]):
+    raices = [Path(r) for r in cfg["proyectos"]]
+    IDX_MODO.clear()
+    for ruta, modo in (org.rutas_indice() if org else []):
+        r = Path(ruta)
+        if r.is_dir() and not any(r.resolve().is_relative_to(x.resolve()) for x in raices):  # ya dentro de un proyecto: va con él
+            IDX_MODO[str(r)] = modo
+    for r in [*raices, *map(Path, IDX_MODO)]:
         for d, dirs, files in os.walk(r):
             idx_rest()  # recorrer 200 000 archivos también gasta
             dirs[:] = [x for x in dirs if x != ".git"]  # la base interna de git no son archivos del usuario
             for f in files:
+                if f == ".desklens-ancla":  # el ancla del organizador no es un archivo del usuario
+                    continue
                 yield Path(d) / f, r
     for s in map(Path, cfg["sueltos"]):
         if s.is_file():
@@ -2749,7 +2766,7 @@ def idx_pass():
         c.commit()
         if cfg.get("proyectos") or cfg.get("sueltos"):
             seen = {str(p) for p, _ in targets}
-            projects = {str(Path(r)) for r in cfg.get("proyectos", [])}
+            projects = {str(Path(r)) for r in cfg.get("proyectos", [])} | set(IDX_MODO)  # disco desconectado: se conserva
             away = {}  # proyecto de la lista cuya carpeta no se alcanza ahora: lo suyo se conserva
             for path, root in c.execute("select path, root from files").fetchall():  # borrados o ya fuera de DeskLens
                 if root not in away:
@@ -4811,7 +4828,10 @@ class Handler(BaseHTTPRequestHandler):
         if url.startswith("/api/org/"):
             if not org:
                 return self.send_json(503, {"error": "El organizador no se pudo cargar (carpeta organizador/)"})
-            return self.send_json(*org.post(url, data))
+            res = org.post(url, data)
+            if res[0] == 200 and url.split("/")[3] in ("ficha", "fichas", "convertir", "ajustes"):
+                idx_wake.set()  # carpetas o modos de índice cambiados: el índice se pone al día enseguida
+            return self.send_json(*res)
         if url == "/api/agregar" and data.get("tipo") in ("proyectos", "sueltos"):
             check = Path.is_dir if data["tipo"] == "proyectos" else Path.is_file
             rutas = [r for r in data.get("rutas", []) if check(Path(r))]
@@ -5512,6 +5532,8 @@ def main():
         threading.Thread(target=indexer, daemon=True).start()  # también limpia el historial de cambios
         threading.Thread(target=watch_flush, daemon=True).start()  # cambios hechos fuera → historial
         threading.Thread(target=git_autofetch, daemon=True).start()  # ↓ al día sin pulsar Fetch
+        if org:  # organizador: respaldo diario de sus datos y MAPA.md al día
+            threading.Thread(target=org.vigilante, daemon=True).start()
         server.serve_forever()
         for r in runs.values():  # al cerrar la ventana no quedan programas corriendo
             r.kill()

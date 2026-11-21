@@ -328,29 +328,61 @@
     d.querySelector('#acR').onclick = actividadDlg;
     d.querySelector('#acL').onclick = async () => { if (await ask('Limpiar actividad', 'Se borra el registro de actividad del organizador.', ['Limpiar', 'Cancelar'], { danger: true }) === 'Limpiar') { await api('/api/org/actividad/limpiar', {}); actividadDlg(); } };
   }
-  async function ajustesDlg() {
-    let a;
-    try { a = await api('/api/org/ajustes'); } catch (e) { return err(e); }
-    const modos = [['todo', 'Todo el contenido'], ['nombres_pdf', 'Nombres + texto de PDF y Word'], ['nombres', 'Solo nombres'], ['no', 'No se indexa']];
-    const d = abrirDlg('⚙ Ajustes › Proyectos', `<div class="oform">
-      <label>Organizador</label><label><input type="checkbox" id="aEn" ${a.encendido ? 'checked' : ''}> encendido</label>
-      <label>Anclas</label><div><label><input type="checkbox" id="aGit" ${a.ignorar_git ? 'checked' : ''}> Ignorar en git (.git/info/exclude, solo este PC)</label><label><input type="checkbox" id="aWeb" ${a.avisar_web ? 'checked' : ''}> Avisar al anclar una carpeta web (htdocs, www…)</label></div>
-      <label>Índice por tipo</label><div>${Object.keys(TIPO).map(t => `<div style="display:flex;gap:8px;align-items:center;margin:2px 0"><span style="width:130px">${TIPO[t].join(' ')}</span>${t === 'respaldos' || t === 'base_datos' ? '<small>No se indexan (solo se ven)</small>'
-        : `<select data-t="${t}">${modos.filter(m => m[0] !== 'no' || t === 'otro').map(([v, n]) => `<option value="${v}" ${a.indice[t] === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`}</div>`).join('')}
-        <small>Se aplica al índice de las partes cuando llegue la vista de administración del proyecto.</small></div>
-      <label>Historial</label><span>Por defecto: <input type="number" id="aHd" min="1" max="365" value="${a.historial_dias}" style="width:64px"> días · <input type="number" id="aHm" min="0" max="100000" value="${a.historial_mb}" style="width:80px"> MB por proyecto</span>
-      <label>Datos</label><span><code>historial\\organizador\\</code> <small>fichas, anclas, discos y actividad</small></span>
-      <label>Atajos</label><span>Ctrl+Shift+O tablero · Esc salir <small>(también en ⚙ Ajustes › Accesos por teclado › Proyectos)</small></span></div>`,
-    { pie: '<span class="sp"></span><button class="obtn" id="aX">Cancelar</button><button class="obtn primary" id="aOk">Guardar</button>' });
-    d.querySelector('#aX').onclick = () => dlg.close();
-    d.querySelector('#aOk').onclick = async () => {
-      const indice = {}; d.querySelectorAll('[data-t]').forEach(s => indice[s.dataset.t] = s.value);
-      try {
-        await api('/api/org/ajustes', { encendido: d.querySelector('#aEn').checked, ignorar_git: d.querySelector('#aGit').checked, avisar_web: d.querySelector('#aWeb').checked,
-          indice, historial_dias: +d.querySelector('#aHd').value, historial_mb: +d.querySelector('#aHm').value });
-        dlg.close(); flash('✓ Ajustes del organizador guardados'); cargar();
-      } catch (e) { err(e); }
-    };
+  // ⚙ Ajustes › 🗂 Proyectos: el apartado del organizador dentro de los Ajustes de DeskLens (index.html llama a
+  // orgAjustes.nav/seccion/enlazar/guardar si existe). Cada opción dice qué hace y dónde escribe; nada a escondidas.
+  const AJ_G = '🗂 Proyectos';
+  async function ajustesDlg() { // el ⚙ del tablero abre Ajustes justo en este apartado
+    await settingsDialog();
+    $('#dlg')?.querySelector(`section[data-g="${AJ_G}"]`)?.scrollIntoView({ block: 'start' });
+  }
+  const fila = (t, etiqueta, html) => `<div class="orow krow" data-t="${esc(plainTxt(t + ' proyectos organizador'))}"><label>${etiqueta}</label><div>${html}</div></div>`;
+  window.orgAjustes = {
+    nav: () => `<a data-g="${AJ_G}">${AJ_G}<span></span></a>`,
+    seccion: () => `<section data-g="${AJ_G}" class="oajustes"><h4>${AJ_G}</h4>${fila('cargando', 'Organizador', '<small>Cargando…</small>')}</section>`,
+    async enlazar(d) {
+      const S = d.querySelector(`section[data-g="${AJ_G}"]`); if (!S) return;
+      let a; try { a = await api('/api/org/ajustes'); } catch (e) { S.querySelector('small').textContent = '⚠ ' + e.message; return; }
+      const modos = [['todo', 'Todo el contenido'], ['nombres_pdf', 'Nombres + texto de PDF y Word'], ['nombres', 'Solo nombres'], ['no', 'No se indexa']];
+      const r = a.respaldo, act = a.discos.filter(x => x.activo).length, mapa = a.mapa_ruta.replace(/\\/g, '/');
+      const b = (id, t) => `<button type="button" class="obtn" id="${id}">${t}</button>`;
+      S.innerHTML = `<h4>${AJ_G}</h4>
+        ${fila('encendido tablero', 'Organizador', `<label><input type="checkbox" id="og_en" ${a.encendido ? 'checked' : ''}> encendido</label><small>Icono 🗂 en la cinta · Ctrl+Shift+O</small>`)}
+        ${fila('discos anclas exclusiones', 'Discos', `${act} disco(s) para buscar anclas ${b('og_di', '💽 Abrir')}<small>Solo se recorren nombres de carpetas; cada disco con sus 🚫 exclusiones (discos.json).</small>`)}
+        ${fila('indice tipo parte material codigo web', 'Índice por tipo', Object.keys(TIPO).map(t => `<div class="oline"><span>${TIPO[t].join(' ')}</span>${t === 'respaldos' || t === 'base_datos' ? '<small>No se indexan (solo se ven)</small>'
+          : `<select data-ot="${t}">${modos.filter(m => m[0] !== 'no' || t === 'otro').map(([v, n]) => `<option value="${v}" ${a.indice[t] === v ? 'selected' : ''}>${n}</option>`).join('')}</select>`}</div>`).join('') + '<small>Se aplica al guardar: el índice de DeskLens vuelve a leer esas carpetas.</small>')}
+        ${fila('anclas git web exclude', 'Anclas', `<label><input type="checkbox" id="og_git" ${a.ignorar_git ? 'checked' : ''}> Ignorar en git (.git/info/exclude, solo este PC)</label>
+          <label><input type="checkbox" id="og_web" ${a.avisar_web ? 'checked' : ''}> Avisar al anclar una carpeta web (htdocs, www…)</label>`)}
+        ${fila('historial versiones cuota dias mb', 'Historial', `Por defecto: <input type="number" id="og_hd" min="1" max="365" value="${a.historial_dias}"> días · <input type="number" id="og_hm" min="0" max="100000" value="${a.historial_mb}"> MB por proyecto<small>Cada proyecto lo cambia en su ficha.</small>`)}
+        ${fila('respaldo copia diaria disco', 'Respaldo diario', `<select id="og_rd"><option value="">— sin respaldo —</option>${a.discos.filter(x => x.conectado || x.serie === r.disco).map(x => `<option value="${x.serie}" ${r.disco === x.serie ? 'selected' : ''}>${esc(x.letra)} ${esc(x.nombre || '')}${x.conectado ? '' : ' (no conectado)'}</option>`).join('')}</select>
+          · guardar <input type="number" id="og_rn" min="1" max="365" value="${r.guardar}"> copias ${b('og_ra', 'Copiar ahora')} ${r.ruta ? b('og_rc', 'Abrir carpeta') : ''}
+          <small>${r.ultimo ? `Última: ${esc(r.ultimo.replace('T', ' '))} ✓ → ${esc(r.ruta)}. ` : 'Todavía no hay respaldo. '}Copia fichas, anclas, discos, ajustes y actividad en &lt;disco&gt;\\DeskLens-respaldo\\organizador\\&lt;fecha&gt;, una vez al día.</small>`)}
+        ${fila('mapa ia claude anclas', 'Mapa para IA', `<label><input type="checkbox" id="og_mp" ${a.mapa ? 'checked' : ''}> Mantener MAPA.md al día</label> ${b('og_mv', 'Ver mapa')} ${b('og_mc', 'Copiar texto para CLAUDE.md')}
+          <small>${esc(a.mapa_ruta)}${a.mapa_fecha ? ' · actualizado ' + hace(a.mapa_fecha) : ''}. Con ese texto en tu CLAUDE.md, «lee mi DeskLens» o «mis anclas» basta para que la IA sepa dónde está cada parte.</small>`)}
+        ${fila('datos carpeta fichas', 'Datos', `<code>${esc(a.datos)}</code> · ${a.n_fichas} ficha(s) · ${a.n_anclas} ancla(s) ${b('og_dc', 'Abrir carpeta')}`)}
+        ${fila('actividad registro', 'Actividad', `Todo lo que hace el organizador, dónde y cuándo ${b('og_ac', '📋 Ver actividad')}`)}`;
+      const salir = async fn => { d.close(); if (!on()) await abrir(); fn(); }; // de Ajustes (modal) a una ventana del organizador
+      S.querySelector('#og_di').onclick = () => salir(discosDlg);
+      S.querySelector('#og_ac').onclick = () => salir(actividadDlg);
+      S.querySelector('#og_ra').onclick = async () => {
+        try { await guardarAj(d); const x = await api('/api/org/respaldo/ahora', {}); flash(`✓ Respaldo en ${x.ruta}`); window.orgAjustes.enlazar(d); }
+        catch (e) { ask('Respaldo', e.message, ['Entendido']); }
+      };
+      S.querySelector('#og_rc')?.addEventListener('click', () => api('/api/org/abrir_datos', { cual: 'respaldo' }).catch(err));
+      S.querySelector('#og_dc').onclick = () => api('/api/org/abrir_datos', {}).catch(err);
+      S.querySelector('#og_mv').onclick = async () => { try { const x = await api('/api/org/mapa', {}); d.close(); cerrar(); openTab(x.ruta || a.mapa_ruta, true); } catch (e) { err(e); } };
+      S.querySelector('#og_mc').onclick = () => copyText(`## DeskLens (mis proyectos y anclas)\nMapa: ${mapa}\nCuando diga «lee mi DeskLens» o «mis anclas», lee el mapa y usa las rutas actuales.\n`, '✓ Copiado: pégalo en tu CLAUDE.md');
+      d.dispatchEvent(new Event('input')); // que Ajustes vuelva a contar las filas de este apartado
+    },
+    guardar: d => guardarAj(d),
+  };
+  async function guardarAj(d) {
+    const S = d.querySelector(`section[data-g="${AJ_G}"]`); if (!S || !S.querySelector('#og_en')) return;
+    const v = id => S.querySelector('#' + id), indice = {};
+    S.querySelectorAll('[data-ot]').forEach(x => indice[x.dataset.ot] = x.value);
+    await api('/api/org/ajustes', { encendido: v('og_en').checked, ignorar_git: v('og_git').checked, avisar_web: v('og_web').checked, indice,
+      historial_dias: +v('og_hd').value, historial_mb: +v('og_hm').value, respaldo_disco: v('og_rd').value, respaldo_guardar: +v('og_rn').value, mapa: v('og_mp').checked });
+    btn.hidden = !v('og_en').checked; // apagado: sin icono en la cinta
+    if (on()) cargar();
   }
 
   // ---------- flujo de arranque: discos → recorrido → relaciones (✓/✗) → fichas ----------
@@ -567,7 +599,11 @@
   let panesHome = null;
   const TABS = [['archivos', 'Archivos'], ['ficha', 'Ficha'], ['git', 'Git'], ['estado', 'Estado'], ['historial', 'Historial'], ['notas', 'Notas']];
   function adminAbrir(f) {
-    O.adm = { id: f.id, tab: LS('desklens.org.tab') || 'archivos', q: '', abiertas: new Set(JSON.parse(LS('desklens.org.abiertas.' + f.id) || '[]')) };
+    // cada proyecto recuerda su vista: pestaña, búsqueda, ancho del árbol, carpetas abiertas, desplazamiento y último archivo
+    let v = {};
+    try { v = JSON.parse(LS('desklens.org.vista.' + f.id) || '{}'); } catch {}
+    O.adm = { id: f.id, tab: v.tab || 'archivos', q: v.q || '', arbolW: v.arbolW || 320, scroll: v.scroll || 0, ultimo: v.ultimo || '',
+      abiertas: new Set(v.abiertas || JSON.parse(LS('desklens.org.abiertas.' + f.id) || '[]')) };
     O.pantalla = 'proyecto'; pintar();
   }
   function devolverPanes() { // el visor vuelve a su sitio de DeskLens
@@ -599,7 +635,7 @@
     root.querySelector('#aE').onchange = e => guardar(f.id, { estado: e.target.value });
     root.querySelector('#aA').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); guardar(f.id, { avance: Math.round((e.clientX - r.left) / r.width * 20) * 5 }); };
     root.querySelectorAll('.oadmbar .oact button').forEach(b => b.onclick = () => accion(b.dataset.a, f, b));
-    root.querySelectorAll('.otabs button').forEach(b => b.onclick = () => { O.adm.tab = b.dataset.t; LS('desklens.org.tab', O.adm.tab); admin(); });
+    root.querySelectorAll('.otabs button').forEach(b => b.onclick = () => { O.adm.tab = b.dataset.t; guardarVista(); admin(); });
     ({ archivos: adminArchivos, ficha: adminFicha, git: adminGit, estado: adminEstado }[O.adm.tab] || adminLuego)(f, root.querySelector('#aB'));
   }
 
@@ -615,21 +651,28 @@
     if (!panesHome) { const p = $('#panes'); panesHome = { parent: p.parentNode, next: p.nextSibling }; }
     B.querySelector('.oslot').append($('#panes'));
     document.body.classList.add('orgadm');
-    const W = +LS('desklens.org.arbolW') || 320; B.querySelector('.oadm').style.setProperty('--arbolW', W + 'px');
+    B.querySelector('.oadm').style.setProperty('--arbolW', O.adm.arbolW + 'px');
     B.querySelector('.ores').onpointerdown = e => { // ancho del árbol: arrastrando el borde (se recuerda)
       const box = B.querySelector('.oadm'), x0 = e.clientX, w0 = box.querySelector('.oarbol').offsetWidth;
       const mv = ev => box.style.setProperty('--arbolW', Math.max(220, Math.min(700, w0 + ev.clientX - x0)) + 'px');
-      const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); LS('desklens.org.arbolW', parseInt(box.style.getPropertyValue('--arbolW'))); };
+      const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); O.adm.arbolW = parseInt(box.style.getPropertyValue('--arbolW')); guardarVista(); };
       addEventListener('pointermove', mv); addEventListener('pointerup', up);
     };
     B.querySelector('#aJ').onclick = () => { devolverPanes(); editarFicha(f); };
     const T = B.querySelector('#aTree');
     const q = B.querySelector('#aQ');
     let tq;
-    q.oninput = () => { O.adm.q = q.value; clearTimeout(tq); tq = setTimeout(() => O.adm.q.trim() ? buscarEn(f, T) : arbol(f, T), 250); };
+    q.oninput = () => { O.adm.q = q.value; guardarVista(); clearTimeout(tq); tq = setTimeout(() => O.adm.q.trim() ? buscarEn(f, T) : arbol(f, T), 250); };
+    let ts; T.onscroll = () => { clearTimeout(ts); ts = setTimeout(() => { O.adm.scroll = T.scrollTop; guardarVista(); }, 300); };
     O.adm.q.trim() ? buscarEn(f, T) : arbol(f, T);
+    // al volver al proyecto: su último archivo, si lo que se ve ahora no es de este proyecto
+    const dentro = r => r && vivas(f).some(c => r.toLowerCase().startsWith(c.ruta.toLowerCase()));
+    if (O.adm.ultimo && !dentro(typeof cur === 'string' ? cur : '')) openTab(O.adm.ultimo, true);
   }
-  const guardarAbiertas = () => LS('desklens.org.abiertas.' + O.adm.id, JSON.stringify([...O.adm.abiertas]));
+  const guardarVista = () => O.adm && LS('desklens.org.vista.' + O.adm.id, JSON.stringify({ tab: O.adm.tab, q: O.adm.q, arbolW: O.adm.arbolW,
+    scroll: O.adm.scroll, ultimo: O.adm.ultimo, abiertas: [...O.adm.abiertas] }));
+  const guardarAbiertas = guardarVista;
+  const abrirArchivo = (ruta, fijo) => { O.adm.ultimo = ruta; guardarVista(); openTab(ruta, fijo); }; // se recuerda el último por proyecto
   function arbol(f, T) {
     T.innerHTML = f.partes.map((p, j) => `<div class="oparte"><div class="ophead">${TIPO[p.tipo][0]} ${esc(p.nombre)}</div>${p.carpetas.map((c, k) => {
       const borrada = BORRADA[c.estado], viva = c.estado === 'ok' || c.estado === 'movida';
@@ -640,9 +683,9 @@
     }).join('') || '<div class="osmall" style="padding:2px 12px">(sin carpetas)</div>'}</div>`).join('') || '<p class="ohint">El proyecto no tiene carpetas: añádelas con 🧩 Editar jerarquía.</p>';
     T.onclick = e => {
       const n = e.target.closest('.onodo'); if (!n || n.classList.contains('gris')) return;
-      if (n.dataset.dir) abrirCarpeta(n, T); else openTab(n.dataset.ruta, false);
+      if (n.dataset.dir) abrirCarpeta(n, T); else abrirArchivo(n.dataset.ruta, false);
     };
-    T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir) openTab(n.dataset.ruta, true); };
+    T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir) abrirArchivo(n.dataset.ruta, true); };
     T.oncontextmenu = e => {
       const n = e.target.closest('.onodo'); if (!n || n.classList.contains('gris') && !n.classList.contains('raiz')) return;
       e.preventDefault();
@@ -650,13 +693,14 @@
       const c = raiz ? f.partes[+n.dataset.j].carpetas[+n.dataset.k] : null;
       openMenu({ x: e.clientX, y: e.clientY }, [
         ['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err), { disabled: n.classList.contains('gris') }],
-        ...(dir ? [['>_ Terminal aquí', () => { adminSalir(); cerrar(); openTerminal(ruta); }, { disabled: n.classList.contains('gris') }]] : [['Abrir', () => openTab(ruta, true)]]),
+        ...(dir ? [['>_ Terminal aquí', () => { adminSalir(); cerrar(); openTerminal(ruta); }, { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]]),
         ...(raiz ? ['-', ['Quitar del proyecto…', async () => {
           if (await ask('Quitar del proyecto', `«${c.nombre}» deja de ser parte de «${f.nombre}». No se borra nada del disco.`, ['Quitar', 'Cancelar'], { danger: true }) !== 'Quitar') return;
           try { await api('/api/org/ficha/quitar_carpeta', { id: f.id, ancla: c.ancla }); await cargar(); } catch (x) { err(x); }
         }, { danger: true }]] : [])]);
     };
-    for (const r of O.adm.abiertas) { const n = T.querySelector(`.onodo[data-ruta="${CSS.escape(r)}"]`); if (n) abrirCarpeta(n, T, true); }
+    const abrir = [...O.adm.abiertas].map(r => T.querySelector(`.onodo[data-ruta="${CSS.escape(r)}"]`)).filter(Boolean).map(n => abrirCarpeta(n, T, true));
+    Promise.all(abrir).then(() => setTimeout(() => { T.scrollTop = O.adm.scroll; }, 50)); // donde lo dejaste
   }
   async function abrirCarpeta(n, T, restaurar = false) {
     const ruta = n.dataset.ruta, hijos = n.nextElementSibling, abierta = O.adm.abiertas.has(ruta) && !restaurar;
@@ -668,7 +712,8 @@
     hijos.innerHTML = items.filter(i => i.nombre !== '.desklens-ancla').map(i => `<div class="onodo" style="padding-left:${8 + nivel * 14}px" data-ruta="${esc(i.ruta)}" data-nivel="${nivel}" ${i.dir ? 'data-dir="1"' : ''} title="${esc(i.ruta)}">
       <span class="otw">${i.dir ? '▸' : ''}</span>${fileIcon(i.nombre, i.dir)}<span class="onom">${esc(i.nombre)}</span>${i.git && i.git !== 'limpio' ? `<span class="ogitpt" title="${esc(i.git)}">●</span>` : ''}</div>${i.dir ? `<div class="ohijos" data-de="${esc(i.ruta)}"></div>` : ''}`).join('')
       || `<div class="osmall" style="padding-left:${8 + nivel * 14}px">(vacía)</div>`;
-    for (const r of O.adm.abiertas) if (r.startsWith(ruta + '\\') || r.startsWith(ruta + '/')) { const m = hijos.querySelector(`.onodo[data-ruta="${CSS.escape(r)}"]`); if (m && m.parentElement === hijos) abrirCarpeta(m, T, true); }
+    const sub = [...O.adm.abiertas].filter(r => r.startsWith(ruta + '\\') || r.startsWith(ruta + '/')).map(r => hijos.querySelector(`.onodo[data-ruta="${CSS.escape(r)}"]`)).filter(m => m && m.parentElement === hijos);
+    await Promise.all(sub.map(m => abrirCarpeta(m, T, true))); // las de dentro también, antes de volver al desplazamiento guardado
   }
   // Buscar en el proyecto: por nombre en todas sus carpetas (el mismo filtro que Ctrl+F del árbol de DeskLens)
   async function buscarEn(f, T) {
@@ -680,8 +725,8 @@
       T.innerHTML = (r.items || []).filter(i => !i.ruta.endsWith('.desklens-ancla')).map(i => `<div class="onodo" data-ruta="${esc(i.ruta)}" ${i.dir ? 'data-dir="1"' : ''} title="${esc(i.ruta)}">${fileIcon(i.nombre || i.ruta.split(/[\\/]/).pop(), i.dir)}
         <span class="onom">${esc(i.nombre || i.ruta.split(/[\\/]/).pop())}</span><small>${esc(i.ruta.slice(base(i.ruta).length - base(i.ruta).split(/[\\/]/).pop().length))}</small></div>`).join('')
         + (r.mas ? '<p class="ohint">Hay más resultados: escribe algo más concreto.</p>' : '') || '<p class="ohint">Sin resultados.</p>';
-      T.onclick = e => { const n = e.target.closest('.onodo'); if (!n) return; n.dataset.dir ? api('/api/mostrar', { ruta: n.dataset.ruta }).catch(err) : openTab(n.dataset.ruta, false); };
-      T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir) openTab(n.dataset.ruta, true); };
+      T.onclick = e => { const n = e.target.closest('.onodo'); if (!n) return; n.dataset.dir ? api('/api/mostrar', { ruta: n.dataset.ruta }).catch(err) : abrirArchivo(n.dataset.ruta, false); };
+      T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir) abrirArchivo(n.dataset.ruta, true); };
       T.oncontextmenu = null;
     } catch (e) { T.innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p>`; }
   }
@@ -742,6 +787,90 @@
     B.innerHTML = `<div class="opage"><p class="ohint">${O.adm.tab === 'historial' ? 'El historial de la estructura (comparar con versiones anteriores en las 3 vistas) llega en la Fase 1b.' : 'Las notas ancladas (a carpetas, archivos, páginas y párrafos) llegan en la Fase 2.'}</p></div>`;
   }
 
+  // ---------- Ctrl+E: lo abierto, agrupado por proyecto, y buscar en todo (M2, como el Ctrl+E de DBeaver) ----------
+  // Sin escribir: las pestañas abiertas agrupadas por proyecto (el de la pestaña que ves, primero). ↑ ↓ y Enter para ir,
+  // Supr cierra la pestaña. Escribiendo: filtra lo abierto y busca también proyectos, carpetas, archivos y acciones.
+  const pal = Object.assign(document.createElement('div'), { id: 'orgPal', hidden: true });
+  document.body.append(pal);
+  let palSel = 0, palItems = [], palT;
+  KEYS.push(['Proyectos · Ctrl+E', [['Ctrl+E', 'Lo abierto, agrupado por proyecto; escribiendo, busca proyectos, carpetas, archivos y acciones'],
+    ['↑ / ↓ · Enter', 'Moverse y abrir'], ['Supr', 'Cerrar la pestaña elegida (en la lista de abiertos)'], ['Esc', 'Cerrar la lista']]]);
+  addEventListener('keydown', e => {
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'e' && btn && !btn.hidden) { e.preventDefault(); e.stopPropagation(); pal.hidden ? paleta() : palCerrar(); }
+  }, true);
+  const proyectoDe = ruta => { // ficha (o proyecto de DeskLens) a la que pertenece una ruta
+    const low = (ruta || '').toLowerCase();
+    for (const f of O.st?.fichas || []) for (const p of f.partes) for (const c of p.carpetas)
+      if (c.ruta && (low === c.ruta.toLowerCase() || low.startsWith(c.ruta.toLowerCase() + '\\'))) return { clave: 'f:' + f.id, nombre: f.nombre, tipo: p.tipo, f };
+    const d = side?.proyectos?.find(x => low.startsWith(x.ruta.toLowerCase() + '\\'));
+    return d ? { clave: 'd:' + d.ruta, nombre: d.nombre } : { clave: '', nombre: 'Sin proyecto' };
+  };
+  async function paleta() {
+    if (!O.st) try { O.st = await api('/api/org/estado'); } catch {}
+    pal.innerHTML = `<input id="palQ" placeholder="Abierto por proyecto · escribe para buscar proyectos, carpetas, archivos y acciones" autocomplete="off" spellcheck="false"><div id="palL"></div>
+      <footer>↑ ↓ moverse · Enter abrir · Supr cerrar pestaña · Esc salir</footer>`;
+    pal.hidden = false; palSel = 0;
+    const q = pal.querySelector('#palQ');
+    q.oninput = () => { palSel = 0; palPintar(q.value); clearTimeout(palT); if (q.value.trim().length >= 2) palT = setTimeout(() => palArchivos(q.value), 250); };
+    q.onkeydown = e => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); palSel = Math.max(0, Math.min(palItems.length - 1, palSel + (e.key === 'ArrowDown' ? 1 : -1))); palMarcar(); }
+      else if (e.key === 'Enter') { e.preventDefault(); palItems[palSel]?.ir(); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); palCerrar(); }
+      else if (e.key === 'Delete' && !q.value && palItems[palSel]?.tab) { e.preventDefault(); const t = palItems[palSel].tab; closeTab(t).then(() => palPintar('')); }
+    };
+    palPintar(''); q.focus();
+  }
+  function palCerrar() { pal.hidden = true; clearTimeout(palT); }
+  document.addEventListener('pointerdown', e => { if (!pal.hidden && !pal.contains(e.target)) palCerrar(); }, true);
+  function palPintar(texto, archivos = []) {
+    const w = plainTxt(texto.trim()).split(/\s+/).filter(Boolean), ok = s => w.every(x => plainTxt(s).includes(x));
+    const grupos = new Map(), actual = proyectoDe(cur).clave;
+    for (const t of tabs) {
+      if (!ok(tabName(t) + ' ' + t)) continue;
+      const p = proyectoDe(t), e = typeof edits !== 'undefined' && edits.get(t);
+      (grupos.get(p.clave) || grupos.set(p.clave, { nombre: p.nombre, items: [] }).get(p.clave)).items.push({
+        tab: t, html: `${fileIcon(tabName(t), false)}<b>${esc(tabName(t))}</b><small>${p.tipo ? TIPO[p.tipo].join(' ') : ''}</small>${e && isDirty(e) ? '<em>● sin guardar</em>' : ''}${t === cur ? '<em>en pantalla</em>' : ''}`,
+        ir: () => { palCerrar(); if (on()) cerrar(); openTab(t, true); } });
+    }
+    const orden = [...grupos.keys()].sort((a, b) => (b === actual) - (a === actual) || (a === '') - (b === ''));
+    palItems = [];
+    let html = orden.map(k => { const g = grupos.get(k); palItems.push(...g.items); return `<h5>${k ? '● ' : ''}${esc(g.nombre)}</h5>${g.items.map(() => '<div class="palit"></div>').join('')}`; }).join('');
+    if (w.length) { // también: proyectos, carpetas y acciones
+      const otros = [];
+      for (const f of O.st?.fichas || []) {
+        if (ok(f.nombre + ' ' + (f.descripcion || '') + ' ' + (f.tecnologia || []).join(' '))) {
+          otros.push({ html: `🗂 <b>${esc(f.nombre)}</b><small>proyecto · ${ESTADO[f.estado][1]}</small>`, ir: () => { palCerrar(); if (!on()) abrir().then(() => adminAbrir(f)); else adminAbrir(f); } });
+          for (const [a, t] of [['vscode', 'Abrir en VS Code'], ['claude', 'Claude con todo el proyecto'], ['terminal', 'Terminal']])
+            otros.push({ html: `⚡ <b>${esc(f.nombre)}</b> · ${t}<small>acción</small>`, ir: () => { palCerrar(); accion(a, f, null); } });
+        }
+        for (const p of f.partes) for (const c of p.carpetas) if (c.nombre && ok(c.nombre + ' ' + p.nombre))
+          otros.push({ html: `${esc(c.icono || '📁')} <b>${esc(c.nombre)}</b><small>${esc(f.nombre)} › ${TIPO[p.tipo][0]} ${esc(p.nombre)}</small>`,
+            ir: () => { palCerrar(); api('/api/mostrar', { ruta: c.ruta }).catch(err); } });
+      }
+      for (const [t, fn] of [['Tablero de proyectos', () => { if (!on()) abrir(); }], ['Buscar proyectos en los discos', async () => { if (!on()) await abrir(); O.pantalla = 'arranque'; O.props = null; arranque(); }], ['Actividad del organizador', async () => { if (!on()) await abrir(); actividadDlg(); }]])
+        if (ok(t)) otros.push({ html: `⚡ <b>${t}</b><small>acción</small>`, ir: () => { palCerrar(); fn(); } });
+      otros.push(...archivos);
+      if (otros.length) { html += '<h5>Resultados</h5>' + otros.map(() => '<div class="palit"></div>').join(''); palItems.push(...otros); }
+    }
+    const L = pal.querySelector('#palL');
+    L.innerHTML = html || `<p class="ohint">${w.length ? 'Sin resultados.' : 'No hay pestañas abiertas.'}</p>`;
+    L.querySelectorAll('.palit').forEach((el, i) => { el.innerHTML = palItems[i].html; el.onclick = () => palItems[i].ir(); el.onmousemove = () => { palSel = i; palMarcar(); }; });
+    palMarcar();
+  }
+  const palMarcar = () => pal.querySelectorAll('.palit').forEach((el, i) => { el.classList.toggle('on', i === palSel); if (i === palSel) el.scrollIntoView({ block: 'nearest' }); });
+  async function palArchivos(texto) { // archivos por nombre en las carpetas de todos los proyectos
+    const raices = (O.st?.fichas || []).flatMap(f => vivas(f).map(c => c.ruta));
+    if (!raices.length) return;
+    try {
+      const r = await api('/api/arbol/filtro?q=' + encodeURIComponent(texto) + '&raices=' + encodeURIComponent([...new Set(raices)].join('|')));
+      if (pal.hidden || pal.querySelector('#palQ').value !== texto) return;
+      palPintar(texto, (r.items || []).filter(i => !i.dir && !i.ruta.endsWith('.desklens-ancla')).slice(0, 30).map(i => {
+        const p = proyectoDe(i.ruta), n = i.ruta.split(/[\\/]/).pop();
+        return { html: `${fileIcon(n, false)}<b>${esc(n)}</b><small>${esc(p.nombre)} · ${esc(i.ruta)}</small>`, ir: () => { palCerrar(); if (on()) cerrar(); openTab(i.ruta, true); } };
+      }));
+    } catch {}
+  }
+
   // insignia de alertas al arrancar DeskLens (sin abrir el tablero)
-  api('/api/org/estado').then(s => { O.st = s; insignia(); }).catch(() => {});
+  api('/api/org/estado').then(s => { O.st = s; insignia(); btn.hidden = !s.ajustes.encendido; }).catch(() => {}); // apagado en Ajustes: sin icono
 })();

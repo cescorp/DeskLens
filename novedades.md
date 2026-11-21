@@ -13,6 +13,14 @@ Cada cambio es una versión nueva, la más reciente arriba. El número de la pri
 - **Clic en una tarjeta: la vista del proyecto.** Arriba, estado y avance (clic en la barra), git y botones. Pestañas: **Archivos** (un solo árbol con todas las carpetas del proyecto por partes, G:, H:, htdocs…, y el visor/editor de DeskLens de siempre a la derecha; buscar por nombre dentro del proyecto; clic derecho: Explorador, terminal o quitar del proyecto), **Ficha**, **Git** (abre la vista Git de DeskLens en la carpeta de código), **Estado** (git, copia y tamaño de cada carpeta; solo informa). Historial y Notas llegan en las fases siguientes.
 - Las ventanas del organizador no bloquean la pantalla: un clic fuera (o Esc) las cierra. Solo preguntan si escribiste algo sin guardar.
 
+## v1.168 · 2026-11-21 · Proyectos: cada uno recuerda su vista, índice por tipo, Ajustes, Ctrl+E, mapa para la IA y respaldo
+- **Cada proyecto recuerda su vista**: pestaña, búsqueda, ancho del árbol, carpetas abiertas, dónde estabas y el último archivo (al volver se abre solo).
+- **Índice por tipo de parte**: las carpetas de los proyectos entran al buscador de DeskLens según su tipo (código, web y documentos: todo; material: nombres y texto de PDF y Word; respaldos y bases de datos: nada, solo se ven). Si cambias el modo, se vuelven a leer.
+- **⚙ Ajustes › 🗂 Proyectos**: todo el organizador en un solo apartado (encendido, discos, índice por tipo, anclas en git, historial por defecto, respaldo diario, mapa para la IA, datos y actividad). El ⚙ del tablero abre ahí.
+- **Ctrl+E**: lo abierto, agrupado por proyecto (sin guardar y en pantalla marcados); escribiendo busca proyectos, carpetas, archivos y acciones (VS Code, Claude, terminal…). Supr cierra la pestaña elegida.
+- **MAPA.md** (historial/organizador): cada proyecto con sus partes y la ruta actual de cada carpeta, al día solo. Con una línea en tu CLAUDE.md («Copiar texto para CLAUDE.md» en Ajustes), basta decir «lee mi DeskLens» o «mis anclas».
+- **Respaldo diario** de los datos del organizador en el disco que elijas (DeskLens-respaldo\organizador\<fecha>, guarda las últimas N), con «Copiar ahora» y «Abrir carpeta».
+
 ## v1.166 · 2026-11-20 · DeskLens se abre en su propia ventana, sin Edge
 - DeskLens ya no abre Edge: tiene su propia ventana de Windows, con su icono en la barra de tareas, sin pestañas ni barra de direcciones del navegador.
 - Recuerda dónde y de qué tamaño la dejaste. Si falta el componente de la ventana propia (el instalador lo ofrece), se abre con el navegador como antes. Se elige en ⚙ Ajustes › General › Ventana de DeskLens.

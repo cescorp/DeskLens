@@ -43,6 +43,7 @@ with tempfile.TemporaryDirectory() as tmp:
     desklens.INDEX_DB, desklens.CONV_DIR, desklens.RECOVERY_DIR = tmp / "idx" / "indice.db", tmp / "conv", tmp / "recuperacion"
     desklens.WIN_PROFILE, desklens.WIN_DATA = tmp / "ventana", tmp / "ventana_datos.json"  # ni al perfil de la ventana
     assert desklens.org, "el organizador (organizador/) debe cargar"
+    desklens.org.MAPA_AUTO[0] = False
     desklens.org.configurar(tmp / "organizador")  # ni a las fichas y anclas reales (sus pruebas: organizador/test_organizador.py)
     proj, fuera = tmp / "proyecto", tmp / "fuera"
     proj.mkdir(), fuera.mkdir()
@@ -864,6 +865,12 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     assert get(port, "/api/abrir?ruta=" + urllib.request.quote(str(anclada / "nota.txt")))[0] == 403
     code, d = post("/api/org/ficha/crear", {"nombre": "Prueba", "partes": [{"tipo": "material", "carpetas": [{"ruta": str(anclada)}]}]})
     assert code == 200 and d["ficha"]["id"] == "prueba"
+    # el índice lee las carpetas de las fichas según su tipo: material = nombres + texto de PDF/Word (un .txt, solo el nombre)
+    desklens.idx_pass()
+    c = desklens.idx_conn()
+    filas = dict(c.execute("select name, estado from files where root=?", (str(anclada),)).fetchall())
+    c.close()
+    assert filas.get("nota.txt") == "nombre" and ".desklens-ancla" not in filas, filas
     assert get(port, "/api/abrir?ruta=" + urllib.request.quote(str(anclada / "nota.txt")))[0] == 200
     assert post("/api/org/ficha/quitar", {"id": "prueba"})[0] == 200
     assert get(port, "/api/abrir?ruta=" + urllib.request.quote(str(anclada / "nota.txt")))[0] == 403
