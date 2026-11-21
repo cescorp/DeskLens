@@ -1712,14 +1712,25 @@ def edge_path(choice=None):
     return found.get(choice) or next(iter(found.values()), None)
 
 
+def has_webview():
+    """True si está pywebview (ventana nativa de DeskLens). Solo se busca el paquete: importarlo tarda ~1 s."""
+    import importlib.util
+    try:
+        return importlib.util.find_spec("webview") is not None
+    except (ImportError, ValueError):
+        return False
+
+
 # ⚙ Ajustes › General: con qué se abre DeskLens. Solo se ofrecen los navegadores instalados (se miran al arrancar).
 # ⚙ Ajustes › General: con DeskLens ya abierto, abrirlo otra vez (icono o archivo desde Windows) usa su ventana o abre otra
 SETTINGS.insert(1, ("ventanas", "General", "Al abrir DeskLens o un archivo con DeskLens ya abierto", "misma",
                     [("misma", "Usar la misma ventana (el archivo se añade como pestaña)"),
                      ("varias", "Abrir otra ventana, con sus propias pestañas")], None))
-SETTINGS.insert(1, ("navegador", "General", "Navegador de la ventana de DeskLens (se aplica al reabrir DeskLens)", "auto",
-                    [("auto", "Automático (" + " › ".join(n for b, n, *_ in BROWSERS if b in browsers()) + ")" if browsers()
-                      else "Automático"),
+SETTINGS.insert(1, ("navegador", "General", "Ventana de DeskLens (se aplica al reabrir DeskLens)", "auto",
+                    [("auto", "Automático (" + " › ".join((["Ventana propia"] if has_webview() else [])
+                                                          + [n for b, n, *_ in BROWSERS if b in browsers()]) + ")"
+                      if browsers() or has_webview() else "Automático"),
+                     *([("propia", "Ventana propia de DeskLens (sin navegador)")] if has_webview() else []),
                      *[(b, n) for b, n, *_ in BROWSERS if b in browsers()],
                      ("predeterminado", "Navegador predeterminado del sistema (pestaña normal)")], None))
 
@@ -1730,12 +1741,17 @@ def html_to_pdf(html, title=""):
     if not edge:
         raise RuntimeError("Para crear el PDF hace falta Edge, Chrome, Chromium o Brave instalado")
     IA_DIR.mkdir(exist_ok=True)
-    with tempfile.TemporaryDirectory(dir=IA_DIR) as d:
+    # ignore_cleanup_errors: Edge puede seguir con su perfil abierto unos segundos; la carpeta se borra luego
+    with tempfile.TemporaryDirectory(dir=IA_DIR, ignore_cleanup_errors=True) as d:
         page, out = Path(d) / "pagina.html", Path(d) / "salida.pdf"
         page.write_text(PDF_PAGE.format(title=_x(title), body=html), encoding="utf-8")
         subprocess.run([edge, "--headless=new", "--disable-gpu", "--no-first-run", f"--user-data-dir={Path(d) / 'perfil'}",
                         "--no-pdf-header-footer", "--virtual-time-budget=8000", f"--print-to-pdf={out}", page.as_uri()],
                        capture_output=True, timeout=120, creationflags=NO_WINDOW)
+        for _ in range(40):  # Edge puede salir antes de terminar de escribir el PDF: hasta 10 s de espera
+            if out.exists() and out.stat().st_size:
+                break
+            time.sleep(0.25)
         if not out.exists() or out.stat().st_size == 0:
             raise RuntimeError("El navegador no pudo crear el PDF")
         return out.read_bytes()
@@ -5160,7 +5176,7 @@ def window_flags(cfg):
         x, y, w, h = (int(v[k]) for k in ("x", "y", "w", "h"))
     except (KeyError, TypeError, ValueError):
         return []
-    if w < 400 or h < 300:  # tamaño absurdo: mejor el de Edge por defecto
+    if w < 400 or h < 300:  # tamaño absurdo: mejor el del navegador por defecto
         return []
     return [f"--window-position={x},{y}", f"--window-size={w},{h}"]
 
@@ -5331,10 +5347,83 @@ def window_profile_flags():
     return [f"--user-data-dir={WIN_PROFILE}", *APP_FLAGS] if WIN_PROFILE.exists() or WIN_DATA.exists() else []
 
 
+WEBVIEW_DATA = ROOT / "historial" / "ventana_propia"  # localStorage de la ventana nativa (se estrena desde WIN_DATA)
+
+
+def window_geometry(cfg):
+    """(x, y, ancho, alto) de la última vez, o None si no hay o es absurdo."""
+    v = cfg.get("ventana") or {}
+    try:
+        x, y, w, h = (int(v[k]) for k in ("x", "y", "w", "h"))
+    except (KeyError, TypeError, ValueError):
+        return None
+    return None if w < 400 or h < 300 else (x, y, w, h)
+
+
+def own_window(url):
+    """Proceso de la ventana nativa (desklens.pyw --ventana URL): WebView2 dentro de una ventana de Windows propia, con
+    su icono y su sitio en la barra de tareas, sin pestañas ni barra de direcciones. Al cerrarla guarda posición y
+    tamaño (los de la página no sirven: outerWidth en WebView2 no cuenta el marco y la ventana encogería) y avisa al
+    servidor para que se apague. Si pywebview o WebView2 fallan, abre el navegador como antes."""
+    def post(path, data):
+        import urllib.request
+        u = urlparse(url)
+        req = urllib.request.Request(f"{u.scheme}://{u.netloc}{path}", data=json.dumps(data).encode(), method="POST",
+                                     headers={"X-DeskLens": "1", "Content-Type": "application/json"})
+        try:
+            urllib.request.urlopen(req, timeout=3).close()
+        except OSError:
+            pass
+    try:
+        import webview
+        if WINDOWS:  # identidad propia en la barra de tareas: sin ella se agrupa con Python y lleva su icono
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("DeskLens.Ventana")
+        geo = window_geometry(load_config())
+        x, y, w, h = geo or (None, None, 1400, 900)
+        win = webview.create_window("DeskLens", url, x=x, y=y, width=w, height=h, min_size=(640, 400),
+                                    text_select=True, zoomable=True, background_color="#1e1e1e")
+        last = {}
+        def closing():
+            try:  # minimizada mide ~160 px de ancho: no pasa el filtro de abajo y se queda la anterior
+                last.update(x=win.x, y=win.y, w=win.width, h=win.height)
+            except Exception:  # la ventana ya no responde: se queda la geometría anterior
+                pass
+        win.events.closing += closing
+        WEBVIEW_DATA.mkdir(parents=True, exist_ok=True)
+        icon = ROOT / "icono" / "desklens.ico"
+        webview.start(gui="edgechromium" if WINDOWS else None, private_mode=False, storage_path=str(WEBVIEW_DATA),
+                      icon=str(icon) if icon.exists() else None)
+    except Exception:  # sin pywebview, sin WebView2 o sin GTK/Qt fuera de Windows: el navegador de siempre
+        open_browser(url)
+        return
+    if last and last["w"] >= 400 and last["h"] >= 300:
+        post("/api/ventana", last)
+    post("/api/adios", {})
+
+
 def open_window(url):
-    """Ventana propia en modo aplicación con el navegador de ⚙ Ajustes (o el primero instalado); con «predeterminado»
+    """Ventana de DeskLens según ⚙ Ajustes: «propia» (o «auto» con pywebview instalado) = ventana nativa en otro
+    proceso; si no, el navegador."""
+    choice = ajuste("navegador")
+    if choice in ("auto", "propia") and has_webview():
+        exe = Path(sys.executable)
+        w = exe.with_name("pythonw.exe")
+        try:
+            return subprocess.Popen([str(w if w.exists() else exe), str(ROOT / "desklens.pyw"), "--ventana", url],
+                                    cwd=str(ROOT), start_new_session=True, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL, creationflags=NO_WINDOW)
+        except OSError:
+            pass
+    open_browser(url)
+
+
+def open_browser(url):
+    """Ventana en modo aplicación con el navegador de ⚙ Ajustes (o el primero instalado); con «predeterminado»
     o sin ninguno Chromium, una pestaña del navegador de siempre."""
     choice = ajuste("navegador")
+    if choice == "propia":
+        choice = "auto"
     try:
         exe = None if choice == "predeterminado" else edge_path(choice)
         if exe:  # start_new_session solo actúa en macOS y Linux: la ventana no muere con el servidor
@@ -5359,6 +5448,8 @@ def main():
     """Arranque: los archivos pasados como argumento (arrastrados sobre el icono o abiertos desde Windows) se añaden
     como sueltos; si DeskLens ya está abierto en ese puerto, se abren en pestañas de su ventana (o, si no tiene ventana,
     en otra nueva); si no, servidor, indexador, limpieza y ventana."""
+    if "--ventana" in sys.argv:  # proceso de la ventana nativa (lo lanza open_window); el servidor es otro proceso
+        return own_window(sys.argv[sys.argv.index("--ventana") + 1])
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     files = [str(Path(a).resolve()) for a in args if Path(a).is_file()]
     if files:

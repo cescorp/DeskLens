@@ -1,6 +1,11 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.166 · 2026-11-20 · DeskLens se abre en su propia ventana, sin Edge
+- DeskLens ya no abre Edge: tiene su propia ventana de Windows, con su icono en la barra de tareas, sin pestañas ni barra de direcciones del navegador.
+- Recuerda dónde y de qué tamaño la dejaste. Si falta el componente de la ventana propia (el instalador lo ofrece), se abre con el navegador como antes. Se elige en ⚙ Ajustes › General › Ventana de DeskLens.
+- Crear un PDF ya no falla a veces cuando Edge tarda en escribirlo.
+
 ## v1.165 · 2026-11-20 · El visor de código ya no se come líneas vacías y el editor abre donde leías
 - En algunos archivos (por ejemplo un .bat con una línea vacía después de `echo.` o de `)`), el visor dejaba esas líneas vacías sin altura: veías menos líneas que en el editor y los números no coincidían. Ahora el visor muestra exactamente las mismas líneas y números que el editor.
 - Al pasar a editar, el editor se abre en la línea que pulsaste o seleccionaste en el visor (si sigue a la vista), con el cursor ahí; si no elegiste ninguna, en la primera que se veía. Antes volvía a la línea 1.

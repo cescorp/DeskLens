@@ -1,7 +1,7 @@
 # DeskLens
 
 Visor y editor local de proyectos y archivos, con pestañas, buscador y un chat de IA que gasta pocos tokens.
-Todo corre en tu ordenador: un servidor pequeño en Python (solo biblioteca estándar, sin instalar nada) y una ventana web.
+Todo corre en tu ordenador: un servidor pequeño en Python (solo biblioteca estándar) y una ventana propia de DeskLens (con el paquete opcional `pywebview`; sin él, Edge o Chrome en modo aplicación).
 
 ![DeskLens con el plan de un curso abierto: árbol del proyecto a la izquierda y el documento a la derecha](docs/capturas/01-explorador.png)
 

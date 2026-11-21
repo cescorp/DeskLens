@@ -648,6 +648,8 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     # navegador de la ventana: solo valores ofrecidos (los instalados, «auto» o «predeterminado»)
     assert desklens.set_ajustes({"navegador": "inventado"})["navegador"] == "auto"
     assert desklens.set_ajustes({"navegador": "predeterminado"})["navegador"] == "predeterminado"
+    # ventana propia: solo se ofrece con pywebview instalado
+    assert desklens.set_ajustes({"navegador": "propia"})["navegador"] == ("propia" if desklens.has_webview() else "auto")
     assert desklens.edge_path("no-instalado") == desklens.edge_path()  # elegido que ya no está: el primero que haya
     desklens.set_ajustes({k: d for k, _, _, d, _, _ in desklens.SETTINGS})  # vuelve a los valores por defecto
 
@@ -748,6 +750,9 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
             pass
 
     # ventana: se abre con la última posición y tamaño (incluido un segundo monitor a la izquierda)
+    assert desklens.window_geometry({"ventana": {"x": -1600, "y": 20, "w": 1400, "h": 900}}) == (-1600, 20, 1400, 900)
+    assert desklens.window_geometry({"ventana": {"x": 0, "y": 0, "w": 160, "h": 30}}) is None  # minimizada: se ignora
+    assert desklens.window_geometry({}) is None
     assert desklens.window_flags({}) == []
     assert desklens.window_flags({"ventana": {"x": -1600, "y": 20, "w": 1400, "h": 900}}) == \
         ["--window-position=-1600,20", "--window-size=1400,900"]

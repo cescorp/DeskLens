@@ -1,6 +1,10 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-20 · Ventana propia con pywebview (v1.166)
+El usuario no quiere que DeskLens se abra con Edge; eligió ventana nativa frente a Chrome en modo app. `open_window` lanza otro proceso (`desklens.pyw --ventana URL`, `own_window`) con pywebview + WebView2: título «DeskLens» (lo sigue encontrando `win_focus_window`), icono `desklens.ico`, AppUserModelID propio, `text_select=True` (pywebview lo apaga por defecto) y localStorage en `historial/ventana_propia` (se estrena desde `WIN_DATA`). Al cerrar, Python guarda x/y/ancho/alto (en WebView2 `outerWidth` no cuenta el marco: la ventana encogería; la página ya no los manda si existe `window.pywebview`) y envía `/api/adios`. Sin pywebview o si falla: `open_browser` (lo de antes). Ajuste «navegador»: nueva opción «propia», y «auto» la pone primero. Instalador: paso 3 ofrece `pip install --user pywebview`. De paso: `html_to_pdf` espera hasta 10 s al PDF (Edge salía antes de escribirlo y la prueba fallaba). Probado: ventana abierta contra un servidor de prueba (sin procesos nuevos de Edge, sí de WebView2), cierre limpio, test_desklens.py en verde.
+Pendiente: usarla en el día a día (doble clic desde el Explorador con la ventana abierta, arrastrar archivos, atajos Ctrl+W/Ctrl+Tab).
+
 ## Cómo continuar (para la próxima IA)
 - **Qué es DeskLens:** visor local con pestañas para leer, editar, ejecutar y buscar archivos de varios proyectos, con un chat de IA (Claude/Codex/Gemini por sus CLIs) que gasta pocos tokens. Diseño completo y decisiones en `implementacion_desklens.md`; formatos en `formatos_desklens.md`.
 - **Archivos:** `desklens.pyw` (servidor Python, solo biblioteca estándar), `index.html` (toda la interfaz), `test_desklens.py` (prueba: `python test_desklens.py` → «OK: todas las pruebas pasan»), `plantillas/`. `config.json` e `historial/` (conversaciones, índice, recuperación) están fuera de git.
@@ -411,6 +415,27 @@ En otro equipo sin Python, al aceptar instalarlo con winget, el instalador falla
 - [ ] Decidir: aviso «⏳ Sin actividad», nivel 4 de formatos (LibreOffice/ffmpeg).
 - [ ] Probar en el Explorador real «🪟 Abrir desde Windows» (hecho el 2026-11-04, probado solo en una clave de prueba).
 - [ ] Nota de Obsidian sobre el modo mínimo de Claude: propuesta, pendiente de aprobación del usuario.
+
+### Módulo manejador de proyectos (acordado el 2026-11-20)
+Problema: cada proyecto está repartido entre G: (código), H: (material) y `C:\xampp\htdocs` (web). Decisión: no mover nada; DeskLens une las partes de cada proyecto (Opción B «Hub»). Módulo propio y desactivable, en su rama. Primero se resuelve que la ventana no se abra con Edge.
+
+| # | Función | Acción concreta | Idea tomada de |
+|---|---|---|---|
+| 1 | Ficha por proyecto | `proyecto.json`: nombre, estado, %, partes (código, material, web, BD) | Dock (`projects.json`) |
+| 2 | Proyecto con varias carpetas | Unir G:, H: y htdocs en un solo árbol | Workspaces de VS Code |
+| 3 | Tablero de tarjetas | Una tarjeta por proyecto con estado y barra de % | Project Minder |
+| 4 | Git de un vistazo | Rama, cambios pendientes y botón «Activar git» | Project Minder, CodeBoard |
+| 5 | Botones rápidos | Abrir carpeta, VS Code, Claude, terminal, localhost | Dock, DevDock |
+| 6 | Iniciar y detener servicios | XAMPP, API Biblia, bot WhatsApp | lpm |
+| 7 | Pendientes simples | Lista `[ ]` dentro de la ficha (sin fechas ni responsables) | Hitos de Zoho, mínimo |
+| 8 | Filtros | Activo / Pausado / Terminado / Archivo | Vistas de los PM |
+| 9 | Detector de desorden | Carpetas sin proyecto, respaldos sueltos, `.rar` duplicados | Propia |
+| 10 | Último respaldo de BD | Aviso si tiene más de N días | Propia (`respaldos_bd`) |
+| 11 | Nuevo proyecto | Estructura, ficha, `.gitignore` (`_material/`) y git opcional | Plantillas de los PM |
+| 12 | Buscador global | Buscar en todas las partes de todos los proyectos | Ya existe (FTS5) |
+
+Fases: **1** → 1, 2, 3, 4, 5, 8 · **2** → 7, 9, 11 · **3** → 6, 10, 12.
+Descartado: Gantt y dependencias, kanban de tareas, registro de horas, responsables y roles, chat de equipo, presupuesto, nube, instalar Vikunja/Plane/Focalboard, usar solo la extensión Project Manager de VS Code, notificaciones por correo.
 
 ### Git mejorado tomando Sourcetree como base (acordado el 2026-11-18)
 No copiarlo: quedarse con sus fortalezas y corregir sus debilidades. Sencillo, pero para profesionales. Cada punto se dibuja en detalle y espera el «ok» antes de construirlo. Orden: panel 2 → 3 → 4 → 5 → 1, y después lo general.

@@ -10,7 +10,7 @@
  Pasos:
    1. Python 3.10 o más nuevo   → obligatorio (el servidor de DeskLens; solo biblioteca estándar).
    2. Git                       → recomendado (vista Git, estado en el árbol, comparar versiones).
-   3. Navegador Edge/Chrome     → solo se comprueba (la ventana de DeskLens y los PDF).
+   3. Ventana de DeskLens       → ventana propia (pywebview, recomendado); si no, Edge/Chrome en modo app.
    4. IA (opcional)             → Node.js y las CLI de Claude, Codex o Gemini, con npm.
    5. Acceso directo «DeskLens» en el Escritorio y en el menú Inicio.
    6. Prueba final (python test_desklens.py) y resumen.
@@ -200,11 +200,22 @@ if ($git) { Anotar 'Git' 'ok' ((git --version) -replace 'git version ', '') }
 else { Anotar 'Git' 'falta' 'recomendado · https://git-scm.com/download/win' }
 
 
-# =========================== 3. Navegador de la ventana (solo se comprueba) ===========================
-# La ventana de DeskLens es un navegador Chromium en «modo aplicación» (Edge, Chrome o Brave), que también
-# crea los PDF. Edge viene con Windows 10/11; en Windows Server puede no estar. No se instala nada aquí:
-# sin ninguno, DeskLens se abre en el navegador predeterminado, en una pestaña normal.
-Titulo "3. Navegador de la ventana"
+# =========================== 3. Ventana de DeskLens ===========================
+# Ventana propia (recomendada): pywebview, un paquete de Python que muestra DeskLens en una ventana nativa de
+# Windows con su icono, sin abrir ningún navegador (por dentro usa WebView2, que viene con Windows 10/11).
+# Sin pywebview, la ventana es un navegador Chromium en «modo aplicación» (Edge, Chrome o Brave), que además
+# crea los PDF; sin ninguno, DeskLens se abre en el navegador predeterminado, en una pestaña normal.
+Titulo "3. Ventana de DeskLens"
+if ($pyOk) {
+    & $py.Exe -c "import webview" 2>$null
+    if ($LASTEXITCODE -eq 0) { Ok "Ventana propia (pywebview)"; Anotar 'Ventana propia' 'ok' 'pywebview' }
+    elseif (Confirmar @("`"$($py.Exe)`" -m pip install --user pywebview") $true) {
+        & $py.Exe -m pip install --user pywebview
+        & $py.Exe -c "import webview" 2>$null
+        if ($LASTEXITCODE -eq 0) { Ok "Ventana propia (pywebview)"; Anotar 'Ventana propia' 'ok' 'pywebview' }
+        else { Falta "pywebview no quedó instalado"; Anotar 'Ventana propia' 'falta' 'python -m pip install pywebview' }
+    } else { Anotar 'Ventana propia' 'opcional' 'no instalada: se usa el navegador' }
+}
 $navegadores = @(
     @{ n = 'Microsoft Edge'; r = @("${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe", "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe") },
     @{ n = 'Google Chrome';  r = @("$env:ProgramFiles\Google\Chrome\Application\chrome.exe", "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe", "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe") },

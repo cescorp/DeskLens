@@ -10320,6 +10320,7 @@ addEventListener('wheel', e => { if (e.ctrlKey && !e.defaultPrevented) e.prevent
 const bounds = () => ({ x: screenX, y: screenY, w: outerWidth, h: outerHeight });
 let lastBounds = JSON.stringify(bounds());
 setInterval(() => {
+  if (window.pywebview) return; // ventana nativa: la guarda Python al cerrar (aquí outerWidth no cuenta el marco)
   const b = bounds(), s = JSON.stringify(b);
   if (s === lastBounds || b.w < 400 || b.h < 300) return; // minimizada u oculta: no se guarda
   lastBounds = s; LS('desklens.ventana', s);
