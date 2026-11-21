@@ -1434,6 +1434,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
 button:disabled{opacity:.45;cursor:not-allowed}
 @media (max-width:760px){body{grid-template-columns:44px 200px minmax(0,1fr)}.page{padding:16px 16px 48px}}
 </style>
+<link rel="stylesheet" href="/organizador/organizador.css"><!-- organizador de proyectos (módulo aparte; si falta, no pasa nada) -->
 </head>
 <body>
 <nav id="ribbon"></nav>
@@ -6042,8 +6043,14 @@ function drawExSide() {
       const p = projOf(t.ruta);
       proj.insertAdjacentHTML('beforeend', `<p>${t.estado === 'añadido' ? '✅ Ya es proyecto de DeskLens.' : `Está dentro del proyecto <b>${esc(p?.nombre || '')}</b>.`}</p>`);
       proj.append(button('Mostrar en el árbol', () => revealInTree(t.ruta)));
+    } else if (isDriveRoot(t.ruta)) { // un disco entero no es un proyecto: indexaría y vigilaría todo el disco
+      proj.insertAdjacentHTML('beforeend', `<p>⚠️ <b>Un disco entero no se añade como proyecto.</b> DeskLens leería e indexaría
+        todo su contenido y vigilaría cada carpeta.</p><p class="ok">Sí puede usarse para <b>buscar anclas</b>: solo se recorren
+        los nombres de las carpetas, sin indexar ni abrir archivos.</p>`);
+      proj.append(Object.assign(button('💽 Usar para buscar anclas', () => addAnchorDisk(t.ruta)), { className: 'primary' }));
     } else {
       proj.insertAdjacentHTML('beforeend', `<p class="ok">${t.avisos.length ? t.avisos.map(a => '⚠️ ' + esc(a)).join('<br>') : '✅ Quedará en orden.'}</p>`);
+      if (systemFolder(t.ruta)) proj.insertAdjacentHTML('beforeend', '<p>⚠️ Es una carpeta del sistema o muy grande: indexarla puede tardar mucho.</p>');
       proj.append(Object.assign(button('Añadir proyecto', addProject), { className: 'primary' }));
     }
   }
@@ -6068,9 +6075,24 @@ function drawExSide() {
   S.replaceChildren(proj, loose);
 }
 
+// «C:\», «D:\»… (o «/»): discos enteros, que el «+» no añade como proyecto (el servidor también lo impide).
+const isDriveRoot = r => /^[A-Za-z]:\\?$/.test(r) || r === '/';
+// Carpetas de sistema o enormes: se pueden añadir, pero antes se avisa (indexarlas tarda mucho).
+const systemFolder = r => /^[A-Za-z]:\\(Users|Windows|Program Files( \(x86\))?|ProgramData)\\?$/i.test(r) || /\\AppData(\\|$)/i.test(r);
+// Disco entero → lista de discos para buscar anclas del organizador (sin índice ni vigilante).
+async function addAnchorDisk(ruta) {
+  try {
+    const { discos } = await api('/api/org/discos');
+    const d = discos.find(x => x.letra.toUpperCase() === (ruta.replace(/\\?$/, '\\')).toUpperCase());
+    if (!d) return flash('No encuentro ese disco');
+    await api('/api/org/disco', { serie: d.serie, activo: true });
+    flash(`💽 ${d.letra} se usará para buscar anclas (sin indexar)`); closeExplorer();
+  } catch (e) { flash(e.message); }
+}
 // Añade la carpeta elegida como proyecto y la deja desplegada en el árbol.
 async function addProject() {
   const t = exTarget();
+  if (systemFolder(t.ruta) && await ask('Carpeta del sistema', `«${t.ruta}» es una carpeta del sistema o muy grande. Indexarla puede tardar mucho y ocupar espacio. ¿Añadirla igual?`, ['Añadir igual', 'Cancelar']) !== 'Añadir igual') return;
   await api('/api/agregar', { tipo: 'proyectos', rutas: [t.ruta], ultima: ex.ruta });
   tree.set(t.ruta, true); closeExplorer(); loadSide();
 }
@@ -10332,5 +10354,6 @@ try { // por si Edge ignoró las opciones al abrir (pasa si ya había otra venta
   if (saved && (Math.abs(saved.x - b.x) > 30 || Math.abs(saved.y - b.y) > 30)) moveTo(saved.x, saved.y);
 } catch {}
 </script>
+<script src="/organizador/organizador.js"></script><!-- tablero 🗂 Proyectos: icono, atajo y pantallas del organizador -->
 </body>
 </html>

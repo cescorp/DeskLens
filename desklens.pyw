@@ -41,6 +41,15 @@ WINDOWS, MAC = os.name == "nt", sys.platform == "darwin"
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # Windows: sin ventana negra (en macOS y Linux no existe)
 HIDDEN = {".git", "__pycache__", ".ipynb_checkpoints", ".idea", ".vs"}
 
+# Organizador de proyectos (carpeta organizador/, plan en implementar_organizador.md): módulo aparte y desactivable.
+# Si falta o falla al cargar, DeskLens sigue igual; sus rutas son /api/org/… y sus archivos /organizador/….
+try:
+    sys.path.insert(0, str(ROOT / "organizador"))
+    import organizador as org
+    org.configurar(ROOT / "historial" / "organizador")
+except Exception:  # noqa: BLE001 — cualquier fallo del módulo deja DeskLens sin organizador, nunca sin arrancar
+    org = None
+
 
 # ---------- configuración y permisos ----------
 
@@ -236,7 +245,8 @@ def allowed(path):
     p = Path(path).resolve()
     cfg = load_config()
     return (any(p.is_relative_to(Path(r).resolve()) for r in cfg["proyectos"])
-            or any(p == Path(s).resolve() for s in cfg["sueltos"]))
+            or any(p == Path(s).resolve() for s in cfg["sueltos"])
+            or bool(org and any(p.is_relative_to(r) for r in org.rutas_permitidas())))  # carpetas ancladas en una ficha
 
 
 # ---------- lectura ----------
@@ -3579,8 +3589,9 @@ def git_fetch_time(repo):
     return f.stat().st_mtime if f.is_file() else None
 
 
-def git_summary():
-    """Estado de git de cada proyecto para el selector de la vista Git: rama, ↓↑ y número de cambios (None si no es git)."""
+def git_summary(rutas=None):
+    """Estado de git de cada proyecto para el selector de la vista Git: rama, ↓↑ y número de cambios (None si no es git).
+    `rutas`: otras carpetas (las de código de las fichas del organizador, para sus tarjetas)."""
     def one(r):  # un solo «git status» por proyecto (git_overview lanza ~13 procesos: el menú tardaba)
         try:
             out = git_do(repo_of(r), "-c", "core.quotePath=false", "status", "--porcelain=v1", "-z", "--branch", "--untracked-files=all")
@@ -3590,7 +3601,7 @@ def git_summary():
         except (ValueError, OSError, subprocess.TimeoutExpired):
             return {"ruta": r, "rama": None}
     with ThreadPoolExecutor(4) as ex:  # los proyectos a la vez, no uno tras otro
-        return list(ex.map(one, load_config()["proyectos"]))
+        return list(ex.map(one, load_config()["proyectos"] if rutas is None else rutas))
 
 
 def git_autofetch():
@@ -4546,6 +4557,11 @@ class Handler(BaseHTTPRequestHandler):
                 if not self.guard(need_header=False) or not re.fullmatch(r"[\w.-]+\.(png|svg|ico)", name):
                     return self.send_json(404, {"error": "no existe"})
                 return self.send_file(ROOT / "icono" / name, sandbox=True)
+            if url.path.startswith("/organizador/"):  # pantallas del organizador (organizador.js y .css)
+                name = url.path[13:]
+                if not self.guard(need_header=False) or not org or not re.fullmatch(r"organizador\.(js|css)", name):
+                    return self.send_json(404, {"error": "no existe"})
+                return self.send_file(ROOT / "organizador" / name, sandbox=False)
             if url.path == "/novedades.md":  # versión y novedades de esta copia (ⓘ de la cinta)
                 if not self.guard(need_header=False):
                     return
@@ -4588,9 +4604,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.wfile.write(data)
             if not self.guard():
                 return
+            if url.path.startswith("/api/org/"):
+                if not org:
+                    return self.send_json(503, {"error": "El organizador no se pudo cargar (carpeta organizador/)"})
+                return self.send_json(*org.get(url.path, q, load_config()["proyectos"]))
             if url.path == "/api/estado":
                 return self.send_json(200, estado())
-            if url.path == "/api/git/resumen":
+            if url.path == "/api/git/resumen":  # ?rutas=a|b: solo esas carpetas (cada una debe estar en DeskLens)
+                if "rutas" in q:
+                    return self.send_json(200, git_summary([r for r in q["rutas"].split("|") if r and allowed(r) and Path(r).is_dir()]))
                 return self.send_json(200, git_summary())
             if url.path == "/api/explorar":  # sin parámetro: la última ubicación usada
                 return self.send_json(200, explore(q.get("ruta", load_config().get("ultima", ""))))
@@ -4786,9 +4808,16 @@ class Handler(BaseHTTPRequestHandler):
         if not self.guard():
             return
         data = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+        if url.startswith("/api/org/"):
+            if not org:
+                return self.send_json(503, {"error": "El organizador no se pudo cargar (carpeta organizador/)"})
+            return self.send_json(*org.post(url, data))
         if url == "/api/agregar" and data.get("tipo") in ("proyectos", "sueltos"):
             check = Path.is_dir if data["tipo"] == "proyectos" else Path.is_file
             rutas = [r for r in data.get("rutas", []) if check(Path(r))]
+            if data["tipo"] == "proyectos" and any(Path(r).resolve() == Path(Path(r).resolve().anchor) for r in rutas):
+                # un disco entero indexaría todo su contenido y vigilaría cada carpeta: solo sirve para buscar anclas
+                return self.send_json(400, {"error": "Un disco entero no se añade como proyecto: se usa solo para buscar anclas (🗂 Proyectos › 💽 Discos)."})
             add_paths(data["tipo"], rutas)
             if data.get("ultima") is not None:
                 cfg = load_config()

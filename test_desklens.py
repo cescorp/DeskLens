@@ -42,6 +42,8 @@ with tempfile.TemporaryDirectory() as tmp:
     # ni al índice, conversaciones o recuperación reales: con DeskLens abierto, su índice está en uso y la prueba esperaba
     desklens.INDEX_DB, desklens.CONV_DIR, desklens.RECOVERY_DIR = tmp / "idx" / "indice.db", tmp / "conv", tmp / "recuperacion"
     desklens.WIN_PROFILE, desklens.WIN_DATA = tmp / "ventana", tmp / "ventana_datos.json"  # ni al perfil de la ventana
+    assert desklens.org, "el organizador (organizador/) debe cargar"
+    desklens.org.configurar(tmp / "organizador")  # ni a las fichas y anclas reales (sus pruebas: organizador/test_organizador.py)
     proj, fuera = tmp / "proyecto", tmp / "fuera"
     proj.mkdir(), fuera.mkdir()
     (proj / "utf8.md").write_bytes("# Hola ñ\n".encode())
@@ -850,6 +852,22 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     st = json.loads(urllib.request.urlopen(req).read())
     assert [p["nombre"] for p in st["proyectos"]] == ["proyecto", "app"]  # la ruta inexistente se ignora
     assert json.loads(get(port, "/api/explorar")[1])["ruta"] == str(fuera.resolve())
+    # un disco entero no es un proyecto (solo sirve para buscar anclas del organizador)
+    code, d = post("/api/agregar", {"tipo": "proyectos", "rutas": [Path(tmp).anchor]})
+    assert code == 400 and "disco entero" in d["error"]
+    # organizador: sus rutas pasan por el módulo; una carpeta anclada en una ficha se puede abrir aunque no sea proyecto
+    code, d = get(port, "/api/org/estado")
+    assert code == 200 and json.loads(d)["fichas"] == []
+    anclada = fuera / "anclada"
+    anclada.mkdir()
+    (anclada / "nota.txt").write_text("hola")
+    assert get(port, "/api/abrir?ruta=" + urllib.request.quote(str(anclada / "nota.txt")))[0] == 403
+    code, d = post("/api/org/ficha/crear", {"nombre": "Prueba", "partes": [{"tipo": "material", "carpetas": [{"ruta": str(anclada)}]}]})
+    assert code == 200 and d["ficha"]["id"] == "prueba"
+    assert get(port, "/api/abrir?ruta=" + urllib.request.quote(str(anclada / "nota.txt")))[0] == 200
+    assert post("/api/org/ficha/quitar", {"id": "prueba"})[0] == 200
+    assert get(port, "/api/abrir?ruta=" + urllib.request.quote(str(anclada / "nota.txt")))[0] == 403
+    assert get(port, "/organizador/otro.py", header=False)[0] == 404
 
     # vista Git: preparar, commit, quitar, descartar, ramas, deshacer commit, merge y push (estos dos en la consola)
     def git(cwd, *a):

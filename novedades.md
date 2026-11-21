@@ -1,6 +1,18 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.167 · 2026-11-21 · 🗂 Proyectos: el organizador que une las partes de cada proyecto (Fase 1a)
+- Icono nuevo en la cinta, 🗂 **Proyectos** (Ctrl+Shift+O): un tablero con una tarjeta por proyecto (estado, avance, partes, rama y cambios de git) y botones para abrir la carpeta, VS Code, Claude (con todas las partes del proyecto), la terminal y su web. Filtros por estado, orden y vista en tarjetas o lista.
+- **Buscar en discos**: marcas tus discos y DeskLens recorre solo los nombres de las carpetas (sin leer ni indexar nada) y propone qué carpetas forman cada proyecto (por ejemplo homeshape + su material en H: + su web en htdocs + sus respaldos). Confirmas con ✓/✗ (clic en cualquier parte de la tarjeta, o ☑ Todos / ☐ Ninguno) y **Ver detalles** abre el editor de jerarquía: arrastras carpetas entre partes, a «Sin proyecto» o a otro proyecto (Ctrl: compartirla). No se mueve ningún archivo.
+- Cada carpeta lleva un **ancla** (archivo oculto `.desklens-ancla` con solo un id): si la mueves, DeskLens la vuelve a encontrar (al instante dentro del mismo disco; recorriendo los discos marcados si fue a otro). Las que no aparecen salen en ⚠ con su última ruta y un botón para buscarlas, con el progreso de cada disco.
+- 💽 Discos para anclas, con las carpetas excluidas de cada uno (las de Windows ya vienen puestas; se pueden quitar, añadir y restaurar). 📋 Actividad: todo lo que hace el organizador, dónde y cuándo.
+- El ancla no ensucia git: va a `.git/info/exclude` (solo en este PC; se puede apagar). Al anclar una carpeta web, avisa.
+- «Añadir proyecto» ya no acepta un disco entero (lo indexaría todo): ofrece usarlo para buscar anclas. Avisa antes de añadir carpetas de sistema como C:\Users.
+- Los proyectos que ya tenías en DeskLens se pueden convertir en fichas con un clic.
+- Una carpeta enviada a la papelera ya no se toma como «movida»: sale 🗑 en la papelera (con su nombre y ruta de antes), con Abrir la papelera o Quitar del proyecto; si la restauras vuelve sola, y si vacías la papelera queda como eliminada.
+- **Clic en una tarjeta: la vista del proyecto.** Arriba, estado y avance (clic en la barra), git y botones. Pestañas: **Archivos** (un solo árbol con todas las carpetas del proyecto por partes, G:, H:, htdocs…, y el visor/editor de DeskLens de siempre a la derecha; buscar por nombre dentro del proyecto; clic derecho: Explorador, terminal o quitar del proyecto), **Ficha**, **Git** (abre la vista Git de DeskLens en la carpeta de código), **Estado** (git, copia y tamaño de cada carpeta; solo informa). Historial y Notas llegan en las fases siguientes.
+- Las ventanas del organizador no bloquean la pantalla: un clic fuera (o Esc) las cierra. Solo preguntan si escribiste algo sin guardar.
+
 ## v1.166 · 2026-11-20 · DeskLens se abre en su propia ventana, sin Edge
 - DeskLens ya no abre Edge: tiene su propia ventana de Windows, con su icono en la barra de tareas, sin pestañas ni barra de direcciones del navegador.
 - Recuerda dónde y de qué tamaño la dejaste. Si falta el componente de la ventana propia (el instalador lo ofrece), se abre con el navegador como antes. Se elige en ⚙ Ajustes › General › Ventana de DeskLens.
