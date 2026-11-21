@@ -1,6 +1,18 @@
 # Novedades de DeskLens
 Cada cambio es una versión nueva, la más reciente arriba. El número de la primera es el que sale en ⓘ (arriba en la cinta).
 
+## v1.165 · 2026-11-20 · El visor de código ya no se come líneas vacías y el editor abre donde leías
+- En algunos archivos (por ejemplo un .bat con una línea vacía después de `echo.` o de `)`), el visor dejaba esas líneas vacías sin altura: veías menos líneas que en el editor y los números no coincidían. Ahora el visor muestra exactamente las mismas líneas y números que el editor.
+- Al pasar a editar, el editor se abre en la línea que pulsaste o seleccionaste en el visor (si sigue a la vista), con el cursor ahí; si no elegiste ninguna, en la primera que se veía. Antes volvía a la línea 1.
+- Al volver del editor al visor (con o sin guardar) también se queda en la misma zona.
+
+## v1.164 · 2026-11-19 · Guardados aparte: verlos claros y recuperarlos sin sustos
+- Al pulsar un guardado, abajo se ve con una banda ámbar «📦 Guardado aparte · «nombre»», una frase que dice que no es un commit y sus botones: ↩ Recuperar, ↩ Recuperar y dejar copia y 🗑 Borrar. Ya no se confunde con un commit (sin hash ni menú de commit) y en el historial no queda ningún commit marcado.
+- Antes de recuperar, DeskLens mira si algún archivo del guardado tiene cambios tuyos ahora. Si es así, lo muestra en una tabla y ofrece: ✓ Hacer commit de mis cambios (con mensaje) o 📦 Guardar los míos aparte; después recupera.
+- Si al recuperar un archivo choca (cambió en un commit después de apartarlo), se abre la pantalla de elegir versión: «Dejar mi cambio» o «Dejar lo guardado». Mientras tanto, un aviso en la columna de cambios con «⚔ Ver y elegir» y «↶ Deshacer la recuperación». El guardado se conserva hasta que lo resuelvas; al terminar, DeskLens ofrece borrarlo.
+- Si git no puede recuperar nada, ya no deja archivos nuevos a medias y lo explica en español.
+- La lista de archivos de un guardado ya muestra también los archivos nuevos (antes, un guardado con solo archivos nuevos salía vacío: «Este commit no cambia archivos»). La frase de arriba es más corta: «Cambios a medias de «pruebas», apartados ahora. No es un commit.»
+
 ## v1.163 · 2026-11-19 · Guardar versión: qué marca cada versión
 - Nueva lista «¿Qué marca?», la primera de la ventana: ✅ Versión funcional · 🧩 Fin de un módulo (pide cuál) · 📦 Entrega al cliente · 🚀 Puesta en producción · 💾 Respaldo antes de un cambio grande · ✎ Otro (lo escribes). Se guarda al principio de la nota de la versión.
 - En el panel izquierdo, cada versión lleva el icono de lo que marca (🧩 v1.0.0) y, al pasar el ratón, su nota completa.

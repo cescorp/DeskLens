@@ -531,6 +531,13 @@ dialog#dlg.sets.swd{width:min(720px,calc(100vw - 32px));height:fit-content;displ
 .taglist{max-height:220px;overflow:auto;font-size:13px}.taglist>div{display:flex;gap:10px;padding:3px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
 .taglist .gm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.taglist .gc{font-size:12px;white-space:nowrap}
 .tagcmd{display:grid;grid-template-columns:90px minmax(0,1fr) auto;gap:8px;align-items:start}.tagcmd code{white-space:pre-wrap;overflow-wrap:anywhere;font:12px Consolas,monospace;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:8px}
+/* guardado aparte: su vista abajo (banda ámbar, no como un commit) y el aviso de choque al recuperar */
+#gfDetail.gdst .gdh{background:color-mix(in srgb,#c08a00 12%,var(--paper));border-left:4px solid #c08a00;padding:10px 12px}
+#gfDetail.gdst .gdh b{color:#b07800}.gdsthelp{margin:4px 0 8px;font-size:12.5px;color:var(--muted)}.gdstacts{display:flex;gap:6px;flex-wrap:wrap}
+.gdstacts .danger{color:#d33}
+.gfbb .gfx.son{background:color-mix(in srgb,#c08a00 16%,transparent);border-left-color:#c08a00}
+.grecov{display:grid;gap:4px;margin:8px 0 0;padding:8px 10px;border:1px solid color-mix(in srgb,#d33 40%,transparent);border-radius:8px;background:color-mix(in srgb,#d33 7%,transparent);font-size:12.5px}
+.grecov b{color:#d33}.grecov small{color:var(--muted)}.grecov div{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
 /* ⇆ Comparar ramas: resumen, dos columnas de commits (clic: filtrar archivos) y tabla de archivos */
 .cbsum{background:color-mix(in srgb,#2f7fd8 9%,var(--paper))!important}
 .cbcols{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
@@ -2389,7 +2396,7 @@ function hlLines(text, lang) {
     else { if (part.startsWith('<span')) open.push(part); else if (part === '</span>') open.pop(); line += part; }
   }
   lines.push(line);
-  return lines;
+  return lines.map(l => /[^]/.test(l.replace(/<[^>]*>/g, '')) ? l : l + ' '); // sin texto visible (p. ej. <span…></span>): un espacio, o la fila se aplasta
 }
 function codeLines(text, lang) {
   const lines = hlLines(text, lang);
@@ -3218,8 +3225,10 @@ function gitDraw() {
     return;
   }
   gst.stashes ||= []; // servidor anterior a esta función: sin cambios guardados que mostrar
-  if (gst.stashes.length) L.insertAdjacentHTML('beforeend', `<p class="gnote">📦 ${gst.stashes.length} cambio${gst.stashes.length === 1 ? '' : 's'} guardado${gst.stashes.length === 1 ? '' : 's'} aparte: ⎇ ▾ › «Recuperar cambios guardados».</p>`);
+  if (gst.stashes.length && !gitFullOn()) L.insertAdjacentHTML('beforeend', `<p class="gnote">📦 ${gst.stashes.length} cambio${gst.stashes.length === 1 ? '' : 's'} guardado${gst.stashes.length === 1 ? '' : 's'} aparte: ⎇ ▾ › «Recuperar cambios guardados».</p>`); // en pantalla completa ya están en «Guardados aparte»
   if (gst.fusionando) L.append(gitMergeBanner());
+  if (gfRecover && gfRecover.ruta !== gst.ruta && gfRecover.ruta) gfRecover = null; // otro proyecto
+  if (gfRecover) { gfRecover.ruta ||= gst.ruta; if (gst.conflictos.length) L.append(gitRecoverBanner()); else setTimeout(gitRecoverDone); }
   const sec = (key, title, list, acts) => {
     if (!list.length && key !== 'cambios') return;
     const S = document.createElement('div'); S.className = 'gsec' + (gfold.has(key) ? ' fold' : '');
@@ -3285,7 +3294,7 @@ function gitMergeBtn(e) {
 // ---------- fusión: vista previa, elegir versión en los conflictos, ver diferencias y confirmar ----------
 // Todo dice qué va a pasar con palabras («Dejar mi cambio», «Se borra»…), nunca ours/theirs. Lo de la otra rama
 // se nombra por su rama (gst.fusion_de, de MERGE_MSG). Nada se toca hasta pulsar un botón que lo diga.
-const mergeFrom = () => gst.fusion_de || 'la otra rama';
+const mergeFrom = () => gfRecover ? 'lo guardado' : gst.fusion_de || 'la otra rama';
 const mergeChoices = new Map(); // rel → lo elegido en esta sesión («MI versión», «la de cesare»…), para el resumen
 async function mergeCancel() {
   if (await ask('Cancelar la fusión', 'Todo vuelve a como estaba antes de fusionar. Se pierde lo que hayas elegido en los conflictos.',
@@ -3705,25 +3714,27 @@ async function mergeChooseDialog() {
   const done = [...mergeChoices].filter(([rel]) => !gst.conflictos.some(c => c.rel === rel));
   const OPTS = {
     contenido: f => [['mio', 'Dejar mi cambio', `Se queda el archivo como lo tienes tú, sin lo de «${from}».`, 'MI versión'],
-      ['suyo', 'Dejar cambio que llega', `Se queda como lo dejó «${from}»; se pierde lo tuyo.`, `la de «${from}»`]],
+      gfRecover ? ['suyo', 'Dejar lo guardado', `Se queda como estaba en «${gfRecover.nombre}»; se pierde lo de tu último commit.`, 'lo guardado']
+        : ['suyo', 'Dejar cambio que llega', `Se queda como lo dejó «${from}»; se pierde lo tuyo.`, `la de «${from}»`]],
     borrado_suyo: () => [['mio', 'Conservar el archivo', 'Se queda con tus cambios.', 'conservarlo'], ['suyo', 'Borrar el archivo', `Se borra, como hizo «${from}».`, 'borrarlo']],
     borrado_mio: () => [['mio', 'Dejarlo borrado', 'Sigue borrado, como lo tenías.', 'dejarlo borrado'], ['suyo', `Recuperarlo con lo de «${from}»`, `Vuelve el archivo con los cambios de «${from}».`, 'recuperarlo']],
   };
-  const WHAT = { contenido: f => `las dos ramas cambiaron las mismas líneas${f.choques ? ` (${f.choques} sitio${f.choques === 1 ? '' : 's'})` : ''}`,
+  const WHAT = { contenido: f => `${gfRecover ? 'tu archivo y lo guardado cambiaron' : 'las dos ramas cambiaron'} las mismas líneas${f.choques ? ` (${f.choques} sitio${f.choques === 1 ? '' : 's'})` : ''}`,
     borrado_suyo: () => `tú lo cambiaste, «${from}» lo borró`, borrado_mio: () => `tú lo borraste, «${from}» lo cambió` };
   const total = info.length + done.length;
-  d.innerHTML = `<header><b>Elegir qué versión queda · fusión de «${esc(from)}» en «${esc(gst.rama)}»</b><span class="gc">${done.length} de ${total} listos</span><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+  const what = gfRecover ? `recuperar «${esc(gfRecover.nombre)}»` : `fusión de «${esc(from)}» en «${esc(gst.rama)}»`;
+  d.innerHTML = `<header><b>Elegir qué versión queda · ${what}</b><span class="gc">${done.length} de ${total} listos</span><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
     <div class="mgbody">${info.map((f, i) => `<section class="mgrow" data-i="${i}"><div class="mghead"><b>${esc(f.rel)}</b><span class="gc">· ${esc(WHAT[f.tipo](f))}</span><span class="sp"></span>
         <button class="small" data-diff="${i}">👁 Ver diferencias</button></div>
       <div class="mgopts">${OPTS[f.tipo](f).map(([modo, label, sub], k) => `<button data-c="${i}:${k}"><b>${esc(label)}</b><small>${esc(sub)}</small></button>`).join('')}</div></section>`).join('')}
       ${done.map(([rel, what]) => `<section class="mgrow ok"><div class="mghead"><b>✓ ${esc(rel)}</b><span class="gc">· elegiste: ${esc(what)}</span><span class="sp"></span>
         <button class="small" data-undo="${esc(rel)}" title="Vuelve a estar en conflicto para elegir otra vez">↶ Cambiar elección</button></div></section>`).join('')}
       ${!info.length && !done.length ? '<p class="gc">No queda ningún conflicto.</p>' : ''}</div>
-    <footer><div class="mgacts"><div><button class="primary" data-ok ${info.length ? 'disabled' : ''}>✓ Confirmar la fusión</button><small>${info.length ? 'Se activa cuando todos estén listos.' : 'Te enseña cómo queda y hace el commit.'}</small></div>
-      <div><button data-cancel>✕ Cancelar</button><small>Todo vuelve a como estaba.</small></div></div></footer>`;
+    <footer><div class="mgacts"><div><button class="primary" data-ok ${info.length ? 'disabled' : ''}>${gfRecover ? '✓ Listo' : '✓ Confirmar la fusión'}</button><small>${info.length ? 'Se activa cuando todos estén listos.' : gfRecover ? 'Tus cambios recuperados quedan en tus archivos.' : 'Te enseña cómo queda y hace el commit.'}</small></div>
+      <div><button data-cancel>${gfRecover ? '↶ Deshacer la recuperación' : '✕ Cancelar'}</button><small>${gfRecover ? 'Esos archivos vuelven a tu último commit; el guardado sigue ahí.' : 'Todo vuelve a como estaba.'}</small></div></div></footer>`;
   d.querySelector('[data-x]').onclick = () => d.close();
-  d.querySelector('[data-cancel]').onclick = mergeCancel;
-  d.querySelector('[data-ok]').onclick = mergeFinalDialog;
+  d.querySelector('[data-cancel]').onclick = gfRecover ? gitRecoverUndo : mergeCancel;
+  d.querySelector('[data-ok]').onclick = gfRecover ? () => { d.close(); gitDraw(); } : mergeFinalDialog;
   d.querySelectorAll('[data-c]').forEach(btn => btn.onclick = async () => {
     const [i, k] = btn.dataset.c.split(':').map(Number), f = info[i], [modo, , , what] = OPTS[f.tipo](f)[k];
     btn.closest('.mgrow').classList.add('busy'); btn.querySelector('b').textContent = '⏳ ' + btn.querySelector('b').textContent;
@@ -3843,6 +3854,117 @@ function gitBarDraw() {
   S.textContent = !ok ? '' : !rem ? 'Sin servidor' : !web ? 'Rama solo en tu PC' : gst.atras || gst.adelante
     ? [gst.atras && `↓${gst.atras} por traer`, gst.adelante && `↑${gst.adelante} por subir`].filter(Boolean).join(' · ') + when : `✓ Al día${when}`;
   S.title = ok && web ? `Comparado con ${web}` : '';
+}
+// ---------- guardados aparte (stash): verlos, recuperarlos y resolver si chocan ----------
+// gfRecover: una recuperación que chocó y aún no se resolvió ({id, hash, nombre, archivos, pop}). Mientras haya
+// conflictos se ve un aviso en la lista de cambios; al resolverlos todos, se ofrece borrar el guardado (si era «Recuperar»).
+let gfRecover = null;
+const stashName = s => (s.mensaje.match(/^(?:WIP on|On) [^:]+: (.*)$/)?.[1] || s.mensaje).replace(/^[0-9a-f]{7,} /, '');
+// Clic en un guardado: abajo, sus archivos con una cabecera propia (banda ámbar, qué es y sus acciones), no como un commit
+async function gitStashShow(s) {
+  const txt = stashName(s), m = s.mensaje.match(/^(?:WIP on|On) ([^:]+):/), rama = m?.[1] || '';
+  gfSel = s.hash;
+  $('#gfGraph')?.querySelectorAll('.gfrow.on').forEach(e => e.classList.remove('on')); // ningún commit marcado
+  document.querySelectorAll('#gfMore .gfx').forEach(r => r.classList.toggle('son', r.dataset.stash === s.id));
+  gfL.sinDet = false; gitfullLayout(false);
+  await gitCommitDetail({ hash: s.hash, mensaje: '📦 ' + txt, padres: [], corto: s.hash.slice(0, 7), ts: 0, guardado: true });
+  const D = $('#gfDetail'); if (gfSel !== s.hash || !D.querySelector('.gdh')) return;
+  D.classList.add('gdst');
+  D.querySelector('.gdh').innerHTML = `<div class="gdt"><b>📦 Guardado aparte · «${esc(txt)}»</b><span class="sp"></span><span data-pane></span></div>
+    <p class="gdsthelp">Cambios a medias${rama ? ` de «${esc(rama)}»` : ''}, apartados ${esc(fmtRel(+s.fecha))}. No es un commit.</p>
+    <div class="gdstacts"><button class="small" data-r title="Vuelven a tus archivos y el guardado desaparece (git stash pop)">↩ Recuperar</button>
+      <button class="small" data-a title="Vuelven a tus archivos y el guardado se queda (git stash apply)">↩ Recuperar y dejar copia</button>
+      <button class="small danger" data-b>🗑 Borrar…</button></div>`;
+  D.querySelector('[data-pane]').replaceWith(gitfullMaxBtn('det'), iconBtn('x', 'Ocultar el detalle', () => { gfL.sinDet = true; gitfullLayout(); }));
+  D.querySelector('[data-r]').onclick = () => gitStashRecover(s, true);
+  D.querySelector('[data-a]').onclick = () => gitStashRecover(s, false);
+  D.querySelector('[data-b]').onclick = () => gitStashDrop(s);
+}
+async function gitStashDrop(s) {
+  const txt = stashName(s);
+  if (await ask('Borrar cambios guardados', `¿Borrar «${txt}»? Esos cambios a medias se pierden: no van a la papelera.`, ['Borrar', 'Cancelar'], { danger: true }) === 'Borrar'
+    && await gitDo('borrar_stash', [], { rama: s.id })) { flash('🗑 Guardado borrado'); if (gfSel === s.hash) $('#gfDetail').innerHTML = ''; }
+}
+// Recuperar (pop) o recuperar dejando copia (apply). Antes mira si algún archivo del guardado tiene cambios tuyos
+// ahora: git se negaría, así que se ofrece hacer commit de los tuyos o guardarlos aparte primero.
+async function gitStashRecover(s, pop) {
+  const txt = stashName(s);
+  let files;
+  try { files = (await api(`/api/git/guardado?ruta=${encodeURIComponent(gst.ruta)}&id=${encodeURIComponent(s.id)}`)).archivos; }
+  catch (e) { return ask('Recuperar', e.message, ['Entendido']); }
+  const mine = new Map([...gst.conflictos, ...gst.preparados, ...gst.cambios].map(f => [f.rel, f]));
+  const clash = files.filter(f => mine.has(f)).map(f => mine.get(f));
+  if (clash.length && !await gitStashClear(txt, clash)) return;
+  const id = (gst.stashes.find(x => x.hash === s.hash) || s).id; // guardar los tuyos aparte corre los números (stash@{n})
+  let r;
+  try { r = await api('/api/git/accion', { ruta: gst.ruta, accion: pop ? 'recuperar_stash' : 'aplicar_stash', rama: id }); }
+  catch (e) { gitLoad(); return ask('Recuperar', e.message, ['Entendido']); }
+  gst = { ...r, ruta: gst.ruta };
+  if (r.choque_guardado) gfRecover = { id, hash: s.hash, nombre: txt, archivos: files, pop };
+  else { flash(pop ? '✓ Cambios recuperados' : '✓ Cambios recuperados; la copia sigue guardada'); if (gfSel === s.hash) $('#gfDetail').innerHTML = ''; }
+  gitDraw(); loadSide();
+  if (r.choque_guardado) mergeChooseDialog();
+}
+// Antes de recuperar: los archivos del guardado que tienen cambios tuyos ahora, y qué hacer con ellos
+function gitStashClear(txt, clash) {
+  return new Promise(done => {
+    const d = $('#dlg'), n = clash.length, now = new Date().toLocaleString('es', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+    let op = 'commit', msg = '', ok = false;
+    d.className = 'sets swd'; d.oninput = d.onchange = null;
+    d.onclose = () => done(ok);
+    d.innerHTML = `<header><b>↩ Recuperar «${esc(txt)}»</b><span class="sp"></span><button class="ic" data-x title="Cerrar (Esc)">✕</button></header>
+      <div class="swbody"><p class="swn">⚠ ${n === 1 ? '1 archivo del guardado también tiene cambios tuyos ahora' : `${n} archivos del guardado también tienen cambios tuyos ahora`}</p>
+        <div class="swtab"><table class="cbt"><thead><tr><th>#</th><th>Estado</th><th>Archivo</th><th>Carpeta</th><th>+</th><th>−</th></tr></thead><tbody>
+          ${clash.map((f, i) => { const name = f.rel.split('/').pop(), dir = f.rel.slice(0, -name.length - 1);
+            return `<tr><td class="mgn">${i + 1}</td><td><span class="gst" data-s="${esc(f.estado)}">${esc(f.estado)}</span></td><td class="cbf">${esc(name)}</td><td class="cbd">${esc(dir)}</td>`
+              + `<td class="cbp">${f.mas == null ? '' : `+${f.mas}`}</td><td class="cbm2">${f.menos ? `−${f.menos}` : ''}</td></tr>`; }).join('')}</tbody></table></div>
+        <div class="swops"><label><input type="radio" name="rcop" value="commit" checked> ✓ Hacer commit de mis cambios</label>
+          <label><input type="radio" name="rcop" value="aparte"> 📦 Guardar los míos aparte</label></div>
+        <div class="swfld"></div></div>
+      <footer><span class="sp"></span><button data-x>Cancelar</button><button class="primary" data-go>Continuar y recuperar</button></footer>`;
+    const F = d.querySelector('.swfld'), go = d.querySelector('[data-go]');
+    const draw = () => {
+      F.innerHTML = op === 'commit' ? `<label class="swin">Mensaje <input value="${esc(msg)}" spellcheck="true" placeholder="Qué cambiaste (obligatorio)"></label><p class="swhelp">Se guardan en la rama con un mensaje (commit de todos tus cambios) y después se recupera.</p>`
+        : `<p class="swhelp">Quedan como otro guardado («mis cambios · ${esc(now)}») para recuperarlos después; luego se recupera «${esc(txt)}».</p>`;
+      const inp = F.querySelector('input'); if (inp) { inp.oninput = () => { msg = inp.value; go.disabled = !msg.trim(); }; inp.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); go.click(); } }; inp.focus(); }
+      go.disabled = op === 'commit' && !msg.trim();
+    };
+    d.querySelectorAll('[name=rcop]').forEach(r => r.onchange = () => { op = r.value; draw(); });
+    d.querySelectorAll('[data-x]').forEach(x => x.onclick = () => d.close());
+    go.onclick = async () => {
+      if (go.disabled) return;
+      go.disabled = true;
+      ok = op === 'commit' ? await gitDo('commit', [], { mensaje: msg.trim(), todo: true })
+        : await gitDo('apartar', clash, { mensaje: `mis cambios · ${now}`, modo: 'nuevos' });
+      d.close();
+    };
+    d.showModal(); draw();
+  });
+}
+// Aviso en la lista de cambios mientras haya choques de una recuperación
+function gitRecoverBanner() {
+  const x = gfRecover, n = gst.conflictos.length, b = document.createElement('div');
+  b.className = 'grecov';
+  b.innerHTML = `<b>⚔ ${n === 1 ? '1 archivo chocó' : `${n} archivos chocaron`} al recuperar «${esc(x.nombre)}»</b>
+    <small>${x.pop ? 'El guardado se conserva hasta que lo resuelvas.' : 'La copia sigue guardada.'}</small>
+    <div><button class="small primary" data-v>⚔ Ver y elegir</button><button class="small" data-u>↶ Deshacer la recuperación</button></div>`;
+  b.querySelector('[data-v]').onclick = () => mergeChooseDialog();
+  b.querySelector('[data-u]').onclick = gitRecoverUndo;
+  return b;
+}
+async function gitRecoverUndo() {
+  const x = gfRecover; if (!x) return;
+  if (await ask('Deshacer la recuperación', `Los archivos de «${x.nombre}» vuelven a como estaban en tu último commit. El guardado sigue ahí para recuperarlo cuando quieras.`, ['Deshacer', 'Cancelar']) !== 'Deshacer') return;
+  gfRecover = null;
+  if (await gitDo('deshacer_recuperar', x.archivos.map(rel => ({ rel })))) { flash('↶ Recuperación deshecha; el guardado sigue ahí'); $('#dlg').open && $('#dlg').classList.contains('mg') && $('#dlg').close(); }
+}
+// Todos los choques resueltos: el guardado (si era «Recuperar») ya no hace falta
+async function gitRecoverDone() {
+  const x = gfRecover; gfRecover = null;
+  if (!x?.pop) return flash('✓ Choques resueltos');
+  const s = gst.stashes.find(y => y.hash === x.hash);
+  if (s && await ask('Guardado recuperado', `Ya resolviste los choques: tus cambios de «${x.nombre}» están en tus archivos.\n¿Borrar el guardado? Ya no hace falta.`, ['Borrar el guardado', 'Dejarlo']) === 'Borrar el guardado')
+    gitDo('borrar_stash', [], { rama: s.id }).then(ok => { if (!ok) return; flash('✓ Guardado borrado'); if (gfSel === x.hash) $('#gfDetail').innerHTML = ''; });
 }
 // 📦 Apartar: tabla de los archivos con cambios, cada uno con su casilla (todos marcados; con `solo`, solo ese), y un
 // nombre ya puesto. Se apartan los marcados (git stash push -- …); los demás siguen en la rama.
@@ -4727,15 +4849,13 @@ function gitFullSide() {
   if (SB) for (const s of gst.stashes) {
     const m = s.mensaje.match(/^(?:WIP on|On) ([^:]+): (.*)$/) || [, '', s.mensaje], txt = m[2].replace(/^[0-9a-f]{7,} /, '');
     row(SB, `<span class="gbd">📦</span><span class="gbn">${esc(txt)}</span><span class="gbst"><i class="s-off">${m[1] ? `${esc(m[1])} · ` : ''}${fmtRel(+s.fecha)}</i></span>`,
-      `${s.id} · ${s.mensaje}\nClic: ver sus archivos abajo · clic derecho: recuperar o borrar`,
-      () => { if (!s.hash) return; gfSel = s.hash; gitCommitDetail({ hash: s.hash, mensaje: '📦 ' + txt, padres: [], corto: s.hash.slice(0, 7), ts: 0 }); },
+      `${s.id} · ${s.mensaje}\nClic: ver sus archivos y recuperarlo · clic derecho: recuperar o borrar`,
+      () => { if (s.hash) gitStashShow(s); },
       at => openMenu(at, [{ head: '📦 ' + txt },
-        ['↩  Recuperar y quitar del cajón', () => gitDo('recuperar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados')), { title: 'Vuelven a tus archivos y el guardado desaparece (git stash pop)' }],
-        ['↩  Recuperar y dejar una copia', () => gitDo('aplicar_stash', [], { rama: s.id }).then(ok => ok && flash('✓ Cambios recuperados; la copia sigue guardada')), { title: 'Vuelven a tus archivos y el guardado sigue en el cajón (git stash apply)' }],
-        '-', ['🗑  Borrar…', async () => {
-          if (await ask('Borrar cambios guardados', `¿Borrar «${txt}»? Esos cambios a medias se pierden: no van a la papelera.`, ['Borrar', 'Cancelar'], { danger: true }) === 'Borrar'
-            && await gitDo('borrar_stash', [], { rama: s.id })) flash('🗑 Guardado borrado');
-        }, { danger: true }]]));
+        ['↩  Recuperar', () => gitStashRecover(s, true), { title: 'Vuelven a tus archivos y el guardado desaparece (git stash pop)' }],
+        ['↩  Recuperar y dejar copia', () => gitStashRecover(s, false), { title: 'Vuelven a tus archivos y el guardado se queda (git stash apply)' }],
+        '-', ['🗑  Borrar…', () => gitStashDrop(s), { danger: true }]]));
+    SB.lastChild.dataset.stash = s.id; if (gfSel === s.hash) SB.lastChild.classList.add('son');
   }
   const tags = gst.etiquetas || [];
   const TB = box(M, 'versiones', '🏷', 'Versiones <span class="gfterm">[tags]</span>', tags.length,
@@ -5375,7 +5495,7 @@ const fmtRel = t => { const m = Math.round((Date.now() / 1000 - t) / 60); return
   : m < 2880 ? 'ayer' : m < 43200 ? `hace ${Math.round(m / 1440)} días` : m < 525600 ? `hace ${Math.round(m / 43200)} meses` : `hace ${Math.round(m / 525600)} años`; };
 let gdSort = (() => { try { return JSON.parse(LS('desklens.git.orden') || 'null') || { col: 'rel', dir: 1 }; } catch { return { col: 'rel', dir: 1 }; } })();
 async function gitCommitDetail(c) {
-  const D = $('#gfDetail');
+  const D = $('#gfDetail'); D.classList.toggle('gdst', !!c.guardado); // guardado aparte: su propia cabecera (gitStashShow)
   D.innerHTML = `<div class="gdh"><b>${esc(c.mensaje)}</b></div><p class="gfmore">Cargando…</p>`;
   let r, info;
   try {
@@ -5440,7 +5560,7 @@ async function gitCommitDetail(c) {
       // si son iguales, a la izquierda el padre (`antes`, ver compareDialog)
       const ver = button('Ver', () => img ? gitImageCompare(f, c) : compareDialog(f.ruta, { cols: 2, picks: [
         { id: 'disco', label: '💾 Disco (actual)', title: '' },
-        { id: c.hash, label: `${msgParts(c.mensaje)[0]} · ${fmtWhen(c.ts)}`, title: `${c.corto} · ${c.mensaje}` }],
+        { id: f.hash || c.hash, label: `${msgParts(c.mensaje)[0]} · ${fmtWhen(c.ts)}`, title: `${c.corto} · ${c.mensaje}` }], // f.hash: archivo nuevo de un guardado
         antes: c.padres[0] && f.estado !== 'A' ? { id: c.padres[0], label: `Antes de este commit · ${c.padres[0].slice(0, 7)}`, title: `Padre de ${c.corto}` } : null,
         antesRel: f.antes || f.rel }));
       ver.className = 'small'; ver.disabled = !canSee; ver.title = img ? 'Imagen antes y después, lado a lado' : canSee ? 'Disco (actual) ↔ este commit; si son iguales, antes ↔ después del commit' : 'Archivo binario: no se compara como texto';
@@ -5449,7 +5569,7 @@ async function gitCommitDetail(c) {
       abrir.title = abrir.disabled ? 'No está en tu disco (borrado o aún sin traer)' : 'Abrir el archivo tal como está ahora';
       tr.firstChild.append(ver, abrir); body.append(tr);
     }
-    if (!list.length) body.innerHTML = `<tr><td colspan="8" class="gc">${files.length ? 'Ningún archivo coincide.' : 'Este commit no cambia archivos.'}</td></tr>`;
+    if (!list.length) body.innerHTML = `<tr><td colspan="8" class="gc">${files.length ? 'Ningún archivo coincide.' : D.classList.contains('gdst') ? 'Este guardado no tiene archivos.' : 'Este commit no cambia archivos.'}</td></tr>`;
   };
   q.oninput = draw; draw();
 }
@@ -6898,9 +7018,27 @@ const button = (t, fn) => Object.assign(document.createElement('button'), { text
 const norm = t => t.replace(/\r\n/g, '\n'); // el editor trabaja con \n; el servidor restaura CRLF al guardar
 // Entra en edición de texto: el texto queda en `edits` (sobrevive a cambiar de pestaña) con su original para saber si hay cambios.
 function startEdit(path, f) {
+  const at = path === cur ? readPos() : null; // dónde estaba leyendo: el editor se abre en esa línea
   edits.set(path, { f, text: norm(f.texto), orig: norm(f.texto), shown: false });
   preview = false;
-  (path === cur ? render() : Promise.resolve()).then(() => staleOthers(path)); // primero este lado: el otro se enlaza a su editor
+  (path === cur ? render() : Promise.resolve()).then(() => {
+    if (at && editorCM) setTimeout(() => {
+      const cm = editorCM, last = cm.lineCount() - 1, top = Math.min(at.top, last), line = Math.min(at.line ?? at.top, last);
+      cm.scrollTo(null, cm.heightAtLine(top, 'local')); cm.setCursor(line, 0); cm.focus();
+    });
+    staleOthers(path); // primero este lado: el otro se enlaza a su editor
+  });
+}
+// Posición en el visor de código: la primera línea visible y la línea elegida (seleccionada, o pulsada si sigue a la vista)
+function readPos() {
+  const V = $('#view'), C = V?.querySelector('.code'); if (!C) return null;
+  const vr = V.getBoundingClientRect(), rows = [...C.querySelectorAll('.cl')], shown = r => r && !r.classList.contains('hid');
+  const inView = r => { const b = r.getBoundingClientRect(); return b.bottom > vr.top + 2 && b.top < vr.bottom - 2; };
+  const first = rows.find(r => shown(r) && r.getBoundingClientRect().bottom > vr.top + 2);
+  const sel = getSelection(), sr = sel.rangeCount && !sel.isCollapsed ? sel.anchorNode?.parentElement?.closest?.('.cl') : null;
+  const picked = C.dataset.pick != null ? rows[+C.dataset.pick] : null;
+  const line = sr && C.contains(sr) ? +sr.dataset.i : shown(picked) && inView(picked) ? +picked.dataset.i : null;
+  return { top: first ? +first.dataset.i : 0, line };
 }
 // «✎ línea 12: …texto…»: la primera línea distinta entre dos versiones
 function textDesc(a, b) {
@@ -7764,12 +7902,9 @@ async function saveNow(path, force = false) {
 // Botón Guardar (y «Guardar» del ⋮): guarda y vuelve a lectura con la misma primera línea a la vista (en código; un
 // documento con formato no tiene líneas). Si no se guardó, sigue en edición. Ctrl+S guarda sin salir.
 async function saveAndRead(path) {
-  const top = editorCM ? editorCM.lineAtHeight(editorCM.getScrollInfo().top, 'local') : -1;
   if (isUntitled(path)) return save(path); // al ponerle nombre pasa a ser otro archivo: se queda en edición
   if (await save(path) !== true) return;
-  await leaveEdit(path);
-  const row = cur === path && top > 0 && $('#view .code .cl[data-i="' + top + '"]');
-  if (row) $('#view').scrollTop = row.closest('.code').offsetTop + row.offsetTop;
+  await leaveEdit(path); // vuelve al visor en la misma línea
 }
 // ---------- el archivo abierto cambió en el disco (otro programa, la IA, git…): se recarga solo o se pregunta ----------
 // ⚙ «Preguntar antes de recargar…» (predeterminado: no). Con cambios sin guardar aquí, siempre se pregunta.
@@ -7833,8 +7968,11 @@ async function leaveEdit(path) {
   const ed = edits.get(path);
   if (isUntitled(path)) return save(path); // un "nuevo N" solo sale de edición guardándolo
   if (!await askUnsaved(path)) return;
+  const top = path === cur && editorCM ? editorCM.lineAtHeight(editorCM.getScrollInfo().top, 'local') : -1; // el visor vuelve a esa línea
   dropBackup(path); edits.delete(path); preview = false;
   await render(); staleOthers(path); // primero este lado: los dos a la vez se pisan
+  const row = cur === path && top > 0 && $('#view .code .cl[data-i="' + top + '"]');
+  if (row) $('#view').scrollTop = row.closest('.code').offsetTop + row.offsetTop;
 }
 function frame(src) {
   // sandbox sin allow-same-origin: un HTML del usuario no puede tocar DeskLens
@@ -8024,7 +8162,8 @@ function codeView(V, text, lang, path) {
     if (path) foldSave(path, [...folded].map(s => [s, raw[s].trim()]));
   };
   const toggle = s => { folded.has(s) ? folded.delete(s) : folded.add(s); apply(); };
-  d.onclick = e => { const n = e.target.closest('.nl.can'), m = e.target.closest('.fmk'); if (n) toggle(+n.dataset.i); else if (m) toggle(+m.dataset.s); };
+  d.onclick = e => { const n = e.target.closest('.nl.can'), m = e.target.closest('.fmk'); if (n) toggle(+n.dataset.i); else if (m) toggle(+m.dataset.s);
+    const row = e.target.closest('[data-i]'); if (row && !m) d.dataset.pick = row.dataset.i; }; // la línea pulsada: «Editar» abre ahí
   for (const sv of path ? foldStore()[path] || [] : []) { const s = foldAnchor(raw, sv); if (ranges.has(s)) folded.add(s); }
   if (folded.size) apply();
   V.className = 'flush'; V.append(d);

@@ -3079,6 +3079,16 @@ def git_files(path, commit):
         nums[rel] = (int(a) if a.isdigit() else None, int(d) if d.isdigit() else None)
     for f in files:
         f["mas"], f["menos"] = nums.get(f["rel"], (None, None))
+    # un guardado (stash) con archivos nuevos: van en su tercer padre, no en el diff del commit; cada uno con `hash`
+    # (ese tercer padre) para verlo
+    if len(git_run(repo, "rev-list", "--parents", "-n", "1", commit).split()) == 4:
+        u = git_run(repo, "rev-parse", f"{commit}^3")
+        stat = {ln.split("\t")[2]: ln.split("\t")[:2] for ln in git_run(repo, *q, "show", "--format=", "--numstat", u).splitlines() if ln.count("\t") >= 2}
+        for rel in git_run(repo, *q, "show", "--format=", "--name-only", u).splitlines():
+            if rel and not any(f["rel"] == rel for f in files):
+                a = stat.get(rel, ["-", "-"])[0]
+                files.append({"estado": "A", "rel": rel, "antes": None, "ruta": str(repo / Path(rel)), "hash": u,
+                              "mas": int(a) if a.isdigit() else None, "menos": 0 if a.isdigit() else None})
     return {"repositorio": str(repo), "archivos": files}
 
 
@@ -3616,6 +3626,22 @@ def git_tag_name(repo, name):
         raise ValueError("Nombre de versión no válido (sin espacios; por ejemplo v1.0)")
     git_do(repo, "check-ref-format", f"refs/tags/{name}")
     return name
+
+
+def git_stash_files(path, ident, solo_nuevos=False):
+    """Archivos de un guardado (stash@{n}): los que cambió y los nuevos que apartó (su tercer padre); con solo_nuevos,
+    solo estos últimos (lista)."""
+    repo = repo_of(path)
+    if not re.fullmatch(r"stash@\{\d+\}", ident or ""):
+        raise ValueError("Cambios guardados no válidos")
+    q = ("-c", "core.quotePath=false")
+    if solo_nuevos:
+        return [f for f in git_run(repo, *q, "show", "--name-only", "--format=", f"{ident}^3").splitlines() if f] \
+            if git_run(repo, "rev-parse", "-q", "--verify", f"{ident}^3") else []
+    out = git_run(repo, *q, "diff", "--name-only", f"{ident}^1", ident).splitlines()
+    if git_run(repo, "rev-parse", "-q", "--verify", f"{ident}^3"):
+        out += git_run(repo, *q, "show", "--name-only", "--format=", f"{ident}^3").splitlines()
+    return {"archivos": sorted({f for f in out if f})}
 
 
 def git_branches_elsewhere(repo, porcelain):
@@ -4201,11 +4227,31 @@ def git_action(path, accion, archivos=(), mensaje="", rama="", todo=False, modo=
         if accion == "borrar_stash":
             git_do(repo, "stash", "drop", rama)
         else:
+            # los nuevos (sin seguimiento) del guardado que aún no existen: si git se niega a medias, ya los habría creado
+            nuevos = [f for f in git_stash_files(repo, rama, solo_nuevos=True) if not (repo / f).exists()]
             try:
                 git_do(repo, "stash", "pop" if accion == "recuperar_stash" else "apply", rama)
-            except ValueError:
-                raise ValueError("Algunos de los cambios guardados chocan con lo que hay ahora: aparecen en «Conflictos». "
-                                 "Siguen guardados en el stash por si acaso.")
+            except ValueError as e:
+                choque = [f for f in git_run(repo, "-c", "core.quotePath=false", "diff", "--name-only", "--diff-filter=U").splitlines() if f]
+                if choque:  # se aplicó, pero algunos archivos chocan: quedan en «Conflictos» y el guardado se conserva
+                    ov = git_overview(repo)
+                    ov["choque_guardado"] = {"id": rama, "archivos": choque}
+                    return ov
+                msg = str(e)
+                for f in nuevos:  # «no se recuperó nada» tiene que ser verdad: fuera lo que git alcanzó a crear
+                    if (repo / f).is_file():
+                        (repo / f).unlink()
+                if "would be overwritten" in msg or "already exists" in msg:
+                    raise ValueError("No se recuperó nada: algunos archivos del guardado tienen cambios tuyos ahora o ya existen. "
+                                     "Haz commit de esos cambios o guárdalos aparte y vuelve a intentarlo.")
+                raise
+    elif accion == "deshacer_recuperar":  # tras un choque al recuperar: esos archivos vuelven a como estaban en el último commit
+        git_do(repo, "reset", "-q", "--", *files)
+        for f in files:
+            if git_run(repo, "cat-file", "-t", f"HEAD:{f}"):
+                git_do(repo, "checkout", "HEAD", "--", f)
+            elif (repo / f).is_file():  # lo creó el guardado: se quita (sigue en el guardado)
+                (repo / f).unlink()
     elif accion == "rama_desde":  # crear una rama en un commit del historial (sin cambiar a ella)
         if not re.fullmatch(r"[0-9a-f]{4,40}", mensaje):
             raise ValueError("commit no válido")
@@ -4647,6 +4693,11 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/git/archivos":
                 try:
                     return self.send_json(200, git_files(ruta, q.get("hash", "")))
+                except (ValueError, OSError, subprocess.TimeoutExpired) as e:
+                    return self.send_json(400, {"error": str(e)})
+            if url.path == "/api/git/guardado":  # archivos de un guardado (antes de recuperarlo: ¿chocan con los tuyos?)
+                try:
+                    return self.send_json(200, git_stash_files(ruta, q.get("id", "")))
                 except (ValueError, OSError, subprocess.TimeoutExpired) as e:
                     return self.send_json(400, {"error": str(e)})
             if url.path == "/api/git/comparar":  # doble clic en una rama: compararla con la tuya (solo lee)

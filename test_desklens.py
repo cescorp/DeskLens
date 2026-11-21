@@ -1205,6 +1205,24 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     assert code == 200 and not (rep / "solo.md").exists() and [c["rel"] for c in ov["cambios"]] == ["h.md"], ov["cambios"]
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": ov["stashes"][0]["id"]})
     assert (rep / "solo.md").exists(); (rep / "solo.md").unlink()
+    # recuperar un guardado que choca: archivos del guardado, choque → «Conflictos», deshacer
+    antes_h = (rep / "h.md").read_text()
+    (rep / "h.md").write_text("de guardado\n"); (rep / "nuevo2.md").write_text("n\n")
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "apartar", "mensaje": "choca", "modo": "nuevos"})
+    sid = ov["stashes"][0]["id"]
+    assert desklens.git_stash_files(str(rep), sid)["archivos"] == ["h.md", "nuevo2.md"]
+    sh = subprocess.run(["git", "-C", str(rep), "rev-parse", sid], capture_output=True, text=True).stdout.strip()
+    assert {f["rel"]: f["estado"] for f in desklens.git_files(str(rep), sh)["archivos"]} == {"h.md": "M", "nuevo2.md": "A"}  # también los nuevos
+    (rep / "h.md").write_text("en commit\n"); git(rep, "commit", "-q", "-am", "otro h")
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": sid})
+    assert code == 200 and ov["choque_guardado"]["archivos"] == ["h.md"] and ov["stashes"], ov.get("choque_guardado")
+    code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "deshacer_recuperar", "archivos": ["h.md", "nuevo2.md"]})
+    assert code == 200 and not ov["conflictos"] and (rep / "h.md").read_text() == "en commit\n" and not (rep / "nuevo2.md").exists()
+    (rep / "h.md").write_text("mío\n")  # cambios tuyos en el mismo archivo: no se recupera nada y lo dice en español
+    code, r = post("/api/git/accion", {"ruta": str(rep), "accion": "recuperar_stash", "rama": sid})
+    assert code == 400 and "No se recuperó nada" in r["error"] and not (rep / "nuevo2.md").exists(), r  # nada a medias
+    git(rep, "checkout", "--", "h.md"); git(rep, "stash", "drop", "-q", sid); git(rep, "reset", "-q", "--hard", "HEAD~1")
+    (rep / "h.md").write_text(antes_h)  # como estaba: lo que sigue cuenta con ese cambio sin commit
     code, ov = post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "v9.9", "mensaje": "prueba"})
     assert code == 200 and {x["nombre"]: x["nota"] for x in ov["etiquetas"]}.get("v9.9") == "prueba"
     assert post("/api/git/accion", {"ruta": str(rep), "accion": "etiqueta", "rama": "v9.9"})[0] == 400  # ya existe
