@@ -457,6 +457,15 @@ try:
     assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
     assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
 
+    # «Contenedor con nombre»: la raíz es el nombre; se puede crear sin carpetas; posiciones aparte por modo
+    f, _ = org.crear_ficha({"nombre": "Solo nombre", "raiz_nombre": True, "partes": []})
+    assert f["raiz_nombre"] and f["partes"] == [] and not f.get("nombre_sigue"), f
+    f, _ = org.guardar_ficha("nuevo-proy", {"raiz_nombre": True, "posiciones": {"flujo:nombre": {"p": {"x": 1, "y": 2}}, "otra": {}}})
+    assert f["raiz_nombre"] and f["nombre_sigue"] is False and f["posiciones"]["flujo:nombre"]["p"] == {"x": 1.0, "y": 2.0} and "otra" not in f["posiciones"], f
+    f, _ = org.guardar_ficha("nuevo-proy", {"raiz_nombre": False})
+    assert f["raiz_nombre"] is False and f["posiciones"]["flujo:nombre"], "apagarlo no borra lo del otro modo"
+    org.quitar_ficha("solo-nombre")
+
     # 🔍 del explorador: por nombre en subcarpetas, sin acentos ni separadores, saltando node_modules
     bq = carpeta("busca", "uno", "Canción_Final")
     carpeta("busca", "node_modules", "cancion-final")

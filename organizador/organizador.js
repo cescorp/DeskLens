@@ -30,6 +30,7 @@
     web: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M6.5 6.5h.01M9 6.5h.01"/>',
     documentos: '<path d="M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6"/>',
     principal: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>',
+    etiqueta: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="7.5" cy="7.5" r="1.5"/>', // «Contenedor con nombre»: la raíz es el nombre
     notas: '<path d="M4 5h16v11H9l-5 4z"/>',
     musica: '<path d="M9 18V5l10-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/>',
     imagen: '<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="M21 16l-5-5-9 9"/>',
@@ -77,6 +78,7 @@
   KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
     ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
     ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'],
+    ['Doble clic en Red o Flujo', '🎯 Enfocar: despliega hasta esa carpeta o archivo, lo demás opaco; 🗂 Explorador lo sigue'], ['Esc · clic en el fondo (con foco)', 'Quitar el foco'],
     ['Ctrl+F (en ＋ Nuevo proyecto)', '🔍 Buscar en el explorador (lo abre si está cerrado)'], ['Enter (en el 🔍 con «subcarpetas»)', 'Buscar también dentro de las subcarpetas'],
     ['↑ ↓ · Espacio · Enter (en el explorador)', 'Moverse por la lista · marcar · entrar en la carpeta'], ['Flechas (en un separador)', 'Agrandar o achicar el bloque (Mayús: más rápido); doble clic: tamaño de antes'],
     ['Espacio (vista ☰ Lista)', 'Marcar o desmarcar la fila con el foco'], ['Mayús+clic en una casilla (vista ☰ Lista)', 'Marcar desde la última marcada hasta esta'],
@@ -174,9 +176,11 @@
   function tarjeta(f) {
     const cuenta = {}; f.partes.forEach(p => cuenta[p.tipo] = (cuenta[p.tipo] || 0) + p.carpetas.length);
     // ★ la carpeta principal y, en fila, sus entornos (iguales a ella: pruebas → calidad → producción)
-    const todas = f.partes.flatMap(p => p.carpetas), pr = todas.find(c => c.ancla === f.principal);
-    const etapas = f.partes.filter(p => p.tipo === 'entornos').flatMap(p => p.carpetas).filter(c => c.ancla !== f.principal);
-    const fila = pr ? `<div class="ogit ofila" title="La carpeta principal${etapas.length ? ' y sus entornos, en orden' : ''}">${svgI('principal', 'var(--accent)', 'Carpeta principal')}<b>${esc(pr.nombre)}</b>${etapas.map(c => `<span class="oflecha">→</span>${icoE(c.etapa)}<span>${esc(c.nombre)}</span>`).join('')}</div>` : '';
+    const todas = f.partes.flatMap(p => p.carpetas), pr = f.raiz_nombre ? null : todas.find(c => c.ancla === f.principal);
+    const etapas = f.partes.filter(p => p.tipo === 'entornos').flatMap(p => p.carpetas).filter(c => f.raiz_nombre || c.ancla !== f.principal);
+    const flechas = etapas.map((c, i) => `${i || pr ? '<span class="oflecha">→</span>' : ''}${icoE(c.etapa)}<span>${esc(c.nombre)}</span>`).join('');
+    const fila = pr ? `<div class="ogit ofila" title="La carpeta principal${etapas.length ? ' y sus entornos, en orden' : ''}">${svgI('principal', 'var(--accent)', 'Carpeta principal')}<b>${esc(pr.nombre)}</b>${flechas}</div>`
+      : f.raiz_nombre && etapas.length ? `<div class="ogit ofila" title="Contenedor con nombre: sus entornos, en orden">${svgI('etiqueta', 'var(--accent)', 'Contenedor con nombre')}${flechas}</div>` : '';
     const c = codigoDe(f), g = c && O.git[c.ruta];
     const git = !c ? '' : !c.git ? '⎇ sin git' : !g ? '⎇ …' : g.rama == null ? '⎇ sin git'
       : `⎇ ${esc(g.rama)} · ${g.cambios ? `${g.cambios} cambio${g.cambios > 1 ? 's' : ''}` : 'al día'}${g.adelante ? ` · ↑${g.adelante}` : ''}${g.atras ? ` · ↓${g.atras}` : ''}`;
@@ -527,18 +531,23 @@
       for (const p of partes) if (p.tipo === 'entornos') p.carpetas.sort((a, b) => (ORD_ETAPA[a.etapa] ?? 9) - (ORD_ETAPA[b.etapa] ?? 9));
       const iPr = N.items.findIndex(it => normRuta(it.ruta) === normRuta(N.principal));
       const nombre = f ? f.nombre : N.nombre.trim() || nombreAuto() || 'Proyecto nuevo';
-      return { id: '_nuevo', nombre, principal: iPr >= 0 ? 'nv' + iPr : f?.principal || '', partes, posiciones: {}, cajas: [], conexiones: [] };
+      return { id: '_nuevo', nombre, principal: iPr >= 0 ? 'nv' + iPr : f?.principal || '', partes, posiciones: {}, cajas: [], conexiones: [],
+        raiz_nombre: f ? !!f.raiz_nombre : !N.items.length }; // sin carpetas: solo con el nombre («Contenedor con nombre»)
     }
     function arbolVista(F, T) {
       T.className = 'onvv otl';
-      const todas = F.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))), pr = todas.find(x => x.c.ancla === F.principal);
-      if (!pr) { T.innerHTML = '<p class="ohint" style="padding:16px">Aquí se verá el proyecto: la ★ arriba, sus etapas en fila y las demás partes colgando de ella.</p>'; return; }
-      const fila = ({ c, p }) => { const esP = c.ancla === F.principal;
+      const todas = F.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))), pr = F.raiz_nombre ? null : todas.find(x => x.c.ancla === F.principal);
+      if (!pr && !F.raiz_nombre) { T.innerHTML = '<p class="ohint" style="padding:16px">Aquí se verá el proyecto: la ★ arriba, sus etapas en fila y las demás partes colgando de ella.</p>'; return; }
+      if (!pr && !f && !N.nombre.trim()) { T.innerHTML = '<p class="ohint" style="padding:16px">Aquí se verá el proyecto. Añade carpetas (la primera será la ★), o escribe solo el nombre para crearlo sin carpetas («Contenedor con nombre»).</p>'; return; }
+      const fila = ({ c, p }) => { const esP = !F.raiz_nombre && c.ancla === F.principal;
         return `<div class="onodo raiz ${c._nuevo ? 'onvflash' : ''} ${esP ? 'oprincipal' : ''}" title="${esc(c.ruta || '')}"><span class="otw"></span>${esP ? svgI('principal', 'var(--accent)', 'Carpeta principal') : ''}${c.acceso ? svgI('documentos', COLT[p.tipo]) : icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span>${c.acceso ? '<small>↗ acceso</small>' : ''}${esP ? '<small>principal</small>' : p.tipo === 'entornos' ? `<small>${esc(c.etapa || '')}</small>` : ''}${c.git ? '<span title="git">⎇</span>' : ''}</div>`; };
-      const etapas = todas.filter(x => x.p.tipo === 'entornos' && x.c.ancla !== F.principal);
+      const fuera = c => F.raiz_nombre || c.ancla !== F.principal; // con nombre, la ★ es una carpeta más
+      const etapas = todas.filter(x => x.p.tipo === 'entornos' && fuera(x.c));
       const cadena = i => i >= etapas.length ? '' : `<div class="orama oetapa">${fila(etapas[i])}<div class="ohijos">${cadena(i + 1)}</div></div>`;
-      const partes = F.partes.map(p => ({ p, cs: p.carpetas.filter(c => c.ancla !== F.principal) })).filter(x => x.p.tipo !== 'entornos' && x.cs.length);
-      T.innerHTML = `<div class="orama oraiz">${fila(pr)}<div class="ohijos">${cadena(0)}${partes.map(({ p, cs }) => `<div class="orama"><div class="onodo oparten"><span class="otw"></span>${icoT(p.tipo)}<span class="onom">${esc(p.nombre)}</span><small>${cs.length}</small></div>
+      const partes = F.partes.map(p => ({ p, cs: p.carpetas.filter(fuera) })).filter(x => x.p.tipo !== 'entornos' && x.cs.length);
+      const raiz = pr ? fila(pr) : `<div class="onodo oparten oraiznom"><span class="otw"></span>${svgI('etiqueta', 'var(--accent)')}<span class="onom">${esc(F.nombre)}</span><small>contenedor con nombre</small></div>`;
+      const bloque = F.raiz_nombre && etapas.length ? `<div class="orama obloque"><div class="onodo oparten"><span class="otw"></span>${icoT('entornos')}<span class="onom">Entornos</span><small>${etapas.length}</small></div><div class="ohijos">${cadena(0)}</div></div>` : cadena(0);
+      T.innerHTML = `<div class="orama oraiz">${raiz}<div class="ohijos">${bloque}${partes.map(({ p, cs }) => `<div class="orama"><div class="onodo oparten"><span class="otw"></span>${icoT(p.tipo)}<span class="onom">${esc(p.nombre)}</span><small>${cs.length}</small></div>
         <div class="ohijos">${cs.map(c => `<div class="orama">${fila({ c, p })}</div>`).join('')}</div></div>`).join('')}</div></div>`;
       marcarUltimos(T);
     }
@@ -549,7 +558,7 @@
       const n = F.partes.reduce((s, p) => s + p.carpetas.length, 0), git = F.partes.flatMap(p => p.carpetas).filter(c => c.git).length;
       $n('#nvRes').textContent = n ? `${n} elemento(s) en ${F.partes.filter(p => p.carpetas.length).length} parte(s)${git ? ` · ${git} con git` : ''}` : '';
       limpiarCy();
-      if (N.vista === 'arbol' || !F.principal) return arbolVista(F, V);
+      if (N.vista === 'arbol' || !F.principal && !F.raiz_nombre) return arbolVista(F, V);
       V.className = 'onvv onvcy'; V.innerHTML = '';
       try { await cargarCy(); } catch (e) { V.innerHTML = `<p class="oempty">⚠ ${esc(e.message)}</p>`; return; }
       if (t !== tokV || !d.open) return;
@@ -566,8 +575,8 @@
       }
       pintarLista(); pintarVista();
       const n = N.items.filter(it => it.dir && !it.remota).length, acc = N.items.filter(it => it.archivo).length, rem = N.items.filter(it => it.remota).length;
-      $n('#nvPie').textContent = N.items.length ? `Se pondrá un ancla oculta en ${n} carpeta(s)${acc ? ` · ${acc} acceso(s) a archivos` : ''}${rem ? ` · ${rem} etapa(s) remota(s)` : ''}. No se mueve ni copia ningún archivo.` : 'No se mueve ni copia ningún archivo: solo se crea la ficha y se pone un ancla oculta en cada carpeta.';
-      $n('#nvOk').disabled = !N.items.length || (!f && !principalIt());
+      $n('#nvPie').textContent = !N.items.length && !f && N.nombre.trim() ? `Se crea «${N.nombre.trim()}» solo con el nombre («Contenedor con nombre»): sin carpetas ni anclas. Las añades cuando quieras.` : N.items.length ? `Se pondrá un ancla oculta en ${n} carpeta(s)${acc ? ` · ${acc} acceso(s) a archivos` : ''}${rem ? ` · ${rem} etapa(s) remota(s)` : ''}. No se mueve ni copia ningún archivo.` : 'No se mueve ni copia ningún archivo: solo se crea la ficha y se pone un ancla oculta en cada carpeta.';
+      $n('#nvOk').disabled = f ? !N.items.length : N.items.length ? !principalIt() : !N.nombre.trim(); // solo con el nombre también se puede crear
       if ($n('#nvOtro')) $n('#nvOtro').disabled = $n('#nvOk').disabled;
       setTimeout(() => { if (N.nuevo) { N.nuevo = ''; d.querySelectorAll('.onvflash').forEach(x => x.classList.remove('onvflash')); } }, 1600);
     }
@@ -733,7 +742,8 @@
           const partes = [];
           for (const it of N.items) { const p = partes.find(x => x.tipo === it.tipo) || (partes.push({ nombre: TIPO[it.tipo][1], tipo: it.tipo, carpetas: [] }), partes.at(-1)); p.carpetas.push(carpeta(it)); }
           for (const p of partes) if (p.tipo === 'entornos') p.carpetas.sort((a, b) => (ORD_ETAPA[a.etapa] ?? 9) - (ORD_ETAPA[b.etapa] ?? 9));
-          r = await api('/api/org/ficha/crear', { nombre: N.nombre.trim() || nombreAuto(), estado: N.estado, partes, principal_ruta: N.principal, carpetas_movidas: movidas });
+          r = await api('/api/org/ficha/crear', { nombre: N.nombre.trim() || nombreAuto(), estado: N.estado, partes, principal_ruta: N.principal, carpetas_movidas: movidas,
+            ...(N.items.length ? {} : { raiz_nombre: true }) }); // sin carpetas: nace con «Contenedor con nombre»
         }
         r.avisos?.forEach(a => flash('⚠ ' + a));
         flash(f ? `✓ ${N.items.length} añadida(s) a «${f.nombre}» (nada se movió en el disco)` : `✓ Proyecto «${r.ficha.nombre}» creado (nada se movió en el disco)`);
@@ -1219,7 +1229,8 @@
       abiertas: new Set(v.abiertas || JSON.parse(LS('desklens.org.abiertas.' + f.id) || '[]')),
       vista: v.vista || 'contenedor', cmp: v.cmp || { v: '', modo: 'encima', solo: false }, cam: v.cam || {}, mini: v.mini ?? true, notaAbierta: v.notaAbierta || '', notas: [],
       reabrir: true, // su último archivo se abre al entrar (una vez)
-      info: { abierto: false, sel: null, ancho: 380, ...(v.info || {}) }, exp: { flujo: [], red: [], ...(v.exp || {}) } }; // ⓘ panel y carpetas desplegadas en Flujo/Red
+      info: { abierto: false, sel: null, ancho: 380, pest: 'info', ...(v.info || {}) }, exp: { flujo: [], red: [], ...(v.exp || {}) },
+      filtro: { q: '', ocultos: [], abierto: true, ...(v.filtro || {}) } }; // ⓘ panel y carpetas desplegadas en Flujo/Red
     api('/api/org/notas?id=' + encodeURIComponent(f.id)).then(r => { if (O.adm?.id !== f.id) return; O.adm.notas = r.notas; if (r.notas.length && O.pantalla === 'proyecto') admin(); }).catch(() => {});
     O.pantalla = 'proyecto'; pintar(); guardarDonde();
   }
@@ -1292,7 +1303,7 @@
   }
   const guardarVista = () => O.adm && LS('desklens.org.vista.' + O.adm.id, JSON.stringify({ tab: O.adm.tab, q: O.adm.q, arbolW: O.adm.arbolW,
     scroll: O.adm.scroll, ultimo: O.adm.ultimo, abiertas: [...O.adm.abiertas], vista: O.adm.vista, cmp: O.adm.cmp, cam: O.adm.cam, mini: O.adm.mini,
-    notaAbierta: O.adm.notaAbierta, info: O.adm.info, exp: O.adm.exp }));
+    notaAbierta: O.adm.notaAbierta, info: O.adm.info, exp: O.adm.exp, filtro: O.adm.filtro }));
   const guardarAbiertas = guardarVista;
   // Renombrar en DeskLens (F2 del árbol o Ctrl+F2 de la pestaña) o en el Explorador de Windows: el árbol del proyecto
   // vuelve a leer lo que tiene desplegado, con los nombres nuevos, sin plegar nada ni perder el desplazamiento.
@@ -1332,7 +1343,7 @@
     const donde = new Map(); f.partes.forEach((p, j) => p.carpetas.forEach((c, k) => donde.set(c.ancla, { c, p, j, k })));
     const nNotas = a => (O.adm.notas || []).filter(n => n.destino === 'nodo:' + a || (a === f.principal && n.destino === 'proyecto')).length;
     const fila = ({ c, p, j, k }, extra = '') => {
-      const borrada = BORRADA[c.estado], viva = c.estado === 'ok' || c.estado === 'movida', principal = c.ancla === f.principal;
+      const borrada = BORRADA[c.estado], viva = c.estado === 'ok' || c.estado === 'movida', principal = !f.raiz_nombre && c.ancla === f.principal;
       if (c.estado === 'remota') return `<div class="onodo raiz oremota" data-j="${j}" data-k="${k}" data-url="${esc(c.ruta)}" title="Etapa remota · ${esc(c.ruta || 'sin dirección')}">
         <span class="otw"></span>${icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span><small>${esc(c.etapa || '')} · ${esc(c.ruta || 'sin dirección')}</small></div>`;
       if (String(c.ancla).startsWith('archivo:')) return `<div class="onodo raiz oacceso ${viva ? '' : 'gris'}" data-j="${j}" data-k="${k}" data-ruta="${esc(c.ruta)}" title="Acceso a un archivo · ${esc(c.ruta)}">
@@ -1344,7 +1355,18 @@
         <span class="otw">${viva ? (O.adm.abiertas.has(c.ruta) ? '▾' : '▸') : ''}</span>${principal ? svgI('principal', 'var(--accent)', 'Carpeta principal') : ''}${icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span>${marcas}${det ? `<small>${esc(det)}</small>` : ''}</div>${extra}`;
     };
     const pr = donde.get(f.principal);
-    if (!pr) { T.innerHTML = '<p class="ohint">El proyecto no tiene carpetas: añádelas con clic derecho › ＋ Añadir carpetas…</p>'; return; }
+    if (f.raiz_nombre) { // «Contenedor con nombre»: el nombre arriba; el bloque 🚦 Entornos con sus etapas en cadena; las demás partes
+      const ets = f.partes.map((p, j) => ({ p, j })).filter(x => x.p.tipo === 'entornos');
+      const etapas = ets.flatMap(({ p, j }) => p.carpetas.map((c, k) => ({ c, p, j, k })));
+      const cad = i => i >= etapas.length ? '' : `<div class="orama oetapa">${fila(etapas[i], `<div class="ohijos">${etapas[i].c.estado === 'remota' ? '' : `<div class="ocont" data-de="${esc(etapas[i].c.ruta)}"></div>`}${cad(i + 1)}</div>`)}</div>`;
+      const otras = f.partes.map((p, j) => ({ p, j })).filter(x => x.p.tipo !== 'entornos' && x.p.carpetas.length);
+      const bloque = etapas.length ? `<div class="orama obloque"><div class="onodo oparten" data-parte="${ets[0].j}" title="Bloque de Entornos: sus etapas, en orden"><span class="otw"></span>${icoT('entornos')}<span class="onom">Entornos</span><small>${etapas.length}</small></div><div class="ohijos">${cad(0)}</div></div>` : '';
+      T.innerHTML = `<div class="orama oraiz"><div class="onodo oparten oraiznom" title="Contenedor con nombre: la raíz es el nombre del proyecto (clic derecho para cambiarlo)"><span class="otw"></span>${svgI('etiqueta', 'var(--accent)')}<span class="onom">${esc(f.nombre)}</span></div>
+        <div class="ohijos">${bloque}${otras.map(({ p, j }) => `<div class="orama"><div class="onodo oparten" data-parte="${j}"><span class="otw"></span>${icoT(p.tipo)}<span class="onom">${esc(p.nombre)}</span><small>${p.carpetas.length}</small></div>
+          <div class="ohijos">${p.carpetas.map((c, k) => `<div class="orama">${fila({ c, p, j, k }, `<div class="ohijos ocont" data-de="${esc(c.ruta)}"></div>`)}</div>`).join('')}</div></div>`).join('')}
+          ${!etapas.length && !otras.length ? '<div class="orama"><div class="osmall ovacia">Sin carpetas todavía: clic derecho › ＋ Añadir carpetas…</div></div>' : ''}</div></div>`;
+    } else if (!pr) { T.innerHTML = '<p class="ohint">El proyecto no tiene carpetas: añádelas con clic derecho › ＋ Añadir carpetas…</p><p class="ohint">O clic derecho › «Contenedor con nombre» para que la raíz sea el nombre.</p>'; }
+    else {
     // etapas (sin la principal), en cadena: cada una cuelga de la anterior
     const etapas = f.partes.filter(p => p.tipo === 'entornos').flatMap(p => p.carpetas).filter(c => c.ancla !== f.principal).map(c => donde.get(c.ancla));
     const cadena = i => i >= etapas.length ? '' : `<div class="orama oetapa">${fila(etapas[i], `<div class="ohijos">${etapas[i].c.estado === 'remota' ? '' : `<div class="ocont" data-de="${esc(etapas[i].c.ruta)}"></div>`}${cadena(i + 1)}</div>`)}</div>`;
@@ -1353,6 +1375,7 @@
     T.innerHTML = `<div class="orama oraiz">${fila(pr, `<div class="ohijos">${cadena(0)}<div class="ocont" data-de="${esc(pr.c.ruta)}"></div>
       ${partes.map(({ p, j, cs }) => `<div class="orama"><div class="onodo oparten" data-parte="${j}"><span class="otw"></span>${icoT(p.tipo)}<span class="onom">${esc(p.nombre)}</span><small>${cs.length}</small></div>
         <div class="ohijos">${cs.map(c => `<div class="orama">${fila(donde.get(c.ancla), `<div class="ohijos ocont" data-de="${esc(c.ruta)}"></div>`)}</div>`).join('')}</div></div>`).join('')}</div>`)}</div>`;
+    }
     marcarUltimos(T);
     T.onmouseover = e => { // el camino hasta la raíz, en color
       const n = e.target.closest('.onodo');
@@ -1365,13 +1388,14 @@
       if (n.classList.contains('oremota')) { const u = n.dataset.url; if (/^https?:\/\//.test(u)) openTab('web:' + u, true); else if (u) copyText(u, '✓ Copiado: ' + u); return; }
       if (n.dataset.dir) abrirCarpeta(n, T); else abrirArchivo(n.dataset.ruta, false);
     };
-    T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir) abrirArchivo(n.dataset.ruta, true); };
+    T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir && n.dataset.ruta) abrirArchivo(n.dataset.ruta, true); };
     T.oncontextmenu = e => {
       const n = e.target.closest('.onodo');
       if (!n || n.classList.contains('oparten')) { // el fondo o una parte: añadir
         e.preventDefault(); e.stopPropagation();
         const pt = n ? f.partes[+n.dataset.parte] : null;
-        return openMenu({ x: e.clientX, y: e.clientY }, [{ head: pt ? pt.nombre : f.nombre }, [pt ? `＋ Añadir carpetas a ${pt.nombre}…` : '＋ Añadir carpetas…', () => nuevoProyecto(f, pt?.tipo || '')]]);
+        return openMenu({ x: e.clientX, y: e.clientY }, [{ head: pt ? pt.nombre : f.nombre }, [pt ? `＋ Añadir carpetas a ${pt.nombre}…` : '＋ Añadir carpetas…', () => nuevoProyecto(f, pt?.tipo || '')],
+          ...(!pt || pt.tipo === 'entornos' && f.raiz_nombre ? ['-', itemConNombre(f)] : [])]);
       }
       if (n.classList.contains('gris') && !n.classList.contains('raiz')) return;
       e.preventDefault(); e.stopPropagation(); // sin el menú general de DeskLens encima
@@ -1383,6 +1407,7 @@
         ...(remota ? [{ head: c.nombre }] : [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err), { disabled: n.classList.contains('gris') }],
         ...(dir ? [['>_ Terminal aquí', () => openTerminal(ruta), { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]])]),
         ...(raiz && !remota && !n.classList.contains('oacceso') && c.ancla !== f.principal ? ['-', hacerPrincipalItem(f, c.ancla, c.nombre)] : []),
+        ...(raiz && c?.ancla === f.principal && !f.raiz_nombre ? ['-', itemConNombre(f)] : []), // la raíz ★: aquí también se cambia
         ...(raiz ? menuMover(f, c.ancla, f.partes[+n.dataset.j].tipo) : []),
         ...(raiz ? ['-', ['Quitar del proyecto…', async () => {
           if (await ask('Quitar del proyecto', `«${c.nombre}» deja de ser parte de «${f.nombre}». No se borra nada del disco.`, ['Quitar', 'Cancelar'], { danger: true }) !== 'Quitar') return;
@@ -1390,12 +1415,32 @@
         }, { danger: true }]] : [])]);
     };
     const abrir = [...O.adm.abiertas].map(r => T.querySelector(`.onodo[data-ruta="${CSS.escape(r)}"]`)).filter(Boolean).map(n => abrirCarpeta(n, T, true));
-    Promise.all(abrir).then(() => setTimeout(() => { T.scrollTop = O.adm.scroll; }, 50)); // donde lo dejaste
+    return Promise.all(abrir).then(() => setTimeout(() => { if (!T.classList.contains('oexp')) T.scrollTop = O.adm.scroll; }, 50)); // donde lo dejaste (el 🗂 del panel va al foco)
   }
   // ★ Hacer principal: esa carpeta pasa a ser la raíz del proyecto (solo la ficha; queda en el Historial)
   const hacerPrincipalItem = (f, ancla, nombre) => ['★ Hacer principal', async () => {
     try { await api('/api/org/ficha/guardar', { id: f.id, principal: ancla }); flash(`★ «${nombre}» es ahora la carpeta principal (nada se movió en el disco)`); await cargar(); } catch (x) { err(x); }
-  }, { html: `${svgI('principal', 'var(--accent)')} Hacer principal`, title: 'La raíz del proyecto: de ella salen sus entornos y sus partes' }];
+  }, { html: `${svgI('principal', 'var(--accent)')} Hacer principal`, disabled: !!f.raiz_nombre,
+    title: f.raiz_nombre ? 'Con «Contenedor con nombre» la raíz es el nombre: apágalo (clic derecho en el fondo) para usar la ★' : 'La raíz del proyecto: de ella salen sus entornos y sus partes' }];
+  // «Contenedor con nombre» (aprobado 2026-11-22): interruptor en el clic derecho del fondo y de la raíz, en Contenedor,
+  // Flujo y Red. Encendido: la raíz es el nombre, las etapas van en un bloque 🚦 Entornos y las demás partes salen de él.
+  // Se guarda en la ficha (y en el Historial); la ★ se recuerda para cuando se apague. El menú se queda abierto.
+  function itemConNombre(f) {
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'oswrow';
+    const pinta = () => { b.setAttribute('aria-pressed', f.raiz_nombre ? 'true' : 'false');
+      b.innerHTML = `<span class="osw ${f.raiz_nombre ? 'on' : ''}"><i></i></span><span class="oswt"><b>Contenedor con nombre</b><small>${f.raiz_nombre ? `La raíz es «${esc(f.nombre)}», no la ★` : 'Ahora la raíz es la ★ carpeta principal'}</small></span>`; };
+    pinta();
+    b.onclick = async e => {
+      e.stopPropagation(); b.disabled = true;
+      const mr = b.closest('#menu')?.getBoundingClientRect(); // al repintar la vista el menú se cierra: se vuelve a abrir ahí mismo
+      const r = await guardar(f.id, { raiz_nombre: !f.raiz_nombre });
+      b.disabled = false; if (!r) return;
+      f.raiz_nombre = !!r.raiz_nombre; pinta();
+      if (mr && !b.isConnected) setTimeout(() => openMenu({ x: Math.max(8, Math.min(mr.left, innerWidth - 330)), y: mr.top }, [{ head: f.nombre }, itemConNombre(O.st?.fichas.find(x => x.id === f.id) || f)]), 60);
+      flash(f.raiz_nombre ? `🏷 La raíz de «${f.nombre}» es ahora su nombre (la ★ se recuerda)` : `★ La raíz de «${f.nombre}» vuelve a ser su carpeta principal`);
+    };
+    return { el: b, btn: b };
+  }
   // «Mover a» (clic derecho en el árbol, Flujo y Red): pasa la carpeta a otra parte; solo la ficha, nada en el disco
   function menuMover(f, ancla, tipoActual) {
     const remota = String(ancla).startsWith('remota:'), acceso = String(ancla).startsWith('archivo:');
@@ -1518,8 +1563,11 @@
   // proyecto). De ella salen en cadena las etapas de Entornos (iguales entre sí: «pasa a») y, con línea gris
   // («contiene»), las demás partes con sus carpetas. Sin carpetas: el nombre del proyecto, como antes.
   function modelo(ficha, datosDe, notasL) {
-    const m = { nodos: new Map(), aristas: new Map(), notas: notasL || [], pos: ficha.posiciones || {} };
-    const anc = ficha.principal || '', pr = ficha.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))).find(x => x.c.ancla === anc);
+    // «Contenedor con nombre» (raiz_nombre): la raíz es el nombre (sin carpeta), las etapas van en un bloque 🚦 Entornos
+    // y las demás partes salen de ese bloque; la ★ se recuerda pero no se usa. Sus posiciones se guardan aparte («flujo:nombre»).
+    const conNombre = !!ficha.raiz_nombre;
+    const m = { nodos: new Map(), aristas: new Map(), notas: notasL || [], pos: ficha.posiciones || {}, conNombre };
+    const anc = conNombre ? '' : ficha.principal || '', pr = ficha.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))).find(x => x.c.ancla === anc);
     const nodoCarpeta = (c, p, id) => {
       const d = datosDe(c);
       const marca = BORRADA[d.estado] ? '🗑 ' : d.estado === 'falta' || d.estado === 'desconectado' ? '⚠ ' : '';
@@ -1530,24 +1578,31 @@
         ...(String(c.ancla).startsWith('archivo:') || c.acceso ? { acceso: true, ico: 'documentos', label: `↗ ${marca}${d.nombre}` } : {}) };
     };
     if (pr) { const n = nodoCarpeta(pr.c, pr.p, 'p'); m.nodos.set('p', { ...n, ico: 'principal', clase: 'proyecto', principal: true, proyecto: ficha.nombre }); } // su icono es la ★
-    else m.nodos.set('p', { id: 'p', label: ficha.nombre, ico: 'principal', clase: 'proyecto' });
+    else m.nodos.set('p', { id: 'p', label: ficha.nombre, ico: conNombre ? 'etiqueta' : 'principal', clase: 'proyecto', conNombre });
     const alias = id => pr && id === 'n:' + anc ? 'p' : id; // lo que apuntaba a la carpeta principal apunta a la raíz
-    // etapas de Entornos (sin la principal): en cadena desde la raíz, en su orden
-    let antes = 'p';
-    for (const p of ficha.partes.filter(p => p.tipo === 'entornos')) for (const c of p.carpetas) {
+    // etapas de Entornos (sin la principal): en cadena desde la raíz, en su orden; con nombre, dentro del bloque
+    const ents = ficha.partes.filter(p => p.tipo === 'entornos'), BQ = 'bloque:entornos';
+    const hayEtapas = ents.some(p => p.carpetas.some(c => c.ancla !== anc));
+    if (conNombre && hayEtapas) {
+      m.nodos.set(BQ, { id: BQ, label: 'Entornos', ico: 'entornos', clase: 'bloque', tipo: 'entornos', clave: ents[0].nombre });
+      m.aristas.set(`h:p>${BQ}`, { id: `h:p>${BQ}`, source: 'p', target: BQ, clase: 'jer' });
+    }
+    let antes = conNombre ? '' : 'p';
+    for (const p of ents) for (const c of p.carpetas) {
       if (c.ancla === anc) continue;
       const id = 'n:' + c.ancla;
-      m.nodos.set(id, { ...nodoCarpeta(c, p, id), cadena: true });
-      m.aristas.set(`e:${antes}>${id}`, { id: `e:${antes}>${id}`, source: antes, target: id, label: 'pasa a', clase: 'etapa' });
+      m.nodos.set(id, { ...nodoCarpeta(c, p, id), cadena: true, ...(conNombre ? { parent: BQ } : {}) });
+      if (antes) m.aristas.set(`e:${antes}>${id}`, { id: `e:${antes}>${id}`, source: antes, target: id, label: 'pasa a', clase: 'etapa' });
       antes = id;
     }
+    const desde = m.nodos.has(BQ) ? BQ : 'p'; // de dónde salen las demás partes
     // las demás partes salen de la raíz («contiene»); una parte que solo tenía la principal no se dibuja
     ficha.partes.forEach((p, j) => {
       const resto = p.carpetas.filter(c => c.ancla !== anc);
       if (p.tipo === 'entornos' || !resto.length) return;
       const pid = 'parte:' + j;
       m.nodos.set(pid, { id: pid, label: p.nombre, ico: p.tipo, clase: 'parte', tipo: p.tipo, clave: p.nombre });
-      m.aristas.set(`h:p>${pid}`, { id: `h:p>${pid}`, source: 'p', target: pid, clase: 'jer' });
+      m.aristas.set(`h:${desde}>${pid}`, { id: `h:${desde}>${pid}`, source: desde, target: pid, clase: 'jer' });
       for (const c of resto) {
         const id = 'n:' + c.ancla;
         m.nodos.set(id, nodoCarpeta(c, p, id));
@@ -1563,7 +1618,8 @@
   const carpetaEn = (M, id) => M.nodos.get(id) || (M.nodos.get('p')?.ancla && 'n:' + M.nodos.get('p').ancla === id ? { ...M.nodos.get('p'), id } : null);
   const carpetasDe = M => [...M.nodos.values()].filter(n => n.clase === 'carpeta').concat(M.nodos.get('p')?.ancla ? [{ ...M.nodos.get('p'), id: 'n:' + M.nodos.get('p').ancla }] : []);
   let principalActual = ''; // sus notas «nodo:» se ven en la raíz, junto a las del proyecto
-  const modeloActual = f => { principalActual = f.principal || ''; return modelo(f, c => c, O.adm?.notas); };
+  const modeloActual = f => { principalActual = f.raiz_nombre ? '' : f.principal || ''; return modelo(f, c => c, O.adm?.notas); };
+  const vistaPos = (M, vista) => M.conNombre ? vista + ':nombre' : vista; // posiciones a mano: aparte en cada modo de raíz
   const modeloVersion = s => modelo(s.ficha, c => ({ nombre: s.anclas[c.ancla]?.nombre || '?', ruta: s.anclas[c.ancla]?.ruta || '', estado: 'ok' }), s.notas);
 
   // qué cambió de A (antes) a B (ahora): id → {t: nuevo|quitado|movido|cambiado, txt}; los quitados llevan «antes:» delante
@@ -1762,7 +1818,7 @@
     B.querySelector('#pZp').onclick = () => cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
     B.querySelector('#pR').onclick = async () => {
       if (await ask('Ordenar', `Todo se vuelve a colocar solo en ${vista === 'flujo' ? 'Flujo' : 'Red'}. Las posiciones que diste a mano quedan en el Historial (se pueden recuperar).`, ['Ordenar', 'Cancelar']) !== 'Ordenar') return;
-      const pos = { ...(f.posiciones || {}) }; pos[vista] = {}; await guardarDiagrama(f, { posiciones: pos }); admin();
+      const pos = { ...(f.posiciones || {}) }; pos[vistaPos(N, vista)] = {}; await guardarDiagrama(f, { posiciones: pos }); admin();
     };
     // minimapa (se recuerda si está a la vista)
     const mini = minimapa(lienzos.querySelector('#cyA'), cy);
@@ -1788,7 +1844,7 @@
       admin();
     });
     // doble clic en un espacio vacío (en el mismo sitio: dos clics seguidos en nodos distintos no cuentan): caja nueva
-    let fondo = 0; cy.on('tap', e => { fondo = e.target === cy ? Date.now() : 0; });
+    let fondo = 0; cy.on('tap', e => { fondo = e.target === cy ? Date.now() : 0; if (e.target === cy) quitarFoco(cy); }); // clic en el fondo: fuera el foco
     lienzos.querySelector('#cyA').addEventListener('dblclick', ev => {
       if (conectar || Date.now() - fondo > 500) return;
       const r = ev.currentTarget.getBoundingClientRect(); nuevaCaja(f, cy, { x: ev.clientX - r.left, y: ev.clientY - r.top });
@@ -1805,15 +1861,17 @@
       const sel = selDeNodo(n);
       if (sel) infoMostrar(f, panel, sel);
       if (!doble) return;
-      if ((sel?.tipo === 'carpeta' || n.data('principal')) && n.data('ruta') && (n.data('clase') === 'sub' || ['ok', 'movida'].includes(n.data('estado')))) desplegar(f, cy, n);
-      else if (sel?.tipo === 'archivo') abrirEnContenedor(sel.ruta);
+      const r = n.data('ruta'), viva = n.data('clase') === 'sub' || ['ok', 'movida'].includes(n.data('estado'));
+      if (!r || !viva || n.data('estado') === 'remota') return;
+      if (cy.scratch('foco') === r && esDirNodo(n) && n.hasClass('abierta')) { desplegar(f, cy, n); quitarFoco(cy); } // otra vez en el foco: se pliega
+      else enfocar(f, cy, r);
     });
     cy.on('cxttap', 'node, edge', e => menuElemento(f, cy, e.target, e.originalEvent));
-    cy.on('cxttap', e => { if (e.target === cy) openMenu({ x: e.originalEvent?.clientX ?? 200, y: e.originalEvent?.clientY ?? 200 }, [{ head: f.nombre }, ['＋ Añadir carpetas…', () => nuevoProyecto(f)]]); });
+    cy.on('cxttap', e => { if (e.target === cy) openMenu({ x: e.originalEvent?.clientX ?? 200, y: e.originalEvent?.clientY ?? 200 }, [{ head: f.nombre }, ['＋ Añadir carpetas…', () => nuevoProyecto(f)], '-', itemConNombre(f)]); });
     cy.on('tap', 'edge[clase="tuya"], node[clase="caja"]', e => { if (!conectar) menuElemento(f, cy, e.target, e.originalEvent); });
     let tp; cy.on('dragfree', 'node', () => { clearTimeout(tp); tp = setTimeout(() => { // posiciones de esta vista, en la ficha
-      const pos = { ...(f.posiciones || {}) }; pos[vista] = {};
-      cy.nodes().not('.fantasma, .sub').forEach(n => { pos[vista][n.id()] = n.position(); }); // lo desplegado no se guarda: se recoloca al abrir
+      const pos = { ...(f.posiciones || {}) }, vk = vistaPos(N, vista); pos[vk] = {};
+      cy.nodes().not('.fantasma, .sub, .bloque').forEach(n => { pos[vk][n.id()] = n.position(); }); // lo desplegado no se guarda: se recoloca al abrir
       guardarDiagrama(f, { posiciones: pos });
     }, 600); });
     if (vista === 'red') { // pasar el ratón: resalta sus vecinos
@@ -1835,6 +1893,7 @@
       if (k === '0') { cy.fit(undefined, 40); if (cy.zoom() > 1.2) { cy.zoom(1.2); cy.center(); } }
       else if (k === 'c' || k === 'C') modoC(!conectar);
       else if (k === 'Escape' && conectar) { e.stopPropagation(); modoC(false); }
+      else if (k === 'Escape' && cy.scratch('foco')) { e.stopPropagation(); quitarFoco(cy); }
       else if ((k === 'i' || k === 'I') && !e.ctrlKey && !e.altKey) infoAlternar(f, panel, B);
       else if (k === 'Escape' && !panel.hidden) { e.stopPropagation(); infoAlternar(f, panel, B, false); }
       else if (k.startsWith('Arrow')) cy.panBy({ x: k === 'ArrowLeft' ? paso : k === 'ArrowRight' ? -paso : 0, y: k === 'ArrowUp' ? paso : k === 'ArrowDown' ? -paso : 0 });
@@ -1843,12 +1902,13 @@
       e.preventDefault();
     };
     notasCapa(f, cy, lienzos.querySelector('#cyA'), B.querySelector('#pN'), null);
+    filtroPizarra(f, cy);
     B.querySelector('#pI1').onclick = () => infoAlternar(f, panel, B);
     for (const r of [...(O.adm.exp[vista] || [])].sort((a, b) => a.length - b.length)) { // lo que dejaste desplegado
-      const n = cy.nodes().filter(x => x.data('ruta') === r && (x.data('clase') === 'carpeta' || x.data('dir')));
+      const n = cy.nodes().filter(x => x.data('ruta') === r && (x.data('clase') === 'carpeta' || x.data('clase') === 'proyecto' || x.data('dir')));
       if (n.length) await desplegar(f, cy, n[0], true);
     }
-    if (O.adm.info.abierto) infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
+    if (O.adm.info.abierto) O.adm.info.pest === 'exp' ? explorarEnPanel(f, panel) : infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
   }
   // dibuja un modelo en un lienzo; con «dif», marca los cambios y añade los quitados como fantasma
   // ancho del texto de un nodo (la línea más larga), con la misma letra que usa la pizarra
@@ -1870,7 +1930,7 @@
       const parteAhora = clave => [...M.nodos.values()].find(n => n.clase === 'parte' && n.clave === clave)?.id;
       for (const [k, d] of dif) {
         if (d.t === 'quitado' && d.nodo) {
-          els.push({ group: 'nodes', data: { ...d.nodo, id: k, label: d.nodo.label }, classes: `${d.nodo.clase} fantasma c-quitado`, position: A.pos?.[vista]?.[d.nodo.id] });
+          els.push({ group: 'nodes', data: { ...d.nodo, id: k, label: d.nodo.label, parent: undefined }, classes: `${d.nodo.clase} fantasma c-quitado`, position: A.pos?.[vistaPos(A, vista)]?.[d.nodo.id] });
           const padre = d.nodo.clase === 'carpeta' ? parteAhora(d.nodo.parte) || 'p' : 'p';
           if (d.nodo.clase !== 'caja') els.push({ group: 'edges', data: { id: 'g:' + k, source: padre, target: k }, classes: 'fantasma c-quitado' });
         } else if (d.t === 'quitado' && d.arista && M.nodos.has(d.arista.source) && M.nodos.has(d.arista.target)) {
@@ -1881,8 +1941,9 @@
         }
       }
     }
-    const pos = M.pos?.[vista] || {}, conPos = els.filter(e => e.group === 'nodes' && pos[e.data.id]).length, nNodos = els.filter(e => e.group === 'nodes').length;
-    for (const e of els) if (e.group === 'nodes' && pos[e.data.id]) e.position = { ...pos[e.data.id] };
+    const pos = M.pos?.[vistaPos(M, vista)] || {}, mueble = e => e.group === 'nodes' && e.data.clase !== 'bloque'; // el bloque va donde estén sus etapas
+    const conPos = els.filter(e => mueble(e) && pos[e.data.id]).length, nNodos = els.filter(mueble).length;
+    for (const e of els) if (mueble(e) && pos[e.data.id]) e.position = { ...pos[e.data.id] };
     const flujo = vista === 'flujo';
     for (const e of els) if (e.group === 'nodes') { // Red: nombre corto; Flujo: hueco a la izquierda para el icono
       e.data.corto = corto(e.data.label);
@@ -1911,6 +1972,9 @@
           ? { width: 'data(anchoF)', 'text-margin-x': 11, 'background-image': n => icoUrl(n.data('ico'), n.data('clase') === 'proyecto' ? css('--ink') : COL[n.data('tipo')] || '#8f8f8f'),
             'background-width': 15, 'background-height': 15, 'background-position-x': '0px', 'background-position-y': '50%', 'background-repeat': 'no-repeat', 'background-clip': 'none', 'background-image-containment': 'over' }
           : { 'background-image': n => icoUrl(n.data('ico'), '#ffffff'), 'background-width': '60%', 'background-height': '60%', 'background-repeat': 'no-repeat' } },
+        // 🚦 bloque de Entornos (con «Contenedor con nombre»): una caja que envuelve las etapas, con su nombre arriba
+        { selector: 'node.bloque', style: { shape: 'round-rectangle', 'background-color': '#2a9d8f', 'background-opacity': .07, 'background-image': 'none', 'border-color': '#2a9d8f', 'border-width': 2, 'border-style': 'dashed',
+          padding: flujo ? 22 : 30, label: 'data(label)', 'text-valign': 'top', 'text-halign': 'center', 'text-margin-y': -6, 'font-weight': 700, 'font-size': 13, color: '#2a9d8f' } },
         // lo desplegado con doble clic (subflujo · subred): más pequeño y con borde punteado
         { selector: 'node.sub, node.mas', style: flujo ? { label: 'data(corto)', shape: 'round-rectangle', width: 'label', height: 'label', padding: 5, 'font-size': 11, 'text-valign': 'center',
           'background-opacity': .06, 'border-style': 'dashed', 'border-color': n => COL[n.data('tipo')] || '#8f8f8f' }
@@ -1939,6 +2003,7 @@
         { selector: '.origen', style: { 'border-color': '#e0a030', 'border-width': 4 } },
         { selector: ':selected', style: { 'border-color': css('--accent'), 'border-width': 3, 'line-color': css('--accent') } },
         { selector: '.atenuado', style: { opacity: .15 } },
+        { selector: '.fuera', style: { opacity: .12 } }, // 🎯 fuera del foco
         { selector: '.c-ctx', style: { opacity: O.adm?.cmp?.solo ? 0 : .3 } },
         { selector: '.c-nuevo', style: { 'border-color': CAMBIO.nuevo[0], 'border-width': 4, 'line-color': CAMBIO.nuevo[0] } },
         { selector: '.c-quitado', style: { 'border-color': CAMBIO.quitado[0], 'border-width': 3, 'border-style': 'dashed', 'line-color': CAMBIO.quitado[0], 'line-style': 'dashed', opacity: .75, 'text-decoration': 'line-through' } },
@@ -1954,7 +2019,7 @@
     cont.dataset.menuPropio = '1'; // DeskLens no pone su menú general aquí: lo pone la pizarra
     new ResizeObserver(() => cy.resize()).observe(cont); // panel de notas abierto, ventana más ancha…: el dibujo se ajusta
     cont.addEventListener('contextmenu', e => e.preventDefault());
-    if (conPos && conPos < nNodos) for (const e of els) if (e.group === 'nodes' && pos[e.data.id]) cy.getElementById(e.data.id).position(pos[e.data.id]);
+    if (conPos && conPos < nNodos) for (const e of els) if (mueble(e) && pos[e.data.id]) cy.getElementById(e.data.id).position(pos[e.data.id]);
     if (!flujo) { // Red: cada etiqueta hacia fuera del centro (también tras mover un nodo a mano)
       ladosRed(cy);
       cy.on('free', 'node', e => ladosRed(cy, e.target.id() === 'p' ? null : e.target));
@@ -1976,20 +2041,27 @@
     if (!n?.length && !n?.id) return;
     const ruta = n.data('ruta'), vista = O.adm.vista, exp = O.adm.exp[vista] ||= [];
     const ya = cy.nodes().filter(x => x.data('desde') && bajo(x.data('desde'), ruta));
+    const todos = cy.scratch('todos') || cy.scratch('todos', {}).scratch('todos'); // ruta → lo que tiene (para contar por tipo)
     if (ya.length) { // abierta: se pliega (con lo de dentro)
       if (restaurar) return;
       cy.remove(ya); n.removeClass('abierta');
+      for (const r of Object.keys(todos)) if (bajo(r, ruta)) delete todos[r];
+      cy.scratch('pintarFiltro')?.();
       O.adm.exp[vista] = exp.filter(r => !bajo(r, ruta)); return guardarVista();
     }
     let items;
     try { items = (await api('/api/dir?ruta=' + encodeURIComponent(ruta))).filter(i => i.nombre !== '.desklens-ancla'); }
     catch (e) { if (!restaurar) err(e); return; }
     if (cy.destroyed() || !n.inside()) return;
-    const ver = items.slice(0, SUB_MAX), resto = items.length - ver.length, tipo = n.data('tipo');
+    todos[ruta] = items;
+    const vis = items.filter(i => pasaFiltro(i.nombre, i.dir)); // con filtro, el límite de 12 va después de filtrar
+    const ver = vis.slice(0, SUB_MAX), resto = vis.length - ver.length, tipo = n.data('tipo');
     const nuevos = ver.map(i => ({ id: 's:' + i.ruta, label: i.nombre, ruta: i.ruta, dir: !!i.dir, cls: i.dir ? 'sub subdir' : 'sub subarch', clase: 'sub', ico: i.dir ? 'carpeta' : 'documentos' }));
-    if (resto > 0 || !items.length) nuevos.push({ id: 'mas:' + ruta, label: items.length ? `… ${resto} más` : '(vacía)', ruta, cls: 'mas', clase: 'mas' });
+    if (resto > 0 || !vis.length) nuevos.push({ id: 'mas:' + ruta, label: vis.length ? `… ${resto} más` : items.length ? '(nada con el filtro)' : '(vacía)', ruta, cls: 'mas', clase: 'mas' });
     const p0 = n.position(), c = cy.getElementById('p').position(), k = nuevos.length, flujo = vista === 'flujo';
-    const raiz = n.id() === 'p', arriba = raiz ? -1 : 1; // la principal despliega hacia arriba (abajo están sus partes y a la derecha sus etapas)
+    // la principal despliega hacia arriba (abajo están sus partes y a la derecha sus etapas); lo de dentro sigue hacia el mismo lado
+    const fuente = n.incomers('edge.sub').sources()[0], raiz = n.id() === 'p';
+    const arriba = raiz ? -1 : fuente ? (p0.y < fuente.position().y ? -1 : 1) : 1;
     const a = raiz ? -Math.PI / 2 : Math.atan2(p0.y - c.y, p0.x - c.x), abanico = Math.min(Math.PI * .95, .3 * k), R = 110 + (k > 8 ? 40 : 0), cols = Math.min(4, k);
     cy.batch(() => nuevos.forEach((d, j) => {
       const pos = flujo ? { x: p0.x + (j % cols - (cols - 1) / 2) * 175, y: p0.y + arriba * (80 + Math.floor(j / cols) * 46) }
@@ -2000,7 +2072,104 @@
     }));
     n.addClass('abierta');
     if (!flujo) ladosRed(cy);
+    cy.scratch('pintarFiltro')?.();
     if (!restaurar && !exp.includes(ruta)) { exp.push(ruta); guardarVista(); }
+  }
+  // ---------- 🎯 foco (aprobado 2026-11-22): doble clic en Red o Flujo (o clic en 🗂 Explorador) despliega hasta esa carpeta o
+  // archivo; su camino y su contenido quedan en color y lo demás opaco; las carpetas hermanas se pliegan. Arriba, el camino.
+  // Clic en el fondo o Esc: se pierde el foco (lo desplegado se queda). El panel derecho, en 🗂 Explorador, lo sigue.
+  const nodoDeRuta = (cy, r, sub) => cy.nodes().filter(x => x.data('ruta') === r && (sub ? !!x.data('desde') : !x.data('desde')) && x.data('clase') !== 'mas')[0];
+  async function enfocar(f, cy, ruta, { panel = true } = {}) {
+    const raiz = raizDe(f, ruta); if (!raiz || cy.destroyed()) return;
+    let obj = nodoDeRuta(cy, raiz.ruta) || nodoDeRuta(cy, raiz.ruta, true);
+    if (!obj) return;
+    const s = raiz.ruta.includes('\\') ? '\\' : '/', tramos = ruta.slice(raiz.ruta.length).split(/[\\/]/).filter(Boolean);
+    let acc = raiz.ruta;
+    for (const t of tramos) { // abre cada carpeta del camino y baja
+      if (!obj.hasClass('abierta') && esDirNodo(obj)) await desplegar(f, cy, obj);
+      acc += s + t;
+      const sig = nodoDeRuta(cy, acc, true); if (!sig) break; // fuera de los 12 (o filtrado): se queda en la de arriba
+      obj = sig;
+    }
+    if (obj.data('ruta') === ruta && esDirNodo(obj) && !obj.hasClass('abierta')) await desplegar(f, cy, obj);
+    const foco = obj.data('ruta');
+    for (const n of cy.nodes('.abierta').toArray()) if (n.data('desde') && !bajo(foco, n.data('ruta'))) await desplegar(f, cy, n); // hermanas: se pliegan
+    marcarFoco(f, cy, obj);
+    if (panel) explorarEnPanel(f, document.querySelector('#pI'), ruta);
+  }
+  const esDirNodo = n => n.data('clase') === 'sub' ? !!n.data('dir') : n.data('clase') === 'proyecto' ? !!n.data('ruta') : n.data('clase') === 'carpeta' && !n.data('acceso') && n.data('estado') !== 'remota';
+  function marcarFoco(f, cy, obj) {
+    const keep = cy.collection().merge(obj), camino = [obj];
+    obj.outgoers('edge.sub').forEach(e => { keep.merge(e).merge(e.target()); });
+    let n = obj;
+    for (let i = 0; i < 60; i++) { // hacia arriba hasta la raíz: lo desplegado, las partes, las etapas y el bloque
+      const e = n.incomers('edge').filter(x => x.hasClass('sub') || x.hasClass('jer') || x.hasClass('etapa'))[0];
+      if (e) { keep.merge(e).merge(e.source()); n = e.source(); if (n.data('ruta') || n.id() === 'p') camino.push(n); continue; }
+      if (n.isChild()) { keep.merge(n.parent()); n = n.parent(); continue; }
+      break;
+    }
+    keep.forEach(x => { if (x.isNode() && x.isChild()) keep.merge(x.parent()); });
+    cy.batch(() => { cy.elements().addClass('fuera'); keep.removeClass('fuera'); });
+    cy.scratch('foco', obj.data('ruta'));
+    const cont = cy.container(); let c = cont.querySelector('.ofoco');
+    if (!c) { c = Object.assign(document.createElement('div'), { className: 'ofoco' }); cont.append(c); aislar(c); }
+    const tramos = camino.reverse();
+    c.innerHTML = tramos.map((x, i) => i === tramos.length - 1 ? `<b>${esc(x.data('nombre') || x.data('label'))}</b>`
+      : `<a data-r="${esc(x.data('ruta') || '')}">${esc(x.data('nombre') || x.data('label'))}</a> › `).join('') + '<button class="ic" title="Quitar el foco (Esc o clic en el fondo)">✕</button>';
+    c.querySelectorAll('a').forEach(a => a.onclick = () => a.dataset.r ? enfocar(f, cy, a.dataset.r) : quitarFoco(cy));
+    c.querySelector('button').onclick = () => quitarFoco(cy);
+  }
+  // lo que flota sobre la pizarra (filtro, camino): sus clics no llegan al dibujo (si no, cuentan como «clic en el fondo»)
+  const aislar = el => ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'touchstart', 'touchend', 'wheel', 'contextmenu'].forEach(t => el.addEventListener(t, e => e.stopPropagation()));
+  function quitarFoco(cy) {
+    if (!cy || cy.destroyed() || !cy.scratch('foco')) return;
+    cy.scratch('foco', ''); cy.elements('.fuera').removeClass('fuera');
+    cy.container().querySelector('.ofoco')?.remove();
+    const T = document.querySelector('#pI .oexp'); if (T) { T.classList.remove('oconfoco'); T.querySelectorAll('.oenfoco, .oencamino, .oenrama').forEach(x => x.classList.remove('oenfoco', 'oencamino', 'oenrama')); }
+  }
+  // ---------- 🔍 filtro flotante (arriba a la izquierda de Red y Flujo): tipos de lo desplegado y nombre ----------
+  const CATS = [['carpetas', '📁', 'Carpetas'], ['codigo', '⚙', 'Código y scripts'], ['docs', '📄', 'Documentos'], ['img', '🖼', 'Imágenes'],
+    ['media', '🎬', 'Vídeo y audio'], ['zip', '🗜', 'Comprimidos'], ['db', '💾', 'Bases de datos'], ['otros', '·', 'Otros']];
+  const EXT_CAT = {};
+  for (const [c, l] of Object.entries({ codigo: 'cmd bat ps1 sh py js ts jsx tsx php html htm css json vbs rb go java cs c cpp h', docs: 'pdf doc docx txt md odt rtf xls xlsx csv ppt pptx',
+    img: 'png jpg jpeg gif webp svg bmp ico tif tiff heic', media: 'mp4 mkv avi mov wmv mp3 wav m4a flac ogg webm', zip: 'zip rar 7z tar gz tgz', db: 'sql db sqlite sqlite3 mdb accdb bak' })) for (const x of l.split(' ')) EXT_CAT[x] = c;
+  const catDe = (n, dir) => dir ? 'carpetas' : EXT_CAT[String(n).split('.').pop().toLowerCase()] || 'otros';
+  const claveF = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9.]/g, '');
+  function pasaFiltro(nombre, dir) {
+    const F = O.adm?.filtro; if (!F) return true;
+    return !F.ocultos.includes(catDe(nombre, dir)) && (!F.q.trim() || claveF(nombre).includes(claveF(F.q)));
+  }
+  const filtroActivo = () => !!(O.adm?.filtro && (O.adm.filtro.ocultos.length || O.adm.filtro.q.trim()));
+  function filtroPizarra(f, cy) {
+    const cont = cy.container(), F = O.adm.filtro;
+    const w = Object.assign(document.createElement('div'), { className: 'ofiltro' }); cont.append(w);
+    let tq;
+    const pintar = () => {
+      const cuenta = {}; for (const items of Object.values(cy.scratch('todos') || {})) for (const i of items) { const c = catDe(i.nombre, i.dir); cuenta[c] = (cuenta[c] || 0) + 1; }
+      const activo = filtroActivo();
+      w.classList.toggle('cerrado', !F.abierto);
+      w.innerHTML = `<button class="ofbtn ${activo ? 'on' : ''}" title="Filtrar lo desplegado por tipo o por nombre">🔍 Filtro${activo ? ' •' : ''} ${F.abierto ? '▴' : '▾'}</button>
+        ${F.abierto ? `<div class="ofcuerpo"><input type="search" placeholder="Nombre…" value="${esc(F.q)}" spellcheck="false">
+        ${CATS.map(([k, ico, n]) => `<label class="${cuenta[k] ? '' : 'ogris'}"><input type="checkbox" data-cat="${k}" ${F.ocultos.includes(k) ? '' : 'checked'}> ${ico} ${n} <b>${cuenta[k] || 0}</b></label>`).join('')}
+        <div class="ofpie"><a data-todo>Todo</a> · <a data-nada>Nada</a><span class="osmall">${Object.keys(cy.scratch('todos') || {}).length ? '' : 'Doble clic en una carpeta para ver su contenido'}</span></div></div>` : ''}`;
+      w.querySelector('.ofbtn').onclick = () => { F.abierto = !F.abierto; guardarVista(); pintar(); };
+      const q = w.querySelector('input[type=search]');
+      if (q) q.oninput = () => { clearTimeout(tq); tq = setTimeout(() => { F.q = q.value; guardarVista(); aplicarFiltro(f, cy); }, 300); };
+      w.querySelectorAll('[data-cat]').forEach(c => c.onchange = () => { F.ocultos = c.checked ? F.ocultos.filter(x => x !== c.dataset.cat) : [...F.ocultos, c.dataset.cat]; guardarVista(); aplicarFiltro(f, cy); });
+      w.querySelector('[data-todo]')?.addEventListener('click', () => { F.ocultos = []; F.q = ''; guardarVista(); aplicarFiltro(f, cy); });
+      w.querySelector('[data-nada]')?.addEventListener('click', () => { F.ocultos = CATS.map(c => c[0]); guardarVista(); aplicarFiltro(f, cy); });
+    };
+    aislar(w);
+    cy.scratch('pintarFiltro', () => { const a = document.activeElement, pos = a?.selectionStart; const enQ = a && w.contains(a) && a.type === 'search'; pintar(); if (enQ) { const q = w.querySelector('input[type=search]'); q?.focus(); q?.setSelectionRange(pos, pos); } });
+    pintar();
+  }
+  async function aplicarFiltro(f, cy) { // vuelve a abrir lo desplegado con el filtro (el límite de 12 va después de filtrar)
+    const vista = O.adm.vista, rutas = [...(O.adm.exp[vista] || [])].sort((a, b) => a.length - b.length), foco = cy.scratch('foco');
+    cy.remove('.sub, .mas'); cy.nodes('.abierta').removeClass('abierta'); cy.scratch('todos', {});
+    for (const r of rutas) { const n = cy.nodes().filter(x => x.data('ruta') === r && x.data('clase') !== 'mas')[0]; if (n) await desplegar(f, cy, n, true); }
+    cy.scratch('pintarFiltro')?.();
+    if (foco) { const n = nodoDeRuta(cy, foco, true) || nodoDeRuta(cy, foco); n ? marcarFoco(f, cy, n) : quitarFoco(cy); }
+    filtrarExplorador();
   }
   function abrirEnContenedor(ruta) { // el visor de DeskLens vive en la vista Contenedor
     O.adm.vista = 'contenedor'; O.adm.ultimo = ruta; guardarVista(); admin(); openTab(ruta, true);
@@ -2014,33 +2183,41 @@
   function selDeNodo(n) {
     const clase = n.data('clase');
     if (clase === 'proyecto') return { tipo: 'proyecto' };
-    if (clase === 'parte') return { tipo: 'parte', clave: n.data('clave') };
+    if (clase === 'parte' || clase === 'bloque') return { tipo: 'parte', clave: n.data('clave') };
     if (clase === 'carpeta') return n.data('estado') === 'remota' ? { tipo: 'remota', ancla: n.id().slice(2) } : n.data('acceso') ? { tipo: 'archivo', ruta: n.data('ruta') } : { tipo: 'carpeta', ruta: n.data('ruta'), ancla: n.id().slice(2) };
     if (clase === 'sub') return { tipo: n.data('dir') ? 'carpeta' : 'archivo', ruta: n.data('ruta') };
     return null;
   }
   function infoAlternar(f, panel, B, abrir = panel.hidden) {
-    if (abrir) return infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
+    if (abrir) return O.adm.info.pest === 'exp' && cyActual && O.adm.vista !== 'contenedor' ? explorarEnPanel(f, panel) : infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
     infoTok++; panel.hidden = true; O.adm.info.abierto = false; guardarVista();
     document.querySelector('#pI1')?.classList.remove('primary');
   }
   let infoTok = 0;
-  async function infoMostrar(f, panel, sel) {
-    if (!panel) return;
-    const tok = ++infoTok, vivo = () => tok === infoTok && panel.isConnected && !panel.hidden;
-    Object.assign(O.adm.info, { abierto: true, sel }); guardarVista();
+  // el armazón del panel derecho: en Red y Flujo, con pestañas ⓘ Info · 🗂 Explorador
+  function armarPanel(f, panel, pest) {
+    const conPest = !!cyActual && O.adm.vista !== 'contenedor' && !cyActual.destroyed();
+    O.adm.info.pest = conPest ? pest : 'info'; O.adm.info.abierto = true; guardarVista();
     document.querySelector('#pI1')?.classList.add('primary');
     panel.hidden = false; panel.style.width = O.adm.info.ancho + 'px';
-    panel.innerHTML = `<div class="oires" title="Arrastra para cambiar el ancho"></div><header><b>ⓘ Información</b><button class="ic" title="Cerrar (Esc)">✕</button></header><div class="oicuerpo" tabindex="-1"><p class="ohint">Cargando…</p></div>`;
-    panel.querySelector('header button').onclick = () => infoAlternar(f, panel, null, false);
-    panel.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); infoAlternar(f, panel, null, false); } };
+    const tabs = conPest ? `<span class="oitabs"><button data-pt="info" class="${pest === 'info' ? 'on' : ''}">ⓘ Info</button><button data-pt="exp" class="${pest === 'exp' ? 'on' : ''}" title="Las carpetas del proyecto como explorador; doble clic en el dibujo lo enfoca aquí">🗂 Explorador</button></span>` : '';
+    panel.innerHTML = `<div class="oires" title="Arrastra para cambiar el ancho"></div><header>${tabs}<b class="oitit">${conPest ? '' : 'ⓘ Información'}</b><button class="ic" title="Cerrar (Esc)">✕</button></header><div class="oicuerpo" tabindex="-1"><p class="ohint">Cargando…</p></div>`;
+    panel.querySelectorAll('[data-pt]').forEach(b => b.onclick = () => b.dataset.pt === 'exp' ? explorarEnPanel(f, panel) : infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' }));
     panel.querySelector('.oires').onpointerdown = e => { // ancho del panel: arrastrando su borde izquierdo (se recuerda por proyecto)
       const x0 = e.clientX, w0 = panel.offsetWidth;
       const mv = ev => { panel.style.width = Math.max(280, Math.min(800, w0 - (ev.clientX - x0))) + 'px'; };
       const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); O.adm.info.ancho = panel.offsetWidth; guardarVista(); };
       addEventListener('pointermove', mv); addEventListener('pointerup', up);
     };
-    const cuerpo = panel.querySelector('.oicuerpo'), titulo = panel.querySelector('header b');
+  }
+  async function infoMostrar(f, panel, sel) {
+    if (!panel) return;
+    const tok = ++infoTok, vivo = () => tok === infoTok && panel.isConnected && !panel.hidden;
+    O.adm.info.sel = sel;
+    armarPanel(f, panel, 'info');
+    panel.querySelector('header button.ic').onclick = () => infoAlternar(f, panel, null, false);
+    panel.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); infoAlternar(f, panel, null, false); } };
+    const cuerpo = panel.querySelector('.oicuerpo'), titulo = panel.querySelector('header b.oitit') || panel.querySelector('header b');
     const ir = s => infoMostrar(f, panel, s);
     try {
       if (sel.tipo === 'proyecto' || sel.tipo === 'parte') await infoResumen(f, sel, cuerpo, titulo, vivo, ir);
@@ -2048,6 +2225,51 @@
       else if (sel.tipo === 'carpeta') await infoCarpeta(f, sel.ruta, cuerpo, titulo, vivo, ir);
       else await infoArchivo(f, sel.ruta, cuerpo, titulo, vivo);
     } catch (e) { if (vivo()) cuerpo.innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p><p class="ohint">${esc(sel.ruta || '')}</p>`; }
+  }
+  // 🗂 Explorador en el panel derecho (Red y Flujo): el árbol del proyecto; lo enfocado, marcado y lo demás en gris.
+  // Clic en una carpeta o archivo: lo enfoca también en el dibujo. ▸/▾: solo abre o cierra. Doble clic en un archivo: se abre.
+  async function explorarEnPanel(f, panel, foco = cyActual?.scratch('foco') || '') {
+    if (!panel || !cyActual || cyActual.destroyed()) return;
+    infoTok++;
+    armarPanel(f, panel, 'exp');
+    panel.querySelector('header button.ic').onclick = () => infoAlternar(f, panel, null, false);
+    panel.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); if (cyActual?.scratch('foco')) quitarFoco(cyActual); else infoAlternar(f, panel, null, false); } };
+    const cuerpo = panel.querySelector('.oicuerpo'); cuerpo.innerHTML = '<div class="oexp otree"></div>';
+    const T = cuerpo.querySelector('.oexp'), cy = cyActual;
+    const listo = arbol(f, T); // sus carpetas abiertas se restauran solas: el foco se marca después
+    T.onclick = e => {
+      const n = e.target.closest('.onodo');
+      if (!n) return quitarFoco(cy); // un sitio vacío: fuera el foco
+      if (n.classList.contains('oparten') || n.classList.contains('gris') || !n.dataset.ruta) return;
+      if (e.target.closest('.otw') && n.dataset.dir) return abrirCarpeta(n, T); // ▸/▾: solo abre o cierra
+      enfocar(f, cy, n.dataset.ruta, { panel: false }).then(() => marcarExplorador(f, T, n.dataset.ruta));
+    };
+    T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir && n.dataset.ruta && !n.classList.contains('oparten')) abrirEnContenedor(n.dataset.ruta); };
+    await listo;
+    if (foco) await marcarExplorador(f, T, foco);
+    filtrarExplorador();
+  }
+  async function marcarExplorador(f, T, ruta) {
+    if (!T?.isConnected) return;
+    const raiz = raizDe(f, ruta); if (!raiz) return;
+    const s = raiz.ruta.includes('\\') ? '\\' : '/', pasos = [raiz.ruta];
+    for (const t of ruta.slice(raiz.ruta.length).split(/[\\/]/).filter(Boolean)) pasos.push(pasos.at(-1) + s + t);
+    const fila = r => T.querySelector(`.onodo[data-ruta="${CSS.escape(r)}"]`);
+    for (const r of pasos) { // abre el camino (y la carpeta enfocada)
+      const n = fila(r); if (!n) break;
+      if (n.dataset.dir && n.querySelector('.otw')?.textContent !== '▾') await abrirCarpeta(n, T, true);
+    }
+    T.querySelectorAll('.oenfoco, .oencamino, .oenrama').forEach(x => x.classList.remove('oenfoco', 'oencamino', 'oenrama'));
+    const n = fila(ruta); if (!n) return;
+    T.classList.add('oconfoco'); n.classList.add('oenfoco');
+    T.querySelector(`.ocont[data-de="${CSS.escape(ruta)}"]`)?.classList.add('oenrama'); // solo su contenido (no las partes que cuelgan de la raíz)
+    for (let o = n.closest('.orama')?.parentElement?.closest('.orama'); o && T.contains(o); o = o.parentElement.closest('.orama')) o.querySelector(':scope > .onodo')?.classList.add('oencamino');
+    n.scrollIntoView({ block: 'center' });
+    filtrarExplorador();
+  }
+  function filtrarExplorador() { // el mismo filtro de la pizarra: en el explorador se ocultan los archivos y carpetas que no pasan
+    const T = document.querySelector('#pI .oexp'); if (!T) return;
+    T.querySelectorAll('.ocont .onodo[data-ruta]').forEach(n => { const nom = n.querySelector('.onom')?.textContent || ''; n.closest('.orama').hidden = !pasaFiltro(nom, !!n.dataset.dir); });
   }
   // barra de ruta: lo de encima de la carpeta del proyecto en gris; desde ella, cada tramo se puede pulsar
   function migas(f, ruta, ir, cuerpo) {
@@ -2198,15 +2420,18 @@
   function radial(cy) {
     const padre = new Map(), hijos = new Map();
     cy.edges().forEach(e => { if (e.hasClass('jer') || e.id().startsWith('g:')) { padre.set(e.target().id(), e.source().id()); (hijos.get(e.source().id()) || hijos.set(e.source().id(), []).get(e.source().id())).push(e.target().id()); } });
-    const partes = (hijos.get('p') || []), peso = id => Math.max(1, (hijos.get(id) || []).length), total = partes.reduce((s, id) => s + peso(id), 0) || 1;
+    // con «Contenedor con nombre» y etapas, el centro es el bloque 🚦 (las etapas en fila); el nombre va arriba
+    const bq = cy.getElementById('bloque:entornos'), hub = bq.length ? bq.id() : 'p';
+    const partes = (hijos.get(hub) || []), peso = id => Math.max(1, (hijos.get(id) || []).length), total = partes.reduce((s, id) => s + peso(id), 0) || 1;
     const hojas = partes.reduce((s, id) => s + (hijos.get(id) || []).length, 0);
-    const R1 = Math.max(170, partes.length * 70 / (2 * Math.PI)), R2 = Math.max(R1 + 160, hojas * 46 / (2 * Math.PI)); // 46 px entre carpetas vecinas
-    const P = new Map([['p', { x: 0, y: 0 }]]);
+    const cadena = cadenaDe(cy), medioFila = bq.length ? (cadena.length - 1) * 85 : 0;
+    const R1 = Math.max(170, partes.length * 70 / (2 * Math.PI), medioFila + 150), R2 = Math.max(R1 + 160, hojas * 46 / (2 * Math.PI)); // 46 px entre carpetas vecinas
+    const P = new Map([['p', bq.length ? { x: 0, y: -R1 } : { x: 0, y: 0 }]]);
     // las etapas (iguales a la principal): en línea recta hacia la derecha; las partes, en abanico por el resto del círculo
-    const cadena = cadenaDe(cy);
-    cadena.forEach((id, k) => P.set(id, { x: R1 + k * 210, y: 0 }));
+    if (bq.length) cadena.forEach((id, k) => P.set(id, { x: -medioFila + k * 170, y: 0 }));
+    else cadena.forEach((id, k) => P.set(id, { x: R1 + k * 210, y: 0 }));
     const hueco = cadena.length ? .5 : 0, giro = 2 * Math.PI - 2 * hueco;
-    let a0 = cadena.length ? hueco : -Math.PI / 2 - Math.PI * peso(partes[0] || '') / total; // sin etapas: la primera parte arriba
+    let a0 = bq.length ? -Math.PI / 2 + hueco : cadena.length ? hueco : -Math.PI / 2 - Math.PI * peso(partes[0] || '') / total; // con bloque, arriba queda el nombre
     for (const id of partes) {
       const tramo = giro * peso(id) / total, medio = a0 + tramo / 2, hs = hijos.get(id) || [];
       P.set(id, { x: R1 * Math.cos(medio), y: R1 * Math.sin(medio) });
@@ -2214,25 +2439,41 @@
       a0 += tramo;
     }
     let x = -R2, y = R2 + 120; // cajas y sueltos: en fila debajo
-    cy.nodes().forEach(n => { if (!P.has(n.id())) { P.set(n.id(), { x, y }); x += 220; if (x > R2) { x = -R2; y += 90; } } });
-    cy.batch(() => cy.nodes().forEach(n => n.position(P.get(n.id()))));
+    cy.nodes().forEach(n => { if (!P.has(n.id()) && !n.isParent()) { P.set(n.id(), { x, y }); x += 220; if (x > R2) { x = -R2; y += 90; } } });
+    cy.batch(() => cy.nodes().filter(n => !n.isParent()).forEach(n => n.position(P.get(n.id())))); // el bloque va donde estén sus etapas
   }
   // la cadena de etapas desde la raíz, en orden (sigue las flechas «pasa a»)
-  function cadenaDe(cy) {
-    const out = []; let n = cy.getElementById('p');
+  function cadenaDe(cy) { // con bloque: desde la primera etapa de dentro (la que no viene de otra)
+    const bq = cy.getElementById('bloque:entornos'), ini = bq.length ? bq.children().filter(x => !x.incomers('edge.etapa').length)[0] : null;
+    if (bq.length && !ini) return [];
+    const out = ini ? [ini.id()] : []; let n = ini || cy.getElementById('p');
     for (let i = 0; i < 50 && n.length; i++) { const e = n.outgoers('edge.etapa'); if (!e.length) break; n = e[0].target(); out.push(n.id()); }
     return out;
   }
   // Flujo: árbol de arriba abajo desde la principal; las etapas en fila a su derecha, a su misma altura
   function flujoCadena(cy) {
+    const bq = cy.getElementById('bloque:entornos');
+    if (bq.length) return flujoBloque(cy, bq);
     const cad = cy.collection(cadenaDe(cy).map(id => cy.getElementById(id)));
     cy.elements().not(cad).not('edge.etapa').layout({ name: 'breadthfirst', directed: true, roots: ['p'], spacingFactor: 1.15, avoidOverlap: true }).run();
     const p = cy.getElementById('p').position(), ancho = n => Math.max(200, n.outerWidth() + 90);
     let x = p.x + ancho(cy.getElementById('p')) / 2;
     cad.forEach(n => { x += ancho(n) / 2; n.position({ x, y: p.y }); x += ancho(n) / 2; });
   }
+  // Flujo con «Contenedor con nombre»: el nombre arriba, debajo el bloque 🚦 con las etapas en fila y debajo las demás partes
+  function flujoBloque(cy, bq) {
+    const cad = cy.collection(cadenaDe(cy).map(id => cy.getElementById(id))), p = cy.getElementById('p');
+    const resto = cy.elements().not(cad).not(bq).not(p).not('edge.etapa').filter(el => !(el.isEdge() && (el.source().same(p) || el.source().same(bq))));
+    const raices = bq.outgoers('node').map(n => n.id());
+    if (resto.nodes().length) resto.layout({ name: 'breadthfirst', directed: true, roots: raices.length ? raices : undefined, spacingFactor: 1.15, avoidOverlap: true }).run();
+    const bb = resto.nodes().length ? resto.nodes().boundingBox() : { x1: 0, x2: 0, y1: 260 };
+    const cx = (bb.x1 + bb.x2) / 2, ancho = n => Math.max(200, n.outerWidth() + 90), y = bb.y1 - 160;
+    let x = cx - cad.reduce((s, n) => s + ancho(n), 0) / 2;
+    cad.forEach(n => { x += ancho(n) / 2; n.position({ x, y }); x += ancho(n) / 2; });
+    p.position({ x: cx, y: y - 140 });
+  }
   function ladosRed(cy, solo) {
-    const c = cy.getElementById('p').position() || { x: 0, y: 0 };
+    const bq = cy.getElementById('bloque:entornos'), c = (bq.length ? bq : cy.getElementById('p')).position() || { x: 0, y: 0 };
     cy.batch(() => (solo ? solo : cy.nodes('.carpeta, .parte, .sub, .mas')).forEach(n => {
       const p = n.position(), dx = p.x - c.x, dy = p.y - c.y, r = Math.hypot(dx, dy) || 1;
       // carpetas: hacia fuera; partes: de lado (hacia fuera sigue la línea a sus carpetas y hacia dentro la del centro);
@@ -2273,7 +2514,7 @@
     const t = await ask('Nota libre', 'Texto del recuadro (pasos o ideas, p. ej. «Grabar → Editar → Subir»):', ['Crear', 'Cancelar'], { input: '' });
     if (!t?.trim()) return;
     const id = 'b' + Date.now().toString(36), m = cy.pan(), z = cy.zoom();
-    const pos = { ...(f.posiciones || {}) }; pos[O.adm.vista] = { ...(pos[O.adm.vista] || {}), ['caja:' + id]: { x: (rp.x - m.x) / z, y: (rp.y - m.y) / z } };
+    const vk = f.raiz_nombre ? O.adm.vista + ':nombre' : O.adm.vista, pos = { ...(f.posiciones || {}) }; pos[vk] = { ...(pos[vk] || {}), ['caja:' + id]: { x: (rp.x - m.x) / z, y: (rp.y - m.y) / z } };
     await guardarDiagrama(f, { cajas: [...(f.cajas || []), { id, texto: t.trim(), color: '' }], posiciones: pos });
     admin();
   }
@@ -2317,7 +2558,8 @@
       ...(clase === 'carpeta' && viva && !el.data('acceso') && !el.cy().scratch('soloLectura') ? [['▾ Desplegar o plegar (doble clic)', () => desplegar(f, cy, el)]] : []),
       ...(el.data('acceso') && viva ? [['Abrir en una pestaña (doble clic)', () => abrirEnContenedor(ruta)]] : []), ...(viva ? [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err)], ['🗂 Ver en el Contenedor', () => { O.adm.vista = 'contenedor'; O.adm.abiertas.add(ruta); guardarVista(); admin(); }]] : []),
       ...(clase === 'carpeta' && viva && !el.data('acceso') && !el.cy().scratch('soloLectura') ? ['-', hacerPrincipalItem(f, id.slice(2), el.data('nombre'))] : []),
-      ...((clase === 'parte' || clase === 'proyecto') && !el.cy().scratch('soloLectura') ? ['-', ['＋ Añadir carpetas…', () => nuevoProyecto(f, clase === 'parte' ? el.data('tipo') : '')]] : []),
+      ...((clase === 'parte' || clase === 'proyecto' || clase === 'bloque') && !el.cy().scratch('soloLectura') ? ['-', ['＋ Añadir carpetas…', () => nuevoProyecto(f, clase === 'proyecto' ? '' : el.data('tipo'))]] : []),
+      ...((clase === 'proyecto' || clase === 'bloque') && !el.cy().scratch('soloLectura') ? ['-', itemConNombre(f)] : []),
       ...(clase === 'carpeta' && !el.cy().scratch('soloLectura') ? menuMover(f, id.slice(2), el.data('tipo')) : [])]);
   }
 

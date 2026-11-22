@@ -1,6 +1,13 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: 🎯 foco, 🔍 filtro y 🗂 Explorador en el panel derecho
+`organizador.js`: `enfocar(f, cy, ruta)` abre el camino con `desplegar` (desde `raizDe`), pliega los `.sub` abiertos fuera del camino y `marcarFoco` (clase `.fuera` en todo menos camino + contenido; sube por aristas sub/jer/etapa y por el bloque compuesto; camino `.ofoco` arriba). `quitarFoco` con clic en el fondo o Esc. Doble clic: foco (otra vez en el enfocado: pliega). Filtro: `CATS`/`catDe`/`pasaFiltro`; `desplegar` filtra antes del límite y guarda todo en `cy.scratch('todos')` para contar; `aplicarFiltro` vuelve a desplegar y re-marca el foco. Panel: `armarPanel` (pestañas, ancho), `explorarEnPanel` usa `arbol()` (ahora devuelve la promesa de su restauración: si no, marcaba antes de que terminara y se perdía) con sus propios clics; `marcarExplorador`, `filtrarExplorador`. `aislar()`: los clics del filtro y del camino no llegan a Cytoscape (contaban como «clic en el fondo» y quitaban el foco). Arreglos de paso: el nodo 'p' no se re-desplegaba al volver; en Flujo lo de dentro sigue el lado de su carpeta.
+
+## 2026-11-22 · Organizador: «Contenedor con nombre» (raíz = nombre o ★)
+`organizador.py`: campo `raiz_nombre` en la ficha (`_limpiar`; al encenderlo `nombre_sigue` = False y ya no se vuelve a poner al cambiar de ★), `restaurar_version` lo conserva, posiciones también en `flujo:nombre`/`red:nombre` (solo si llegan). Crear sin partes ya valía.
+`organizador.js`: `modelo()` con `conNombre`: raíz 'p' = nombre (icono `etiqueta`), nodo compuesto `bloque:entornos` (las etapas llevan `parent`, cadena sin arista desde 'p'), las demás partes salen del bloque. `vistaPos()` separa las posiciones por modo; el bloque no se guarda ni se mueve a mano (su sitio sale de sus etapas). `cadenaDe` empieza en la primera etapa del bloque; `flujoBloque()` (breadthfirst del resto y encima la fila y el nombre); `radial()` centra el bloque y pone el nombre arriba. Árbol: rama propia con 🏷 nombre → Entornos → partes. `itemConNombre()` (fila `{el, btn}` de `openMenu`): el repintado cierra el menú (el visor pierde el foco), así que lo vuelve a abrir en su sitio. ★ Hacer principal queda desactivado con el modo nombre. Al probar: la pantalla emulada a 1280×800 cambiaba de escala entre capturas y un clic cayó en «Mover a › Entornos» (deshecho en la copia).
+
 ## 2026-11-22 · Organizador: la terminal sin salir del proyecto
 `organizador.js`: `accion('terminal')`, «>_ Terminal aquí» del árbol y del panel ⓘ ya no llaman a `adminSalir(); cerrar()`: `#panel` está en `<main>` junto a `#org` (fila 1), así que la consola sale debajo de la vista del proyecto.
 

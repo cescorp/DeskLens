@@ -922,8 +922,12 @@ def _limpiar(datos, previa=None):
         f["nombre_sigue"] = False  # le pusiste nombre a mano: ya no sigue al de la carpeta principal
     if "nombre_sigue" in datos:
         f["nombre_sigue"] = bool(datos["nombre_sigue"])
+    if "raiz_nombre" in datos:  # «Contenedor con nombre»: la raíz es el nombre del proyecto, no la carpeta ★
+        f["raiz_nombre"] = bool(datos["raiz_nombre"])
+        if f["raiz_nombre"] and "nombre_sigue" not in datos:
+            f["nombre_sigue"] = False  # el nombre ya es la raíz: no cambia si renombras la carpeta ★
     if "principal" in datos:
-        if previa and "nombre_sigue" not in datos and previa.get("nombre") == nombre_principal(previa):
+        if previa and "nombre_sigue" not in datos and not f.get("raiz_nombre") and previa.get("nombre") == nombre_principal(previa):
             f["nombre_sigue"] = True  # se llamaba como la principal de antes: pasa a llamarse como la nueva
         f["principal"] = str(datos.get("principal") or "")[:40]
     f["nombre"] = str(datos.get("nombre", f.get("nombre", ""))).strip()[:120] or "Sin nombre"
@@ -955,7 +959,7 @@ def _limpiar(datos, previa=None):
     pos = datos.get("posiciones", f.get("posiciones")) or {}
     f["posiciones"] = {v: {str(k)[:80]: {"x": round(float(p.get("x", 0)), 1), "y": round(float(p.get("y", 0)), 1)}
                            for k, p in list((pos.get(v) or {}).items())[:2000] if isinstance(p, dict)}
-                       for v in ("flujo", "red") if isinstance(pos, dict)}
+                       for v in ("flujo", "red", "flujo:nombre", "red:nombre") if isinstance(pos, dict) and (":" not in v or v in pos)}  # :nombre = con «Contenedor con nombre»
     f.setdefault("creado", hoy)
     f["actualizado"] = hoy
     return f
@@ -1027,7 +1031,7 @@ def crear_ficha(datos):
         f = {"id": i, **f, "partes": _partes(datos.get("partes"), avisos)}
         if datos.get("principal_ruta"):  # «＋ Nuevo proyecto»: la ★ llega como ruta (aún no tenía ancla)
             f["principal"] = _ancla_de_ruta(f, datos["principal_ruta"]) or f.get("principal", "")
-        if "nombre_sigue" not in datos and f["nombre"] == nombre_principal(f):
+        if "nombre_sigue" not in datos and not f.get("raiz_nombre") and f["nombre"] == nombre_principal(f):
             f["nombre_sigue"] = True  # se llama como su carpeta principal: la sigue si la renombras
         escribir_json(_ficha_path(i), f)
         actividad("ficha", f"Ficha creada: {f['nombre']}", str(_ficha_path(i)))
@@ -1831,7 +1835,7 @@ def restaurar_version(i, v):
     guardar_version(i, f"antes de restaurar {v[:8]}")
     f = s["ficha"]
     guardar_ficha(i, {k: f[k] for k in ("nombre", "estado", "avance", "descripcion", "nota", "color", "tecnologia", "enlaces",
-                                        "historial", "conexiones", "cajas", "posiciones", "nombre_sigue") if k in f}
+                                        "historial", "conexiones", "cajas", "posiciones", "nombre_sigue", "raiz_nombre") if k in f}
                   | {"principal": f.get("principal", "")}
                   | {"partes": [{"nombre": p["nombre"], "tipo": p["tipo"], "carpetas": [{"ancla": c["ancla"], "activa": c.get("activa", True),
                                                                                           **({"icono": c["icono"]} if c.get("icono") else {}),

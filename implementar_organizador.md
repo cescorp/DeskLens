@@ -835,6 +835,18 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ 🎯 Foco en Red y Flujo · 🔍 filtro flotante · 🗂 Explorador en el panel derecho (ok y hecho 2026-11-22)
+- Doble clic en carpeta o archivo: despliega el camino y enfoca (camino + contenido en color, lo demás opaco); hermanas plegadas; camino pulsable arriba. Clic en el fondo o Esc: sin foco (lo desplegado se queda).
+- Panel derecho con pestañas ⓘ Info · 🗂 Explorador: el árbol sigue al foco (camino abierto, enfocado marcado, resto gris); clic en el explorador enfoca en el dibujo; clic sencillo en un nodo: ⓘ Info sin cambiar el foco.
+- Filtro flotante por tipo y nombre, con números; vale para el dibujo y el explorador; el límite de 12 va después de filtrar; por proyecto.
+- Cambio respecto al dibujo: el doble clic en un archivo ya no lo abre en una pestaña (lo enfoca); se abre con doble clic en el explorador o con «Abrir en pestaña» del panel ⓘ.
+
+### ✅ Contenedor con nombre: raíz = nombre o ★ carpeta (ok y hecho 2026-11-22)
+- Interruptor «Contenedor con nombre» en el clic derecho del fondo y de la raíz, en Contenedor, Flujo y Red (sin botón en la barra). El menú se queda abierto tras el cambio.
+- Encendido: raíz 🏷 nombre; bloque 🚦 Entornos con las etapas en cadena; las demás partes salen del bloque. Sin entornos, salen del nombre. Apagado: raíz ★ como antes (la ★ se recuerda).
+- Por proyecto (`raiz_nombre`), en el Historial; posiciones a mano aparte en cada modo. ★ Hacer principal desactivado con el modo nombre.
+- ＋ Nuevo proyecto: sin carpetas se crea solo con el nombre y nace con el modo nombre; con carpetas, raíz ★.
+
 ### ✅ 🔍 Buscador en Examinar y bloques que se arrastran en ＋ Nuevo proyecto (ok y hecho 2026-11-22)
 - 🔍 en la barra del explorador: filtra al escribir (sin mayúsculas, acentos ni separadores), resalta lo que coincide y dice «N de M en «carpeta»». ☐ subcarpetas (se recuerda) + Enter: `GET /api/org/buscar_carpetas` en vivo, por niveles, hasta 6 niveles / 200 / 4 s, sin node_modules, .git, ocultas ni de sistema; ✕ Detener; cada resultado con su subcarpeta debajo.
 - Teclas: Ctrl+F (abre el explorador si hace falta), ↓ a la lista, ↑ ↓ entre filas, Espacio marca, Enter entra, Esc: resultados → filtro → cierra la ventana.
