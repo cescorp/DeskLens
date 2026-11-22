@@ -54,7 +54,7 @@
   const icoUrl = (k, color) => { const key = k + color; if (!icoUrlCache.has(key)) icoUrlCache.set(key, 'data:image/svg+xml;utf8,' + encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[icoKey(k)]}</svg>`)); return icoUrlCache.get(key); };
   const O = { st: null, git: {}, pantalla: 'tablero', props: null, jer: null, poll: null,
-    filtro: LS('desklens.org.filtro') || 'todos', orden: LS('desklens.org.orden') || 'actividad', vista: LS('desklens.org.vista') || 'tarjetas', q: '' };
+    filtro: LS('desklens.org.filtro') || 'todos', orden: LS('desklens.org.orden') || 'actividad', vista: LS('desklens.org.vista') || 'tarjetas', q: '', marca: new Set(), ultMarca: '', foco: null };
   const on = () => document.body.classList.contains('orgfull');
   const root = Object.assign(document.createElement('div'), { id: 'org' });
   document.querySelector('main').append(root);
@@ -76,7 +76,9 @@
   $('#ribbon').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b !== btn && b.dataset.v && on()) cerrar(); }, true);
   KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
     ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
-    ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'], ['Esc', 'Salir del tablero de proyectos (o volver al tablero desde un proyecto o desde el editor de jerarquía)']]]);
+    ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'],
+    ['Espacio (vista ☰ Lista)', 'Marcar o desmarcar la fila con el foco'], ['Mayús+clic en una casilla (vista ☰ Lista)', 'Marcar desde la última marcada hasta esta'],
+    ['Ctrl+A (vista ☰ Lista)', 'Marcar todos los proyectos a la vista'], ['Supr (vista ☰ Lista)', '🗑 Quitar los marcados…'], ['Esc (con proyectos marcados)', 'Desmarcar todo'], ['Esc', 'Salir del tablero de proyectos (o volver al tablero desde un proyecto o desde el editor de jerarquía)']]]);
   addEventListener('keydown', e => {
     if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'o') { e.preventDefault(); on() ? cerrar() : abrir(); }
     else if (e.key === 'Escape' && on() && !document.querySelector('dialog[open]') && !$('#menu')) {
@@ -85,6 +87,15 @@
   });
   addEventListener('keydown', e => { // Ctrl+N en el tablero: ＋ Nuevo proyecto (antes que el «nuevo archivo» de DeskLens)
     if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'n' && on() && O.pantalla === 'tablero' && !document.querySelector('dialog[open]')) { e.preventDefault(); e.stopImmediatePropagation(); nuevoProyecto(); }
+  }, true);
+  addEventListener('keydown', e => { // vista ☰ Lista: Ctrl+A marca todo, Supr quita los marcados, Esc desmarca, Espacio marca la fila
+    if (!on() || O.pantalla !== 'tablero' || O.vista !== 'lista' || document.querySelector('dialog[open]') || $('#menu')) return;
+    if (e.target.closest?.('input, textarea, select, [contenteditable]') && !e.target.closest('.olist')) return;
+    const k = e.key, stop = () => { e.preventDefault(); e.stopImmediatePropagation(); };
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && k.toLowerCase() === 'a') { stop(); filtradas().forEach(f => O.marca.add(f.id)); tablero(); }
+    else if (k === 'Delete' && O.marca.size) { stop(); quitarVarios([...O.marca]); }
+    else if (k === 'Escape' && O.marca.size) { stop(); O.marca.clear(); tablero(); }
+    else if (k === ' ' && e.target.closest?.('tr[data-id]')) { stop(); marcar(e.target.closest('tr[data-id]').dataset.id, false); }
   }, true);
   // Dónde lo dejaste: si el tablero quedó abierto y en qué proyecto. Al abrir 🗂 (y al arrancar DeskLens) se vuelve ahí;
   // la pestaña, la vista (Contenedor, Flujo, Red), el zoom y lo abierto de cada proyecto los guarda su propia vista.
@@ -188,13 +199,34 @@
     let cerrados = []; try { cerrados = JSON.parse(LS('desklens.org.avisoSinFicha') || '[]'); } catch {}
     const sinFicha = O.st.sin_convertir || [], avisar = sinFicha.some(x => !cerrados.includes(x));
     const banner = avisar ? `<div class="obanner">Tienes <b>${sinFicha.length}</b> proyecto(s) en DeskLens sin ficha.<span class="sp"></span><button class="obtn primary" id="oConv">Convertirlos en fichas</button><button class="obtn oxban" id="oConvX" title="Cerrar este aviso (vuelve solo si aparece otro proyecto sin ficha; también puedes convertirlos desde 🔍 Buscar en discos)">✕</button></div>` : '';
+    // Casillas (aprobado 2026-11-22): solo cuenta lo que está a la vista; lo marcado no se guarda (al salir se desmarca)
+    const vis = new Set(fs.map(f => f.id)); [...O.marca].forEach(i => vis.has(i) || O.marca.delete(i));
+    const nm = O.marca.size, todos = fs.length && nm === fs.length;
+    // con algo marcado, la cabecera de la tabla se vuelve la barra de acciones (no empuja las filas: Mayús+clic cae donde apuntas)
+    const acciones = O.vista === 'lista' && nm ? `<div class="oselbar" role="toolbar"><b>${nm} marcado${nm > 1 ? 's' : ''}</b>
+      ${todos ? '' : `· <a href="#" id="oMt">Marcar todos (${fs.length})</a>`}<span class="sp"></span>
+      <button class="obtn osel" id="oMe" title="Cambiar el estado de los marcados">Estado ▾</button>
+      <button class="obtn" id="oMc" title="Abrir en el Explorador la carpeta principal de cada uno (5 como mucho)">📂 Abrir carpetas</button>
+      <button class="obtn odanger" id="oMq" title="Quitar del organizador (Supr). No se borra nada del disco">🗑 Quitar…</button>
+      <button class="obtn oico" id="oMx" title="Desmarcar todo (Esc)">✕</button></div>` : '';
     const cuerpo = !fs.length ? '<p class="oempty">Ningún proyecto con este filtro.</p>' : O.vista === 'lista'
-      ? `<table class="olist"><thead><tr><th>Proyecto</th><th>Estado</th><th>Avance</th><th>Partes</th><th>Git</th><th>Actualizado</th></tr></thead><tbody>${fs.map(f => {
+      ? `<table class="olist"><thead><tr><th class="ock"><input type="checkbox" id="oCkT" title="Marcar todos los que están a la vista (Ctrl+A)" ${todos ? 'checked' : ''}></th>${acciones ? `<th colspan="7" class="oselth">${acciones}</th>` : '<th>Proyecto</th><th>Estado</th><th>Avance</th><th>Partes</th><th>Git</th><th>Actualizado</th><th></th>'}</tr></thead><tbody>${fs.map(f => {
         const c = codigoDe(f), g = c && O.git[c.ruta];
-        return `<tr data-id="${f.id}"><td>${f.fijado ? '⭐ ' : ''}<b>${esc(f.nombre)}</b></td><td>${ESTADO[f.estado].join(' ')}</td><td>${f.avance}%</td>
-          <td>${f.partes.map(p => icoT(p.tipo)).join(' ')}${f.papelera ? ` <span class="owarn">🗑 ${f.papelera}</span>` : ''}${f.avisos - f.papelera ? ` <span class="owarn">⚠ ${f.avisos - f.papelera}</span>` : ''}</td><td>${g?.rama ? `⎇ ${esc(g.rama)}${g.cambios ? ` · ${g.cambios}` : ''}` : ''}</td><td>${esc(f.actualizado || '')}</td></tr>`; }).join('')}</tbody></table>`
+        return `<tr data-id="${f.id}" tabindex="0" class="${O.marca.has(f.id) ? 'omarc' : ''}"><td class="ock"><input type="checkbox" data-ck ${O.marca.has(f.id) ? 'checked' : ''} title="Marcar (Mayús+clic: desde la última marcada)"></td><td>${f.fijado ? '⭐ ' : ''}<b>${esc(f.nombre)}</b></td><td>${ESTADO[f.estado].join(' ')}</td><td>${f.avance}%</td>
+          <td>${f.partes.map(p => icoT(p.tipo)).join(' ')}${f.papelera ? ` <span class="owarn">🗑 ${f.papelera}</span>` : ''}${f.avisos - f.papelera ? ` <span class="owarn">⚠ ${f.avisos - f.papelera}</span>` : ''}</td><td>${g?.rama ? `⎇ ${esc(g.rama)}${g.cambios ? ` · ${g.cambios}` : ''}` : ''}</td><td>${esc(f.actualizado || '')}</td>
+          <td class="omas"><button class="obtn oico" data-a="menu" title="Acciones de este proyecto">⋯</button></td></tr>`; }).join('')}</tbody></table>`
       : `<div class="ocards">${fs.map(tarjeta).join('')}</div>`;
     root.innerHTML = barra() + `<div class="obody">${banner}${cuerpo}</div>`;
+    const ckT = root.querySelector('#oCkT'); if (ckT) { ckT.indeterminate = nm > 0 && !todos; ckT.onclick = e => { e.stopPropagation(); fs.forEach(f => todos ? O.marca.delete(f.id) : O.marca.add(f.id)); tablero(); }; }
+    root.querySelector('#oMt')?.addEventListener('click', e => { e.preventDefault(); fs.forEach(f => O.marca.add(f.id)); tablero(); });
+    root.querySelector('#oMx')?.addEventListener('click', () => { O.marca.clear(); tablero(); });
+    root.querySelector('#oMq')?.addEventListener('click', () => quitarVarios([...O.marca]));
+    root.querySelector('#oMe')?.addEventListener('click', e => openMenu(e.currentTarget, Object.keys(ESTADO).map(k => [`${ESTADO[k][0]} ${ESTADO[k][1]}`, () => estadoVarios([...O.marca], k)])));
+    root.querySelector('#oMc')?.addEventListener('click', async () => {
+      const cs = [...O.marca].map(i => O.st.fichas.find(f => f.id === i)).map(f => f && (codigoDe(f) || f.partes.flatMap(p => p.carpetas).find(c => c.ancla === f.principal && c.ruta))).filter(Boolean);
+      for (const c of cs.slice(0, 5)) await api('/api/mostrar', { ruta: c.ruta }).catch(err);
+      flash(cs.length > 5 ? `📂 Abiertas 5 de ${cs.length} carpetas (5 como mucho a la vez)` : `📂 ${cs.length} carpeta(s) abiertas en el Explorador`);
+    });
     const nEst = k => O.st.fichas.filter(f => k === 'todos' ? f.estado !== 'archivo' : f.estado === k).length;
     root.querySelector('#oEst').onclick = e => openMenu(e.currentTarget, ['todos', ...Object.keys(ESTADO)].map(k => [k === 'todos' ? 'Todos' : ESTADO[k][1],
       () => { O.filtro = k; LS('desklens.org.filtro', k); tablero(); }, { html: `${O.filtro === k ? '✓' : '<span style="visibility:hidden">✓</span>'} ${k === 'todos' ? 'Todos (sin Archivo)' : ESTADO[k].join(' ')} <b style="opacity:.6">${nEst(k)}</b>` }]));
@@ -208,15 +240,96 @@
     root.querySelector('#oConv')?.addEventListener('click', convertir);
     root.querySelector('#oConvX')?.addEventListener('click', () => { LS('desklens.org.avisoSinFicha', JSON.stringify(sinFicha)); tablero(); });
     root.querySelectorAll('[data-id]').forEach(el => el.onclick = e => {
+      if (e.target.closest('.ock')) { e.preventDefault(); return marcar(el.dataset.id, e.shiftKey, fs); }
       const f = O.st.fichas.find(x => x.id === el.dataset.id), a = e.target.closest('[data-a]')?.dataset.a;
       if (!a) return adminAbrir(f); // clic en la tarjeta: la vista de administración del proyecto
       e.stopPropagation(); accion(a, f, e.target.closest('button'));
+    });
+    root.querySelectorAll('tr[data-id]').forEach(tr => tr.onkeydown = e => { if (e.key === 'Enter' && e.target === tr) tr.click(); });
+    if (O.foco) root.querySelector(`tr[data-id="${O.foco}"]`)?.focus();
+  }
+  function marcar(id, rango, fs = filtradas()) { // casilla de la lista; Mayús: desde la última marcada hasta esta
+    const ids = fs.map(f => f.id), a = ids.indexOf(O.ultMarca), b = ids.indexOf(id);
+    if (rango && a >= 0 && b >= 0) ids.slice(Math.min(a, b), Math.max(a, b) + 1).forEach(i => O.marca.add(i));
+    else O.marca.has(id) ? O.marca.delete(id) : O.marca.add(id);
+    O.ultMarca = id; O.foco = id; tablero(); O.foco = null;
+  }
+  async function estadoVarios(ids, k) {
+    try { for (const id of ids) await api('/api/org/ficha/guardar', { id, estado: k }); flash(`✓ ${ids.length} proyecto(s) en ${ESTADO[k][1]}`); } catch (e) { err(e); }
+    await cargar();
+  }
+  // 🗑 Quitar del organizador (uno o varios). Dice qué pasa y dónde; las anclas solo se borran si se marca, y nunca
+  // la de una carpeta que sigue en un proyecto que se queda. Se deshace al momento o desde ↶ Proyectos quitados.
+  async function quitarVarios(ids) {
+    const fs = ids.map(i => O.st.fichas.find(f => f.id === i)).filter(Boolean); if (!fs.length) return;
+    const quedan = new Map(); O.st.fichas.filter(f => !ids.includes(f.id)).forEach(f => f.partes.forEach(p => p.carpetas.forEach(c => quedan.set(c.ancla, f.nombre))));
+    const anc = new Map(); fs.forEach(f => f.partes.forEach(p => p.carpetas.forEach(c => { if (/^[0-9a-f]{32}$/.test(c.ancla) && c.ruta) anc.set(c.ancla, { ruta: c.ruta, otro: quedan.get(c.ancla) }); })));
+    const bor = [...anc.values()].filter(a => !a.otro), comp = [...anc.values()].filter(a => a.otro), n = fs.length, pl = n > 1 ? 's' : '';
+    const d = abrirDlg(`🗑 Quitar ${n} proyecto${pl} del organizador`, `<p class="oqnom">${fs.map(f => `<b>${esc(f.nombre)}</b>`).join(' · ')}</p>
+      <p class="ohint">Qué pasa:</p><ul class="oque"><li>La${pl} ${n} ficha${pl} pasa${n > 1 ? 'n' : ''} a <code>${esc(O.st.quitados_dir || 'quitados')}</code> (se pueden recuperar)</li>
+      <li>Tus carpetas y archivos <b>no se tocan</b></li><li>Las anclas se quedan: al volver a crearlos se reconocen solas</li></ul>
+      ${bor.length ? `<label class="oqanc"><input type="checkbox" id="oqA"> Borrar también las anclas de sus ${bor.length} carpeta${bor.length > 1 ? 's' : ''}</label>
+        <p class="ohint">Solo el archivo oculto .desklens-ancla de cada una; perderás el seguimiento si se mueven antes de volver a crearlos.</p>
+        <ul class="oqrutas" id="oqR" hidden>${bor.map(a => `<li><code>${esc(a.ruta)}\\.desklens-ancla</code></li>`).join('')}</ul>` : ''}
+      ${comp.length ? `<p class="ohint">Conservan su ancla porque siguen en otro proyecto: ${comp.map(a => `<code>${esc(a.ruta)}</code> (${esc(a.otro)})`).join(', ')}</p>` : ''}`,
+      { ancho: 620, pie: `<span class="sp"></span><button class="obtn" id="oqC">Cancelar</button><button class="obtn odanger" id="oqOk">🗑 Quitar ${n} proyecto${pl}</button>` });
+    d.oninput = null; // marcar la casilla no es «escribir algo sin guardar»
+    const ck = d.querySelector('#oqA');
+    ck?.addEventListener('change', () => { d.querySelector('#oqR').hidden = !ck.checked; d.querySelector('#oqOk').textContent = `🗑 Quitar ${n} proyecto${pl}${ck.checked ? ` y ${bor.length} ancla${bor.length > 1 ? 's' : ''}` : ''}`; });
+    d.querySelector('#oqC').onclick = () => cerrarDlg();
+    d.querySelector('#oqC').focus();
+    d.querySelector('#oqOk').onclick = async () => {
+      let r; try { r = await api('/api/org/fichas/quitar', { ids: fs.map(f => f.id), borrar_anclas: !!ck?.checked }); } catch (e) { return err(e); }
+      d.close(); fs.forEach(f => O.marca.delete(f.id));
+      r.avisos?.forEach(a => flash('⚠ ' + a));
+      await cargar();
+      aviso(`✓ ${r.quitados.length} proyecto${r.quitados.length > 1 ? 's' : ''} quitado${r.quitados.length > 1 ? 's' : ''}${r.anclas_borradas.length ? ` y ${r.anclas_borradas.length} ancla(s) borrada(s)` : ''} · copias en quitados\\`,
+        '↶ Deshacer', () => recuperar(r.quitados.map(x => x.archivo)));
+    };
+  }
+  function aviso(texto, boton, fn) { // aviso abajo con un botón (Deshacer), unos segundos
+    document.querySelector('.otoast')?.remove();
+    const t = document.createElement('div'); t.className = 'otoast'; t.setAttribute('role', 'status');
+    t.innerHTML = `<span>${esc(texto)}</span>${boton ? `<button class="obtn">${esc(boton)}</button>` : ''}<button class="obtn oico" title="Cerrar">✕</button>`;
+    document.body.append(t);
+    const fuera = () => t.remove(), tm = setTimeout(fuera, 10000);
+    t.querySelector('.oico').onclick = () => { clearTimeout(tm); fuera(); };
+    if (boton) t.querySelector('.obtn').onclick = () => { clearTimeout(tm); fuera(); fn(); };
+  }
+  async function recuperar(archivos) {
+    document.querySelector('.otoast')?.remove(); // su «Deshacer» ya no tendría qué deshacer
+    let r; try { r = await api('/api/org/quitados/recuperar', { archivos }); } catch (e) { return err(e); }
+    r.avisos.forEach(a => flash('⚠ ' + a));
+    if (r.recuperados.length) flash(`↶ ${r.recuperados.length} proyecto(s) de vuelta en el tablero`);
+    if (O.pantalla === 'arranque' && r.recuperados.length) { O.pantalla = 'tablero'; O.props = null; }
+    await cargar();
+    return r;
+  }
+  async function quitadosDlg() { // ↶ Proyectos quitados: recuperar o vaciar (lo único que borra de verdad)
+    let r; try { r = await api('/api/org/quitados'); } catch (e) { return err(e); }
+    const q = r.quitados;
+    const d = abrirDlg(`↶ Proyectos quitados (${q.length})`, `<p class="ohint">Fichas quitadas del tablero, en <code>${esc(r.carpeta)}</code>. Recuperar devuelve la ficha y, si se borró el ancla de alguna carpeta, la vuelve a poner con el mismo id. Las carpetas nunca se tocan.</p>
+      ${q.length ? `<table class="olist oqt"><thead><tr><th class="ock"><input type="checkbox" id="oqT" title="Marcar todos"></th><th>Proyecto</th><th>Carpetas</th><th>Quitado</th><th></th></tr></thead><tbody>${q.map(x => `<tr data-q="${esc(x.archivo)}">
+        <td class="ock"><input type="checkbox" data-ck ${x.existe ? 'disabled' : ''}></td><td><b>${esc(x.nombre)}</b>${x.existe ? ' <small class="owarn">ya está en el tablero</small>' : ''}</td><td>${x.carpetas}</td>
+        <td>${esc(x.quitado.replace('T', ' ').slice(0, 16))}</td><td><button class="obtn" data-r ${x.existe ? 'disabled' : ''}>↶ Recuperar</button></td></tr>`).join('')}</tbody></table>` : '<p class="oempty">No hay proyectos quitados.</p>'}`,
+      { ancho: 680, pie: q.length ? `<button class="obtn odanger" id="oqV" title="Borra de verdad las copias (las carpetas no se tocan)">Vaciar quitados…</button><span class="sp"></span><button class="obtn primary" id="oqRm" disabled>↶ Recuperar marcados</button>` : '' });
+    d.oninput = null;
+    const cks = () => [...d.querySelectorAll('tr[data-q] [data-ck]:checked')].map(i => i.closest('tr').dataset.q);
+    const cuenta = () => { const n = cks().length, b = d.querySelector('#oqRm'); if (b) { b.disabled = !n; b.textContent = `↶ Recuperar marcados${n ? ` (${n})` : ''}`; } };
+    d.querySelectorAll('[data-ck]').forEach(i => i.onchange = cuenta);
+    d.querySelector('#oqT')?.addEventListener('change', e => { d.querySelectorAll('[data-ck]:not(:disabled)').forEach(i => i.checked = e.target.checked); cuenta(); });
+    const hecho = async a => { await recuperar(a); quitadosDlg(); };
+    d.querySelectorAll('[data-r]').forEach(b => b.onclick = () => hecho([b.closest('tr').dataset.q]));
+    d.querySelector('#oqRm')?.addEventListener('click', () => hecho(cks()));
+    d.querySelector('#oqV')?.addEventListener('click', async () => {
+      if (await ask('Vaciar quitados', `Se borran de verdad las ${q.length} copia(s) de ${r.carpeta}. Tus carpetas y sus anclas no se tocan. No se puede deshacer.`, ['Vaciar', 'Cancelar'], { danger: true }) !== 'Vaciar') return;
+      try { const x = await api('/api/org/quitados/vaciar', {}); flash(`🗑 ${x.borrados} copia(s) borrada(s)`); await cargar(); quitadosDlg(); } catch (e) { err(e); }
     });
   }
   async function accion(a, f, b) {
     const c = codigoDe(f) || f.partes.flatMap(p => p.carpetas).find(x => (x.estado === 'ok' || x.estado === 'movida') && !x.acceso);
     try {
-      if (a === 'menu') return openMenu(b, [['📋 Ficha…', () => fichaDlg(f)], ['🧩 Editar jerarquía…', () => editarFicha(f)], '-',
+      if (a === 'menu') return openMenu(b, [['📂 Abrir proyecto', () => adminAbrir(f)], ['📋 Ficha… (nombre, descripción…)', () => fichaDlg(f)], ['🧩 Editar jerarquía…', () => editarFicha(f)], '-',
         ...Object.keys(ESTADO).map(k => [`${ESTADO[k][0]} ${ESTADO[k][1]}`, () => guardar(f.id, { estado: k }), { disabled: f.estado === k }]),
         '-', [f.fijado ? '☆ Quitar de arriba' : '⭐ Fijar arriba', () => guardar(f.id, { fijado: !f.fijado })],
         [`🗑 Quitar del organizador…`, () => quitar(f), { danger: true }]]);
@@ -231,15 +344,13 @@
     try { const r = await api('/api/org/ficha/guardar', { id, ...cambios }); r.avisos?.forEach(a => flash('⚠ ' + a)); await cargar(); return r.ficha; }
     catch (e) { err(e); }
   }
-  async function quitar(f) {
-    if (await ask('Quitar del organizador', `«${f.nombre}» deja de estar en el tablero. No se borra nada del disco: las carpetas y sus anclas se quedan donde están (la ficha se guarda en historial/organizador/quitados/).`, ['Quitar', 'Cancelar'], { danger: true }) !== 'Quitar') return;
-    try { await api('/api/org/ficha/quitar', { id: f.id }); await cargar(); } catch (e) { err(e); }
-  }
+  const quitar = f => quitarVarios([f.id]);
   const buscarEnDiscos = () => { O.pantalla = 'arranque'; O.props = null; arranque(); };
   function menuNuevo(b, sinFicha = O.st?.sin_convertir || []) {
     openMenu(b, [['＋ Nuevo proyecto…', () => nuevoProyecto(), { html: '＋ Nuevo proyecto… <small style="opacity:.6">Ctrl+N</small>' }],
       ['🔍 Buscar en discos…', buscarEnDiscos],
-      [`⇪ Convertir proyectos de DeskLens (${sinFicha.length})`, convertir, { disabled: !sinFicha.length }]]);
+      [`⇪ Convertir proyectos de DeskLens (${sinFicha.length})`, convertir, { disabled: !sinFicha.length }], '-',
+      [`↶ Proyectos quitados (${O.st?.quitados || 0})…`, quitadosDlg, { disabled: !O.st?.quitados }]]);
   }
 
   // ---------- ＋ Nuevo proyecto · ＋ Añadir carpetas (aprobado 2026-11-22) ----------
@@ -728,10 +839,12 @@
         ${fila('mapa ia claude anclas', 'Mapa para IA', `<label><input type="checkbox" id="og_mp" ${a.mapa ? 'checked' : ''}> Mantener MAPA.md al día</label> ${b('og_mv', 'Ver mapa')} ${b('og_mc', 'Copiar texto para CLAUDE.md')}
           <small>${esc(a.mapa_ruta)}${a.mapa_fecha ? ' · actualizado ' + hace(a.mapa_fecha) : ''}. Con ese texto en tu CLAUDE.md, «lee mi DeskLens» o «mis anclas» basta para que la IA sepa dónde está cada parte.</small>`)}
         ${fila('datos carpeta fichas', 'Datos', `<code>${esc(a.datos)}</code> · ${a.n_fichas} ficha(s) · ${a.n_anclas} ancla(s) ${b('og_dc', 'Abrir carpeta')}`)}
+        ${fila('quitados recuperar papelera fichas', 'Quitados', `${a.n_quitados} proyecto(s) quitado(s) del tablero ${b('og_qu', '↶ Ver quitados')}<small>Se recuperan con sus anclas; solo «Vaciar quitados» borra las copias.</small>`)}
         ${fila('actividad registro', 'Actividad', `Todo lo que hace el organizador, dónde y cuándo ${b('og_ac', '📋 Ver actividad')}`)}`;
       const salir = async fn => { d.close(); if (!on()) await abrir(); fn(); }; // de Ajustes (modal) a una ventana del organizador
       S.querySelector('#og_di').onclick = () => salir(discosDlg);
       S.querySelector('#og_ac').onclick = () => salir(actividadDlg);
+      S.querySelector('#og_qu').onclick = () => salir(quitadosDlg);
       S.querySelector('#og_ra').onclick = async () => {
         try { await guardarAj(d); const x = await api('/api/org/respaldo/ahora', {}); flash(`✓ Respaldo en ${x.ruta}`); window.orgAjustes.enlazar(d); }
         catch (e) { ask('Respaldo', e.message, ['Entendido']); }
@@ -758,8 +871,9 @@
   async function arranque() {
     const pasos = n => `<div class="osteps">${['1 Discos', '2 Recorrido', '3 Relaciones', '4 Fichas'].map((t, i) => i + 1 === n ? `<b>${t}</b>` : t).join(' › ')}</div>`;
     const atras = O.st?.fichas.length ? '<button class="obtn" id="oVolver">← Tablero</button>' : '';
-    const cab = `<div class="obar"><h2>🗂 Proyectos · Buscar en discos</h2><span class="sp"></span>${atras}<button class="obtn" id="oAc2">📋</button></div>`;
-    const enlazar = () => { root.querySelector('#oVolver')?.addEventListener('click', () => { O.pantalla = 'tablero'; pintar(); }); root.querySelector('#oAc2').onclick = actividadDlg; };
+    const cab = `<div class="obar"><h2>🗂 Proyectos · Buscar en discos</h2><span class="sp"></span>${atras}<button class="obtn" id="oNv2" title="＋ Nuevo proyecto a mano (Ctrl+N)">＋ Nuevo proyecto</button>${O.st?.quitados ? `<button class="obtn" id="oQu2" title="Recuperar proyectos quitados">↶ Quitados (${O.st.quitados})</button>` : ''}<button class="obtn" id="oAc2">📋</button></div>`;
+    const enlazar = () => { root.querySelector('#oVolver')?.addEventListener('click', () => { O.pantalla = 'tablero'; pintar(); }); root.querySelector('#oAc2').onclick = actividadDlg;
+      root.querySelector('#oNv2').onclick = () => nuevoProyecto(); root.querySelector('#oQu2')?.addEventListener('click', quitadosDlg); };
     if (O.props) return relacionesPintar(cab, pasos(3), enlazar);
     if (O.st?.recorrido?.activo) {
       root.innerHTML = cab + `<div class="obody">${pasos(2)}<div id="oProg"></div></div>`; enlazar();

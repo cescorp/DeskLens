@@ -1056,17 +1056,131 @@ def guardar_ficha(i, datos):
 
 
 def quitar_ficha(i):
-    """Quita el proyecto del organizador. No borra nada del disco: las anclas se quedan donde están."""
+    """Quita el proyecto del organizador. No borra nada del disco: las anclas se quedan donde están.
+    La ficha va a quitados/ con la ruta de cada ancla (_anclas), para poder recuperarla aunque luego se borren."""
     with _fichas_lock:
         p = _ficha_path(i)
         f = leer_json(p, {})
         if not p.exists():
             raise ValueError("No existe ese proyecto")
-        papelera = DATA / "quitados" / f"{i}-{int(time.time())}.json"
+        reg = registro()
+        f["_anclas"] = {c["ancla"]: reg[c["ancla"]]["ruta"] for q in f.get("partes", []) for c in q.get("carpetas", [])
+                        if c.get("ancla") in reg and reg[c["ancla"]].get("ruta")}
+        f["_quitado"] = datetime.now().isoformat(timespec="seconds")
+        papelera = DATA / "quitados" / f"{i}-{int(time.time() * 1000)}.json"
         papelera.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(p, papelera)  # se puede recuperar a mano
+        escribir_json(papelera, f)  # se puede recuperar (⚙ › Proyectos quitados)
+        p.unlink()
         actividad("ficha", f"Proyecto quitado del organizador: {f.get('nombre', i)} (copia en quitados/)", str(papelera))
         mapa_luego()
+        return papelera
+
+
+def quitar_fichas(ids, borrar_anclas=False):
+    """Quita varios proyectos (casillas de la vista Lista). Con `borrar_anclas`, borra también el archivo
+    .desklens-ancla de sus carpetas, salvo las que siguen en un proyecto que se queda. Nunca toca nada más."""
+    ids = [i for i in dict.fromkeys(ids or []) if i]
+    if not ids:
+        raise ValueError("No hay proyectos marcados")
+    quedan = {c["ancla"]: f.get("nombre", f["id"]) for f in fichas_crudas() if f["id"] not in ids
+              for q in f.get("partes", []) for c in q.get("carpetas", [])}
+    reg = registro()
+    out = {"quitados": [], "anclas_borradas": [], "anclas_conservadas": [], "avisos": []}
+    anclas = {}
+    for i in ids:
+        f = leer_json(_ficha_path(i), None)
+        if not f:
+            out["avisos"].append(f"No existe el proyecto {i}")
+            continue
+        for q in f.get("partes", []):
+            for c in q.get("carpetas", []):
+                if ID_RE.fullmatch(c.get("ancla", "")):
+                    anclas[c["ancla"]] = reg.get(c["ancla"], {}).get("ruta", "")
+        out["quitados"].append({"id": i, "nombre": f.get("nombre", i), "archivo": quitar_ficha(i).name})
+    if borrar_anclas:
+        for a, ruta in anclas.items():
+            if a in quedan:
+                out["anclas_conservadas"].append({"ruta": ruta, "proyecto": quedan[a]})
+                continue
+            if not ruta or leer_ancla(ruta) != a:  # no está donde se apuntó: no se borra nada a ciegas
+                continue
+            try:
+                (larga(ruta) / ANCLA).unlink()
+            except OSError as e:
+                out["avisos"].append(f"No se pudo borrar {Path(ruta) / ANCLA}: {e}")
+                continue
+            with _anclas_lock:
+                r = registro()
+                r.pop(a, None)
+                escribir_json(DATA / "anclas.json", r)
+            out["anclas_borradas"].append(ruta)
+            actividad("ancla", "Ancla borrada al quitar el proyecto", str(Path(ruta) / ANCLA))
+        mapa_luego()
+    return out
+
+
+def quitados():
+    """Proyectos quitados del organizador (carpeta quitados/ de los datos), del más reciente al más antiguo."""
+    out = []
+    for p in (DATA / "quitados").glob("*.json"):
+        f = leer_json(p, None)
+        if not isinstance(f, dict) or not f.get("id"):
+            continue
+        n = sum(len(q.get("carpetas", [])) for q in f.get("partes", []))
+        out.append({"archivo": p.name, "id": f["id"], "nombre": f.get("nombre", f["id"]), "carpetas": n,
+                    "quitado": f.get("_quitado") or datetime.fromtimestamp(p.stat().st_mtime).isoformat(timespec="seconds"),
+                    "existe": _ficha_path(f["id"]).exists()})
+    return sorted(out, key=lambda x: x["quitado"], reverse=True)
+
+
+def _quitado_path(nombre):
+    if not re.fullmatch(r"[a-z0-9-]{1,80}-\d+\.json", nombre or ""):
+        raise ValueError("Archivo de quitados no válido")
+    return DATA / "quitados" / nombre
+
+
+def recuperar_quitados(archivos):
+    """↶ Recuperar: la ficha vuelve al tablero. Si se borró el ancla de una carpeta, se vuelve a poner con el mismo id."""
+    hechos, avisos = [], []
+    for a in archivos or []:
+        q = _quitado_path(a)
+        f = leer_json(q, None)
+        if not f:
+            avisos.append(f"No está en quitados: {a}")
+            continue
+        with _fichas_lock:
+            p = _ficha_path(f["id"])
+            if p.exists():
+                avisos.append(f"«{f.get('nombre', f['id'])}» ya está en el tablero: no se recupera encima")
+                continue
+            for anc, ruta in (f.pop("_anclas", None) or {}).items():
+                if not ID_RE.fullmatch(anc) or not ruta or not larga(ruta).is_dir():
+                    continue
+                if not (larga(ruta) / ANCLA).exists():
+                    (larga(ruta) / ANCLA).write_text(json.dumps({"id": anc, "creada": datetime.now().isoformat(timespec="seconds")}), encoding="utf-8")
+                    ocultar(larga(ruta) / ANCLA)
+                    actividad("ancla", "Ancla vuelta a poner al recuperar el proyecto", str(Path(ruta) / ANCLA))
+                if leer_ancla(ruta) == anc:
+                    _registrar(anc, ruta)
+            f.pop("_quitado", None)
+            escribir_json(p, f)
+            q.unlink()
+        actividad("ficha", f"Proyecto recuperado: {f.get('nombre', f['id'])}", str(p))
+        hechos.append(f["id"])
+    mapa_luego()
+    return hechos, avisos
+
+
+def vaciar_quitados(archivos=None):
+    """Borra de verdad copias de quitados (todas si no se dice cuáles). Las carpetas no se tocan."""
+    ps = [_quitado_path(a) for a in archivos] if archivos else list((DATA / "quitados").glob("*.json"))
+    n = 0
+    for p in ps:
+        if p.exists():
+            p.unlink()
+            n += 1
+    actividad("ficha", f"Quitados vaciados: {n} copia(s) borrada(s)", str(DATA / "quitados"))
+    return n
 
 
 def fichas(ubicar_anclas=True):
@@ -1880,7 +1994,8 @@ def get(ruta, q, proyectos_desklens=()):
         return 200, {"ajustes": ajustes(), "fichas": fs, "alertas": sum(f["avisos"] for f in fs),
                      "discos_activos": sum(1 for d in config_discos().values() if d.get("activo")),
                      "sin_convertir": [x for x in proyectos_desklens if x.lower() not in ya],
-                     "recorrido": estado_recorrido()}
+                     "recorrido": estado_recorrido(),
+                     "quitados": len(list((DATA / "quitados").glob("*.json"))), "quitados_dir": str(DATA / "quitados")}
     if r == "discos":
         return 200, {"discos": discos()}
     if r == "alertas":
@@ -1898,6 +2013,8 @@ def get(ruta, q, proyectos_desklens=()):
             return 400, {"error": str(e)}
     if r == "actividad":
         return 200, leer_actividad()
+    if r == "quitados":
+        return 200, {"quitados": quitados(), "carpeta": str(DATA / "quitados")}
     try:
         if r == "versiones":
             return 200, {"versiones": versiones(q.get("id", ""))[::-1], "commits": commits_proyecto(q.get("id", ""))}
@@ -1910,7 +2027,7 @@ def get(ruta, q, proyectos_desklens=()):
     if r == "ajustes":
         return 200, {**ajustes(), "respaldo": info_respaldo(), "datos": str(DATA), "mapa_ruta": str(DATA / "MAPA.md"),
                      "mapa_fecha": datetime.fromtimestamp((DATA / "MAPA.md").stat().st_mtime).isoformat(timespec="seconds") if (DATA / "MAPA.md").exists() else "",
-                     "n_fichas": len(fichas_crudas()), "n_anclas": len(registro()),
+                     "n_fichas": len(fichas_crudas()), "n_anclas": len(registro()), "n_quitados": len(list((DATA / "quitados").glob("*.json"))),
                      "discos": [{"serie": d["serie"], "letra": d["letra"], "nombre": d["nombre"], "conectado": d["conectado"], "activo": d["activo"]} for d in discos()]}
     return 404, {"error": "no existe"}
 
@@ -1943,6 +2060,13 @@ def post(ruta, datos):
         if r == "ficha/quitar":
             quitar_ficha(datos.get("id", ""))
             return 200, {}
+        if r == "fichas/quitar":  # varios, desde las casillas de la vista Lista
+            return 200, quitar_fichas(datos.get("ids", []), bool(datos.get("borrar_anclas")))
+        if r == "quitados/recuperar":
+            hechos, av = recuperar_quitados(datos.get("archivos", []))
+            return 200, {"recuperados": hechos, "avisos": av}
+        if r == "quitados/vaciar":
+            return 200, {"borrados": vaciar_quitados(datos.get("archivos") or None)}
         if r == "fichas/crear":  # confirmar el flujo de arranque: varias fichas de una vez
             hechas, avisos = [], []
             for d in datos.get("fichas", []):

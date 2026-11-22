@@ -457,6 +457,33 @@ try:
     assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
     assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
 
+    # Quitar varios (casillas de la vista Lista), borrar anclas sin tocar las compartidas, recuperar y vaciar
+    qa, qb, qc = carpeta("qa-codigo"), carpeta("qa-docs"), carpeta("qa-comun")
+    org.crear_ficha({"nombre": "qa", "partes": [{"tipo": "codigo", "carpetas": [{"ruta": str(qa)}, {"ruta": str(qc)}]},
+                                                {"tipo": "documentos", "carpetas": [{"ruta": str(qb)}]}]})
+    org.crear_ficha({"nombre": "qb", "partes": [{"tipo": "codigo", "carpetas": [{"ruta": str(qc)}]}]})
+    org.crear_ficha({"nombre": "qz", "partes": [{"tipo": "codigo", "carpetas": [{"ruta": str(qb)}]}]})
+    ida, idc = org.leer_ancla(qa), org.leer_ancla(qc)
+    code, r = org.post("/api/org/fichas/quitar", {"ids": ["qa", "qz"], "borrar_anclas": True})
+    assert code == 200 and [x["id"] for x in r["quitados"]] == ["qa", "qz"], r
+    assert not (qa / org.ANCLA).exists() and not (qb / org.ANCLA).exists() and ida not in org.registro(), "anclas borradas"
+    assert org.leer_ancla(qc) == idc and [x["ruta"] for x in r["anclas_conservadas"]] == [str(qc)], "qc sigue en «qb»"
+    assert qa.is_dir() and qb.is_dir(), "las carpetas no se tocan"
+    lq = org.quitados()
+    assert {"qa", "qz"} <= {x["id"] for x in lq} and lq[0]["quitado"] >= lq[-1]["quitado"]
+    arch = next(x["archivo"] for x in lq if x["id"] == "qa")
+    hechos, av = org.recuperar_quitados([arch])
+    assert hechos == ["qa"] and org.leer_ancla(qa) == ida and ida in org.registro(), "vuelve con la misma ancla"
+    assert not any(x["archivo"] == arch for x in org.quitados())
+    org.crear_ficha({"nombre": "qz", "partes": []})
+    _, av = org.recuperar_quitados([next(x["archivo"] for x in org.quitados() if x["id"] == "qz")])
+    assert any("ya está en el tablero" in x for x in av), av
+    assert org.post("/api/org/fichas/quitar", {"ids": []})[0] == 400
+    assert org.post("/api/org/quitados/recuperar", {"archivos": ["../x.json"]})[0] == 400
+    code, r = org.get("/api/org/quitados", {})
+    assert code == 200 and r["quitados"]
+    assert org.vaciar_quitados() == len(r["quitados"]) and not org.quitados()
+
     # HTTP
     assert org.get("/api/otra", {}) is None and org.post("/api/otra", {}) is None
     code, est = org.get("/api/org/estado", {}, [str(hs), str(disco / "sin-ficha")])

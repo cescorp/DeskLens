@@ -835,6 +835,14 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ Casillas y acciones en la vista Lista · Quitar varios · ↶ Proyectos quitados (ok y hecho 2026-11-22)
+- **Lista con casillas**: clic marca, Mayús+clic marca un tramo, la casilla de la cabecera marca lo que está a la vista (respeta filtro y estado). Con algo marcado, la cabecera de la tabla se vuelve la barra: «N marcados · Marcar todos (n)» · Estado ▾ · 📂 Abrir carpetas (5 como mucho; abre la carpeta principal de cada uno en el Explorador) · 🗑 Quitar… · ✕. Lo marcado no se guarda.
+- **⋯ en cada fila**: Abrir proyecto · Ficha… · Editar jerarquía… · Estado · Fijar · Quitar del organizador….
+- Teclas (KEYS › Proyectos): Espacio marca la fila con el foco, Ctrl+A marca todo lo visible, Supr abre Quitar…, Esc desmarca (antes que salir del tablero).
+- **Quitar del organizador** (uno o varios): ventana con qué pasa y dónde (la ficha a `quitados`, carpetas intactas, anclas se quedan). ☐ Borrar también las anclas (desmarcada; al marcarla enseña cada ruta; nunca la de una carpeta que sigue en un proyecto que se queda). Al terminar, aviso con ↶ Deshacer (10 s).
+- **↶ Proyectos quitados** (＋ Nuevo ▾, ⚙ Ajustes › Proyectos, pantalla sin proyectos): ↶ Recuperar, ↶ Recuperar marcados, Vaciar quitados… (pregunta; lo único que borra de verdad). Recuperar vuelve a poner el ancla con el mismo id si se borró, y no pisa un proyecto que ya está en el tablero.
+- Cambio respecto al dibujo: 📂 Abrir abre la carpeta principal de cada proyecto en el Explorador (la vista de proyecto es una a la vez).
+
 ### ✅ Carpeta principal, entornos como iguales, iconos monocromos y líneas en el árbol (ok y hecho 2026-11-22)
 - La principal ★ es la raíz (por defecto git o Código; ★ Hacer principal en los menús). El proyecto se llama como ella salvo nombre puesto a mano.
 - Entornos: en cadena desde la principal («pasa a», línea gruesa); las demás partes salen de ella («contiene», línea gris fina). Flujo: fila a la derecha; Red: línea recta desde el centro; tarjeta: «★ principal → etapas».

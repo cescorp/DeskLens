@@ -1,6 +1,10 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: casillas en la vista Lista, quitar varios y ↶ Proyectos quitados
+`organizador.py`: `quitar_ficha` guarda en la copia `_anclas` ({id: ruta}) y `_quitado`, y devuelve la ruta; `quitar_fichas(ids, borrar_anclas)` borra `.desklens-ancla` solo si el ancla está donde dice el registro y no la usa un proyecto que se queda; `quitados()`, `recuperar_quitados()` (vuelve a escribir el ancla con el mismo id si falta; no pisa una ficha que ya existe), `vaciar_quitados()`. Rutas GET `quitados`, POST `fichas/quitar`, `quitados/recuperar`, `quitados/vaciar`; `estado` y `ajustes` cuentan los quitados.
+`organizador.js`: `O.marca` (no se guarda; se recorta a lo visible), `marcar()` con Mayús, `estadoVarios`, `quitarVarios` (sustituye al `ask` de un solo proyecto), `aviso()` con ↶ Deshacer, `quitadosDlg`. Al probar: la barra encima de la tabla empujaba las filas y el Mayús+clic caía en otra; ahora ocupa la cabecera de la tabla.
+
 ## 2026-11-22 · Organizador: ＋ Nuevo proyecto a mano y barra del tablero en una fila
 `organizador.py`: `analizar_ruta` (existe, git, tipo y etapa sugeridos, en qué proyectos está, dentro de / contiene), `sugerencias` (LIKE sobre carpetas.db del último recorrido, sin recorrer nada), `anadir_carpetas` (a la parte de su tipo; «Mover aquí» quita de los otros con `_quitar_de_otros`), `crear_ficha` acepta `principal_ruta`; accesos a archivos con ancla `archivo:<id>` (sin archivo de ancla; estado ok/falta; fuera de la búsqueda de anclas). Rutas GET `analizar`, `sugerencias`, POST `ficha/anadir`.
 `organizador.js`: `nuevoProyecto(f, tipo)` con lista, explorador dentro (mismo /api/explorar), autocompletar, sugerencias y «Así queda» en vivo (árbol propio; Flujo y Red con `dibujar` en solo lectura). Ctrl+N en fase de captura: el «nuevo archivo» de DeskLens lo atrapaba antes. `.omini` ya era el minimapa: el segmento se llama `.onvseg`.
