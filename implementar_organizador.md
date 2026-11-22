@@ -818,6 +818,26 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - **2026-11-21 · Fase 1a, parte 3 (v1.168):** vista guardada por proyecto (pestaña, búsqueda, ancho, carpetas abiertas, scroll, último archivo), índice por tipo de parte (`rutas_indice()` + `IDX_MODO` en el indexador), apartado en ⚙ Ajustes (enganche `orgAjustes`), MAPA.md + MAPA.json (M1), Ctrl+E (M2) y respaldo diario (hilo `vigilante`). **Fase 1a completa.**
 - ~~**Falta de la Fase 1a:** índice por tipo de parte, apartado dentro de ⚙ Ajustes (hoy ⚙ propio del tablero), MAPA.md (M1), Ctrl+E (M2), pestaña Estado (M3), respaldo diario de los datos.~~ (hecho)
 
+- **2026-11-21 · Fase 1b (v1.169):** Flujo y Red con Cytoscape 3.30.2 (se carga al abrirlas), posiciones por vista en la ficha, zoom/posición por proyecto, minimapa propio, conectores (modo Conectar: clic origen → clic destino, en vez de arrastrar desde el borde), cajas, notas en nodos y conectores (Markdown en `notas/`, 💬 + cuadro flotante + panel), historial de estructura (`versiones/<id>/`, 5 min, con nombre, commits como marcas, restaurar) y comparativo en las 3 vistas (encima, lado a lado, solo cambios, ↑↓). **Fase 1b completa.**
+- Pendiente aparte: el historial de versiones **de archivos** por ancla + ruta relativa (que no se pierda al mover) con la cuota por proyecto; hoy sigue el de DeskLens por ruta.
+
+### ⏳ Abrir carpetas dentro de Flujo y Red (subflujo · subred), propuesto 2026-11-21
+Hoy el doble clic en una carpeta salta al Contenedor (parece que «solo abre el explorador»). Propuesta: se abre **ahí mismo**.
+- **Flujo → subflujo:** doble clic en 📁 despliega su contenido debajo, como ramas (carpetas primero). Más de 12 elementos: los 12 primeros y una caja «… 30 más» que se abre como **lista con buscador**.
+- **Red → subred:** los hijos salen alrededor de la carpeta, más pequeños, como satélites.
+- Doble clic otra vez: se pliega. Una subcarpeta se abre igual (un nivel más). Botón «Plegar todo».
+- **Clic en un archivo:** vista previa en el panel derecho con el visor de DeskLens; doble clic: lo abre en una pestaña (Contenedor).
+- Se recuerda por proyecto y por vista qué carpetas quedaron abiertas. Los archivos no se guardan en la ficha (se leen del disco al abrir).
+- El comparativo marca solo lo de la ficha (carpetas, conectores, cajas, notas); el contenido desplegado sale en gris claro.
+
+### ✅ Entornos del proyecto: pruebas → calidad → producción (VPS) (ok y hecho 2026-11-21, v1.169)
+Hoy `homeshape_calidad` se propone como 🗄 Respaldos (la palabra «calidad» estaba en esa lista) y no hay forma de decir que es un paso del despliegue.
+- Tipo de parte nuevo **🚦 Entornos**, con etapas **en orden**: 🧪 Pruebas → ✅ Calidad → 🌍 Producción (nombres cambiables).
+- Cada etapa es una **carpeta anclada** o una **etapa remota** (nombre + dirección: `https://…`, `ssh usuario@vps`), porque el VPS no siempre es una carpeta de este PC.
+- En **Flujo** las etapas van en fila, de izquierda a derecha, unidas por flechas «pasa a»; en **Red**, en cadena.
+- Sugerencia por nombre: pruebas/test/dev → Pruebas; calidad/qa/staging → Calidad; produccion/prod/vps/live → Producción (ya no Respaldos).
+- Tarjeta del tablero: «🧪→✅→🌍»; pestaña Estado: rama de git y último cambio de cada etapa.
+
 ## Fase 2 · Orden
 Pendientes simples (7), detector de desorden (9), nuevo proyecto (11), **notas ancladas** (ver arriba).
 

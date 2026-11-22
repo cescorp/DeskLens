@@ -44,7 +44,7 @@ try:
     assert org.icono_sugerido("Videos clases") == "🎬" and org.icono_sugerido("biblia") == "📚"
     assert org.icono_sugerido("cualquiera") == "📁" and org.icono_sugerido("x", git=True) == "💻"
     assert org.tipo_sugerido(r"C:\xampp\htdocs\hs") == "web"
-    assert org.tipo_sugerido(r"G:\homeshape_calidad", True) == "respaldos"
+    assert org.tipo_sugerido(r"G:\homeshape_calidad", True) == "entornos" and org.tipo_sugerido(r"G:\homeshape-respaldos") == "respaldos"
     assert org.tipo_sugerido(r"H:\Videos - Material HomeShape") == "material"
     assert org.tipo_sugerido(r"G:\homeshape", True) == "codigo"
 
@@ -112,7 +112,7 @@ try:
     rutas = {c["ruta"]: c for c in hsp[0]["carpetas"]}
     assert str(hs) in rutas and str(vid) in rutas and str(cal) in rutas and str(web) in rutas, list(rutas)
     assert str(hs / "resources" / "homeshape") not in rutas and not any("node_modules" in x for x in rutas)
-    assert rutas[str(cal)]["tipo"] == "respaldos" and rutas[str(vid)]["tipo"] == "material" and rutas[str(web)]["tipo"] == "web"
+    assert rutas[str(cal)]["tipo"] == "entornos" and rutas[str(cal)]["etapa"] == "Calidad" and rutas[str(vid)]["tipo"] == "material" and rutas[str(web)]["tipo"] == "web"
     assert rutas[str(hs)]["anclada"] and rutas[str(vid)]["icono"] == "🎬"
     assert not any(p["clave"] == "app" for p in props), "nombres genéricos no son proyectos"
     assert not any(p["clave"] == "homeshapecalidad" for p in props), "homeshape_calidad es parte de homeshape"
@@ -261,6 +261,94 @@ try:
     finally:
         org.letra_de_serie = real
         org.guardar_ajustes({"respaldo_disco": ""})
+
+    # 🚦 Entornos: etapas en orden, carpeta anclada o remota (VPS)
+    assert org.tipo_sugerido(r"G:\homeshape_pruebas") == "entornos" and org.etapa_sugerida("vps_homeshape") == "Producción"
+    pr = carpeta("homeshape_pruebas")
+    fe, _ = org.crear_ficha({"nombre": "Despliegue", "partes": [{"nombre": "Entornos", "tipo": "entornos", "carpetas": [
+        {"ruta": str(pr)}, {"remota": {"nombre": "VPS", "url": "https://homeshape.app"}, "etapa": "Producción"}]}]})
+    cs = fe["partes"][0]["carpetas"]
+    assert cs[0]["etapa"] == "Pruebas" and cs[1]["ancla"].startswith("remota:") and cs[1]["remota"]["url"] == "https://homeshape.app"
+    x = next(f for f in org.fichas() if f["id"] == "despliegue")["partes"][0]["carpetas"]
+    assert x[1]["estado"] == "remota" and x[1]["nombre"] == "VPS" and x[1]["ruta"] == "https://homeshape.app"
+    assert not any(a["proyecto_id"] == "despliegue" for a in org.alertas()), "una etapa remota no es «no encontrada»"
+    g, _ = org.guardar_ficha("despliegue", {"partes": [{"nombre": "Entornos", "tipo": "entornos", "carpetas": [dict(cs[1]), dict(cs[0])]}]})
+    assert [c["etapa"] for c in g["partes"][0]["carpetas"]] == ["Producción", "Pruebas"], "el orden es el que se guarda"
+    try:
+        org.crear_ficha({"nombre": "x", "partes": [{"tipo": "entornos", "carpetas": [{"remota": {"nombre": ""}}]}]})
+        raise AssertionError("una etapa remota necesita nombre")
+    except ValueError:
+        pass
+    assert "Producción" in Path(org.escribir_mapa()).read_text(encoding="utf-8")
+    # «Mover a» (clic derecho): de Respaldos a Entornos toma la etapa por el nombre; la parte vacía se quita
+    cal = carpeta("homeshape_calidad")
+    org.guardar_ficha("despliegue", {"partes": [{"nombre": "Entornos", "tipo": "entornos", "carpetas": [dict(cs[0]), dict(cs[1])]},
+                                                {"nombre": "Respaldos", "tipo": "respaldos", "carpetas": [{"ruta": str(cal)}]}]})
+    ac = org.registro_ancla(cal) if hasattr(org, "registro_ancla") else next(i for i, r in org.registro().items() if Path(r["ruta"]) == cal)
+    m = org.mover_carpeta("despliegue", ac, "entornos", "Entornos")
+    assert [p["tipo"] for p in m["partes"]] == ["entornos"] and m["partes"][0]["carpetas"][1] == {"ancla": ac, "activa": True, "etapa": "Calidad"}, m  # entre Pruebas y la VPS
+    m = org.mover_carpeta("despliegue", ac, "material", "Material")
+    assert m["partes"][1]["nombre"] == "Material" and "etapa" not in m["partes"][1]["carpetas"][0]
+    for malo in ((cs[1]["ancla"], "material"), (ac, "nada"), ("ffffffffffff", "codigo")):
+        try:
+            org.mover_carpeta("despliegue", *malo)
+            raise AssertionError(malo)
+        except ValueError:
+            pass
+    org.quitar_ficha("despliegue")
+
+    # Fase 1b · conectores, cajas y posiciones: se validan y se guardan en la ficha
+    g, _ = org.guardar_ficha("homeshape", {"conexiones": [{"id": "c1", "de": k, "a": "parte:2", "etiqueta": "se publica en", "dir": "xx"}, {"de": ""}],
+                                           "cajas": [{"id": "b1", "texto": "Grabar → Editar → Subir"}], "posiciones": {"flujo": {"p": {"x": 1.234, "y": "5"}}, "raro": {}}})
+    assert g["conexiones"] == [{"id": "c1", "de": k, "a": "parte:2", "etiqueta": "se publica en", "color": "", "dir": "→"}], g["conexiones"]
+    assert g["cajas"][0]["texto"].startswith("Grabar") and g["posiciones"] == {"flujo": {"p": {"x": 1.2, "y": 5.0}}, "red": {}}
+
+    # historial de la estructura: cada cambio es un punto; los de 5 minutos seguidos se juntan; con nombre, aparte
+    vs = org.versiones("homeshape")
+    assert vs and vs[-1]["auto"], vs
+    n = len(vs)
+    org.guardar_ficha("homeshape", {"avance": 50})
+    assert len(org.versiones("homeshape")) == n, "dentro de 5 min se junta con el anterior"
+    org.guardar_version("homeshape", "v3 · antes de reorganizar")
+    org.guardar_ficha("homeshape", {"avance": 51})
+    vs = org.versiones("homeshape")
+    assert [x["auto"] for x in vs[-2:]] == [False, True] and vs[-2]["nombre"] == "v3 · antes de reorganizar"
+    assert org.guardar_version("homeshape")["v"] == vs[-1]["v"], "sin cambios no crea otro punto"
+    v3 = vs[-2]["v"]
+    assert org.leer_version("homeshape", v3)["ficha"]["avance"] == 50 and k in org.leer_version("homeshape", v3)["anclas"]
+
+    # notas en nodos y conectores: Markdown en notas/, entran al historial
+    nt = org.guardar_nota("homeshape", "nodo:" + k, "**Lección 4** usar [[génesis.pdf]]\n- [ ] Revisar RVR")
+    assert (tmp / "datos" / "notas" / f"{nt['id']}.md").read_text(encoding="utf-8").startswith("---\nproyecto: homeshape")
+    org.guardar_nota("homeshape", "conector:c1", "usa el material")
+    assert [x["destino"] for x in org.notas("homeshape")] == ["conector:c1", "nodo:" + k] or len(org.notas("homeshape")) == 2
+    org.guardar_nota("homeshape", "nodo:" + k, "cambiada", nt["id"])
+    assert next(x for x in org.notas("homeshape") if x["id"] == nt["id"])["texto"] == "cambiada"
+    for malo in (("../x", "proyecto"), ("homeshape", "nodo:../../x")):
+        try:
+            org.guardar_nota(malo[0], malo[1], "x")
+            raise AssertionError(f"debía fallar: {malo}")
+        except ValueError:
+            pass
+    org.borrar_nota("homeshape", nt["id"])
+    assert len(org.notas("homeshape")) == 1
+
+    # restaurar una versión: vuelve la ficha y sus notas; la actual queda guardada como versión con nombre
+    org.restaurar_version("homeshape", v3)
+    assert org.leer_json(org._ficha_path("homeshape"), {})["avance"] == 50 and org.notas("homeshape") == []
+    assert any(x["nombre"].startswith("antes de restaurar") for x in org.versiones("homeshape"))
+
+    # commits del código como marcas en la línea de tiempo (solo si hay git)
+    if shutil.which("git"):
+        subprocess.run(["git", "-C", str(hs), "init", "-q"], check=True)
+        (hs / "a.txt").write_text("a", encoding="utf-8")
+        subprocess.run(["git", "-C", str(hs), "-c", "user.name=t", "-c", "user.email=t@t", "add", "a.txt"], check=True)
+        subprocess.run(["git", "-C", str(hs), "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "primero"], check=True)
+        cs = org.commits_proyecto("homeshape")
+        assert cs and cs[0]["titulo"] == "primero" and cs[0]["v"], cs
+    code, r = org.get("/api/org/versiones", {"id": "homeshape"})
+    assert code == 200 and r["versiones"][0]["fecha"] >= r["versiones"][-1]["fecha"]
+    assert org.get("/api/org/version", {"id": "homeshape", "v": "nada"})[0] == 400
 
     # quitar del organizador: no borra nada del disco
     org.quitar_ficha("homeshape-2")

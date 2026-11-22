@@ -207,3 +207,57 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .palit.on{background:var(--active)}
 #orgPal footer{padding:6px 14px;border-top:1px solid var(--line);font-size:11.5px;color:var(--muted)}
 #orgPal .ohint{padding:10px 14px;margin:0}
+
+/* ===== Fase 1b: pizarra (Flujo y Red), notas en nodos y comparativo ===== */
+.ocmpbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--line);background:var(--side);font-size:12.5px}
+.ocmpbar select{font:inherit;font-size:12.5px;max-width:330px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:3px 5px}
+.ocmpbar label{display:flex;align-items:center;gap:4px}
+.ocmpbar .sp{flex:1}.ocnav{display:flex;align-items:center;gap:4px}.ocnav[hidden]{display:none}
+.opiz{flex:1;min-height:0;display:flex;flex-direction:column;outline:0}
+.opizbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:6px 12px;border-bottom:1px solid var(--line)}
+.opizbar select{font:inherit;font-size:12.5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);padding:3px 5px}
+.opizbar .sp{flex:1}
+.opizcuerpo{flex:1;min-height:0;display:flex}
+.olienzos{flex:1;min-width:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.olienzos.olado{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.olienzo{position:relative;min-height:0;min-width:0;overflow:hidden;background:var(--bg);background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:22px 22px}
+.olienzos.olado .olienzo+.olienzo{border-left:2px solid var(--line)}
+.oetq{position:absolute;top:8px;left:10px;z-index:5;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:var(--bg);padding:2px 6px;border-radius:4px}
+.omini{position:absolute;left:10px;bottom:10px;z-index:6;width:180px;height:120px;border:1px solid var(--line);border-radius:6px;background:color-mix(in srgb,var(--side) 92%,transparent);cursor:pointer}
+.omini[hidden]{display:none}
+.onotacapa{position:absolute;inset:0;pointer-events:none;z-index:4}
+.onotab{position:absolute;left:0;top:0;will-change:transform;pointer-events:auto;font:600 11px system-ui;padding:1px 6px;border-radius:10px;border:0;background:#ff7a59;color:#fff;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.3)}
+.onotab.n-nuevo{background:#2e9e5b}.onotab.n-cambiado{background:#3d7fd9}.onotab.n-quitado{background:#d24a4a}
+.onotaflo{position:fixed;z-index:70;width:320px;max-height:260px;overflow:auto;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.3);padding:8px 12px;font-size:12.5px}
+.onotaflo header{font-weight:600;margin-bottom:4px}.onotaflo footer{display:flex;gap:6px;margin-top:8px}
+.onotamd p{margin:4px 0}.onotamd ul{margin:4px 0;padding-left:18px}.onotamd img{max-width:100%}
+.onotas{width:340px;flex:none;border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--side)}
+.onotas[hidden]{display:none}
+.onotas>header{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}.onotas>header b{flex:1;font-size:13px}
+.onotalista{flex:1;overflow:auto;padding:8px 12px}
+.onotalista article{border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:8px;background:var(--bg);font-size:13px}
+.onotalista article footer{display:flex;align-items:center;gap:4px}.onotalista article footer .sp{flex:1}
+.onotalista textarea,.onotanueva textarea{width:100%;min-height:90px;font:inherit;font-size:13px;padding:6px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);resize:vertical;box-sizing:border-box}
+.onotanueva{padding:8px 12px;border-top:1px solid var(--line);display:flex;flex-direction:column;gap:6px}
+.onotat{font-size:11px;color:#ff7a59}
+/* comparativo en el árbol (Contenedor) */
+.oc-nuevo{box-shadow:inset 3px 0 #2e9e5b;background:color-mix(in srgb,#2e9e5b 10%,transparent)}
+.oc-quitado{box-shadow:inset 3px 0 #d24a4a;color:#d24a4a;text-decoration:line-through;opacity:.8;cursor:default}
+.oc-movido{box-shadow:inset 3px 0 #e0a030;background:color-mix(in srgb,#e0a030 10%,transparent)}
+.oc-cambiado{box-shadow:inset 3px 0 #3d7fd9;background:color-mix(in srgb,#3d7fd9 10%,transparent)}
+.oc-ctx{opacity:.35}.osolo .oc-ctx{display:none}
+.ocm{font-size:11px;margin-left:6px;opacity:.9}
+@keyframes ocflash{from{background:color-mix(in srgb,var(--accent) 35%,transparent)}to{background:transparent}}.oc-flash{animation:ocflash 1s}
+.oarbol.olado{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr) auto}
+.oarbol.olado>.oaq,.oarbol.olado>.obtn{grid-column:1/-1}
+.oantes{border-right:1px solid var(--line)}
+.opizbar{flex-wrap:nowrap}.opistat{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+.olist td small{margin-left:8px;color:var(--muted)}
+
+/* 🚦 Entornos: etapa en el editor y en el árbol; etapas remotas */
+.ofold .oetapa{display:flex;align-items:center;gap:4px;margin-top:4px;font-size:11.5px;color:var(--muted)}
+.ofold .oetapa select{font:inherit;font-size:11.5px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink)}
+.ofold .oetapa .obtn{font-size:11px;padding:0 6px}
+.opart [data-rem]{margin-top:6px;font-size:12px}
+.oetq2{font-size:11px;padding:0 5px;border-radius:8px;background:color-mix(in srgb,#2a9d8f 18%,transparent);color:var(--ink);white-space:nowrap}
+.onodo.oremota{cursor:pointer}.onodo.oremota small{margin-left:6px}

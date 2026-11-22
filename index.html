@@ -6831,7 +6831,7 @@ addEventListener('keydown', e => { // Ctrl+P: la impresión de DeskLens (hoja, m
 });
 // Clic derecho: menú propio con lo básico en vez del del navegador (Mayús + clic derecho = el del navegador)
 addEventListener('contextmenu', e => {
-  if (e.shiftKey || e.target.closest?.('aside .node, #tabs .tab')) return; // el árbol y las pestañas tienen su menú
+  if (e.shiftKey || e.target.closest?.('aside .node, #tabs .tab, [data-menu-propio]')) return; // el árbol, las pestañas y lo marcado (organizador) tienen su menú
   e.preventDefault();
   const t = e.target, cm = t.closest?.('.CodeMirror')?.CodeMirror;
   const field = !cm && t.matches?.('input, textarea') && t.selectionStart != null ? t : null;

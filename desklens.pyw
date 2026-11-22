@@ -4829,7 +4829,7 @@ class Handler(BaseHTTPRequestHandler):
             if not org:
                 return self.send_json(503, {"error": "El organizador no se pudo cargar (carpeta organizador/)"})
             res = org.post(url, data)
-            if res[0] == 200 and url.split("/")[3] in ("ficha", "fichas", "convertir", "ajustes"):
+            if res[0] == 200 and url.split("/")[3] in ("ficha", "fichas", "convertir", "ajustes", "version"):
                 idx_wake.set()  # carpetas o modos de índice cambiados: el índice se pone al día enseguida
             return self.send_json(*res)
         if url == "/api/agregar" and data.get("tipo") in ("proyectos", "sueltos"):

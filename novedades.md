@@ -13,6 +13,20 @@ Cada cambio es una versión nueva, la más reciente arriba. El número de la pri
 - **Clic en una tarjeta: la vista del proyecto.** Arriba, estado y avance (clic en la barra), git y botones. Pestañas: **Archivos** (un solo árbol con todas las carpetas del proyecto por partes, G:, H:, htdocs…, y el visor/editor de DeskLens de siempre a la derecha; buscar por nombre dentro del proyecto; clic derecho: Explorador, terminal o quitar del proyecto), **Ficha**, **Git** (abre la vista Git de DeskLens en la carpeta de código), **Estado** (git, copia y tamaño de cada carpeta; solo informa). Historial y Notas llegan en las fases siguientes.
 - Las ventanas del organizador no bloquean la pantalla: un clic fuera (o Esc) las cierra. Solo preguntan si escribiste algo sin guardar.
 
+## v1.169 · 2026-11-21 · Proyectos en Flujo y Red, notas en nodos, historial y comparativo (Fase 1b)
+- **Vista ⇢ Flujo y ◉ Red** en la pestaña Archivos de cada proyecto (el selector junto al buscador): pizarra sin límites; arrastrar para moverse, rueda para subir y bajar, Ctrl+rueda para el zoom, 0 para ver todo y un minimapa. Cada nodo que mueves queda en su sitio (por vista y por proyecto).
+- **Conectores tuyos**: ⟶ Conectar (o la tecla C), clic en un nodo y luego en otro, con etiqueta («usa», «se publica en»…). Clic en un conector: etiqueta, color, dirección o borrar. **Cajas libres** con doble clic en un espacio vacío. Doble clic en una carpeta: la abre en el Contenedor.
+- **Notas en nodos y conectores**: clic derecho › 💬 Notas. Se escriben en Markdown, las casillas se marcan con un clic y el nodo lleva 💬 con el número; al pasar el ratón se ven en un cuadro flotante.
+- **Historial de la estructura** (pestaña Historial): cada cambio queda guardado solo (siempre, sin cuota), con 🏷 Guardar versión con nombre y los commits del código como marcas. Restaurar crea un punto nuevo.
+- **⇆ Comparar con** una versión en las tres vistas: 🟢 nuevo, 🔴 quitado (como fantasma), 🟠 movido (con flecha desde su sitio de antes), 🔵 cambiado; lo demás atenuado. Encima o Lado a lado (zoom a la par), Solo cambios y ↑ ↓ para saltar de un cambio a otro.
+
+- **🚦 Entornos** (tipo de parte nuevo): las etapas del despliegue en orden, 🧪 Pruebas → ✅ Calidad → 🌍 Producción. Cada etapa es una carpeta o una **etapa remota** (nombre + dirección, p. ej. el VPS). En Flujo van en fila unidas por «pasa a»; en el editor de jerarquía se elige la etapa y se ordenan con ↑ ↓. Las carpetas «…_calidad», «…_pruebas», «vps_…» se proponen como Entornos, ya no como Respaldos.
+- **Clic derecho › Mover a** (en el árbol, en Flujo y en Red): pasa una carpeta a otra parte del proyecto (💻 Código, 🚦 Entornos, 🎬 Material…) sin abrir el editor. Si no hay parte de ese tipo se crea, y la que queda vacía se quita. Al entrar en Entornos toma la etapa por el nombre y se coloca en su sitio (pruebas → calidad → producción). Solo cambia la ficha: nada se mueve en el disco, y queda en el Historial.
+- Arreglo: al cambiar algo del proyecto con el visor abierto a la derecha, el visor ya no se queda en «null».
+- Pizarra: sin el recuadro gris al moverse ni el círculo gris al pulsar el fondo.
+- **Vuelve donde lo dejaste**: si cerraste DeskLens con el tablero abierto, al abrirlo vuelve al mismo proyecto, pestaña y vista; y 🗂 te lleva al último proyecto en el que estabas (← Tablero para ver todos).
+- **Moverse en Flujo y Red más fluido**: el resaltado de vecinos espera a que el ratón se quede quieto, y el minimapa y los 💬 ya no se redibujan en cada fotograma.
+
 ## v1.168 · 2026-11-21 · Proyectos: cada uno recuerda su vista, índice por tipo, Ajustes, Ctrl+E, mapa para la IA y respaldo
 - **Cada proyecto recuerda su vista**: pestaña, búsqueda, ancho del árbol, carpetas abiertas, dónde estabas y el último archivo (al volver se abre solo).
 - **Índice por tipo de parte**: las carpetas de los proyectos entran al buscador de DeskLens según su tipo (código, web y documentos: todo; material: nombres y texto de PDF y Word; respaldos y bases de datos: nada, solo se ven). Si cambias el modo, se vuelven a leer.

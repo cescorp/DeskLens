@@ -59,7 +59,17 @@ def escribir_json(p, datos):
     os.replace(tmp, p)
 
 
-TIPOS = ["codigo", "material", "web", "respaldos", "base_datos", "documentos", "otro"]
+TIPOS = ["codigo", "entornos", "material", "web", "respaldos", "base_datos", "documentos", "otro"]
+# 🚦 Entornos: etapas del despliegue en orden (pruebas → calidad → producción). Cada etapa es una carpeta anclada o una
+# etapa remota (nombre + dirección, p. ej. el VPS), guardada como carpeta con ancla «remota:<id>» (sin archivo .desklens-ancla).
+ETAPAS = [(("prueba", "test", "dev", "desarrollo", "local"), "Pruebas"), (("calidad", "qa", "staging", "preprod"), "Calidad"),
+          (("produccion", "prod", "vps", "live", "deploy", "servidor"), "Producción")]
+ORDEN_ETAPA = {"Pruebas": 0, "Calidad": 1, "Producción": 2}
+
+
+def etapa_sugerida(nombre):
+    n = normalizar(nombre)
+    return next((e for palabras, e in ETAPAS if any(x in n for x in palabras)), "")
 ESTADOS = ["activo", "pausado", "terminado", "archivo"]
 INDICE = ["todo", "nombres_pdf", "nombres", "no"]
 
@@ -67,7 +77,7 @@ AJUSTES_BASE = {
     "encendido": True,
     "ignorar_git": True,        # .desklens-ancla en .git/info/exclude (solo este PC)
     "avisar_web": True,         # avisar al anclar una carpeta servida por la web (htdocs…)
-    "indice": {"codigo": "todo", "web": "todo", "documentos": "todo", "material": "nombres_pdf",
+    "indice": {"codigo": "todo", "entornos": "todo", "web": "todo", "documentos": "todo", "material": "nombres_pdf",
                "respaldos": "no", "base_datos": "no", "otro": "nombres"},
     "historial_dias": 7,
     "historial_mb": 200,
@@ -163,7 +173,8 @@ ICONOS = [(("video", "clases", "grab"), "🎬"), (("audio", "musica", "podcast")
           (("img", "imagen", "foto", "diseno"), "🖼"), (("doc", "pdf", "libro", "biblia"), "📚"),
           (("web", "public", "htdocs", "www"), "🌐"), (("src", "app", "codigo"), "💻"),
           (("backup", "respaldo", "copia"), "🗄"), (("db", "sql", "base"), "🛢"), (("notas", "apuntes"), "📝")]
-TIPO_PALABRAS = [(("backup", "respaldo", "copia", "bak", "calidad", "old", "antiguo"), "respaldos"),
+TIPO_PALABRAS = [(("pruebas", "calidad", "qa", "staging", "produccion", "vps", "preprod"), "entornos"),  # antes que respaldos
+                 (("backup", "respaldo", "copia", "bak", "old", "antiguo"), "respaldos"),
                  (("video", "material", "curriculo", "clase", "audio", "img", "imagen", "foto", "diseno", "grab"), "material"),
                  (("doc", "documento", "manual", "pdf", "libro"), "documentos"),
                  (("dump", "sql", "basedatos", "db"), "base_datos")]
@@ -834,13 +845,15 @@ def relaciones(extra=(), limite=200):
                            (f"%{esc}%",)).fetchall()
         tomadas, carpetas = list(semis), []
         for s in g["semillas"]:
-            carpetas.append({"ruta": s[0], "nombre": s[1], "tipo": tipo_sugerido(s[0], s[3] in ("git", "codigo")), "semilla": True})
+            carpetas.append({"ruta": s[0], "nombre": s[1], "tipo": tipo_sugerido(s[0], s[3] in ("git", "codigo")), "semilla": True,
+                             "etapa": etapa_sugerida(s[1])})
         propias = {x.lower() for x in semis}
         for ruta, nombre, marca in hall:
             if ruta in semis or _dentro(ruta, tomadas) or en_otro(ruta, propias):
                 continue
             tomadas.append(ruta)
-            carpetas.append({"ruta": ruta, "nombre": nombre, "tipo": tipo_sugerido(ruta, bool(marca)), "semilla": False})
+            carpetas.append({"ruta": ruta, "nombre": nombre, "tipo": tipo_sugerido(ruta, bool(marca)), "semilla": False,
+                             "etapa": etapa_sugerida(nombre)})
         nombre = min(g["semillas"], key=lambda s: (s[3] not in ("git", "codigo"), len(s[0])))[1]
         for c in carpetas:
             c["icono"] = icono_sugerido(c["nombre"], c["tipo"] == "codigo")
@@ -894,9 +907,19 @@ def _limpiar(datos, previa=None):
     hist = datos.get("historial", f.get("historial")) or {}
     a = ajustes()
     f["historial"] = {"dias": int(hist.get("dias", a["historial_dias"])), "mb": int(hist.get("mb", a["historial_mb"]))}
-    for k in ("conexiones", "cajas", "posiciones"):  # vistas Flujo y Red (Fase 1b): se guardan tal cual
-        if k in datos or k in f:
-            f[k] = datos.get(k, f.get(k))
+    # vistas Flujo y Red: conectores tuyos, cajas libres y dónde dejaste cada nodo (por vista)
+    cx = datos.get("conexiones", f.get("conexiones")) or []
+    f["conexiones"] = [{"id": str(c.get("id", ""))[:40], "de": str(c.get("de", ""))[:80], "a": str(c.get("a", ""))[:80],
+                        "etiqueta": str(c.get("etiqueta", ""))[:80], "color": str(c.get("color", ""))[:20],
+                        "dir": c.get("dir") if c.get("dir") in ("→", "↔", "—") else "→"}
+                       for c in cx if isinstance(c, dict) and c.get("de") and c.get("a")][:500]
+    cj = datos.get("cajas", f.get("cajas")) or []
+    f["cajas"] = [{"id": str(c.get("id", ""))[:40], "texto": str(c.get("texto", ""))[:300], "color": str(c.get("color", ""))[:20]}
+                  for c in cj if isinstance(c, dict) and c.get("id")][:500]
+    pos = datos.get("posiciones", f.get("posiciones")) or {}
+    f["posiciones"] = {v: {str(k)[:80]: {"x": round(float(p.get("x", 0)), 1), "y": round(float(p.get("y", 0)), 1)}
+                           for k, p in list((pos.get(v) or {}).items())[:2000] if isinstance(p, dict)}
+                       for v in ("flujo", "red") if isinstance(pos, dict)}
     f.setdefault("creado", hoy)
     f["actualizado"] = hoy
     return f
@@ -912,6 +935,14 @@ def _partes(partes, avisos):
             raise ValueError(f"Tipo de parte no válido: {tipo}")
         cs = []
         for c in p.get("carpetas", []):
+            if c.get("remota") or str(c.get("ancla", "")).startswith("remota:"):  # etapa remota (VPS…): sin carpeta en este PC
+                r = c.get("remota") or {}
+                rid = str(c.get("ancla", ""))[7:] or uuid.uuid4().hex[:12]
+                if not re.fullmatch(r"[0-9a-f]{6,32}", rid) or not str(r.get("nombre", "")).strip():
+                    raise ValueError("Etapa remota no válida: necesita un nombre")
+                cs.append({"ancla": "remota:" + rid, "remota": {"nombre": str(r["nombre"]).strip()[:60], "url": str(r.get("url", "")).strip()[:300]},
+                           "etapa": str(c.get("etapa", ""))[:30], "activa": True})
+                continue
             if c.get("ancla"):
                 if c["ancla"] not in reg:
                     raise ValueError("Ancla desconocida")
@@ -929,6 +960,8 @@ def _partes(partes, avisos):
                 item["icono"] = str(c["icono"])[:8]
             if c.get("indice") in INDICE:
                 item["indice"] = c["indice"]
+            if tipo == "entornos":
+                item["etapa"] = str(c.get("etapa") or etapa_sugerida(Path(c.get("ruta") or reg.get(i, {}).get("ruta", "")).name))[:30]
             if not any(x["ancla"] == i for x in cs):
                 cs.append(item)
         out.append({"nombre": str(p.get("nombre") or tipo.capitalize())[:60], "tipo": tipo, "carpetas": cs})
@@ -947,6 +980,7 @@ def crear_ficha(datos):
         f = {"id": i, **f, "partes": _partes(datos.get("partes"), avisos)}
         escribir_json(_ficha_path(i), f)
         actividad("ficha", f"Ficha creada: {f['nombre']}", str(_ficha_path(i)))
+        guardar_version(i)
         mapa_luego()
         return f, avisos
 
@@ -964,6 +998,7 @@ def guardar_ficha(i, datos):
             f["partes"] = _partes(datos["partes"], avisos)
         escribir_json(p, f)
         actividad("ficha", f"Ficha guardada: {f['nombre']}", str(p))
+        guardar_version(i)
         mapa_luego()
         return f, avisos
 
@@ -996,6 +1031,10 @@ def fichas(ubicar_anclas=True):
         for p in f.get("partes", []):
             for c in p.get("carpetas", []):
                 i = c["ancla"]
+                if i.startswith("remota:"):  # etapa remota: su dirección hace de ruta
+                    c.update(ruta=c["remota"].get("url", ""), estado="remota", nombre=c["remota"]["nombre"], icono_propio=False,
+                             icono="🌍", proyectos=[f["id"]], git=False, eliminada="")
+                    continue
                 if i not in estados:
                     estados[i] = ubicar(i, reg) if ubicar_anclas else ("ok", reg.get(i, {}).get("ruta", ""))
                 est, ruta = estados[i]
@@ -1062,6 +1101,55 @@ def quitar_carpeta(proyecto_id, ancla):
         f["actualizado"] = datetime.now().date().isoformat()
         escribir_json(p, f)
         actividad("ficha", f"Carpeta quitada de {f['nombre']}", ruta)
+    guardar_version(proyecto_id)
+    mapa_luego()
+    return f
+
+
+def mover_carpeta(proyecto_id, ancla, tipo, nombre=""):
+    """Pasa una carpeta a otra parte del proyecto (la primera de ese tipo; si no hay, se crea). Solo cambia la ficha:
+    nada se mueve en el disco. Una parte que queda vacía se quita. Al entrar en Entornos toma la etapa por su nombre."""
+    if tipo not in TIPOS:
+        raise ValueError(f"Tipo de parte no válido: {tipo}")
+    with _fichas_lock:
+        p = _ficha_path(proyecto_id)
+        f = leer_json(p, None)
+        if not f:
+            raise ValueError("No existe ese proyecto")
+        item = origen = None
+        for parte in f.get("partes", []):
+            for c in parte["carpetas"]:
+                if c["ancla"] == ancla:
+                    item, origen = c, parte
+        if not item:
+            raise ValueError("Esa carpeta no está en el proyecto")
+        if origen.get("tipo") == tipo:
+            return f
+        if ancla.startswith("remota:") and tipo != "entornos":
+            raise ValueError("Una etapa remota solo puede ir en Entornos")
+        origen["carpetas"].remove(item)
+        destino = next((x for x in f["partes"] if x.get("tipo") == tipo), None)
+        if not destino:
+            destino = {"nombre": (str(nombre).strip() or tipo.capitalize())[:60], "tipo": tipo, "carpetas": []}
+            f["partes"].insert(f["partes"].index(origen) + 1, destino)
+        ruta = registro().get(ancla, {}).get("ruta", "")
+        if tipo == "entornos":
+            item["etapa"] = item.get("etapa") or etapa_sugerida(Path(ruta).name)
+        else:
+            item.pop("etapa", None)
+        cs = destino["carpetas"]
+        if tipo == "entornos":  # en su sitio: pruebas → calidad → producción (las etapas propias van al final)
+            orden = {n: k for k, (_, n) in enumerate(ETAPAS)}
+            k = orden.get(item["etapa"], len(orden))
+            cs.insert(next((j for j, x in enumerate(cs) if orden.get(x.get("etapa"), len(orden)) > k), len(cs)), item)
+        else:
+            cs.append(item)
+        if not origen["carpetas"]:
+            f["partes"].remove(origen)
+        f["actualizado"] = datetime.now().date().isoformat()
+        escribir_json(p, f)
+        actividad("ficha", f"{f['nombre']}: carpeta pasada de {origen['nombre']} a {destino['nombre']}", ruta or ancla)
+    guardar_version(proyecto_id)
     mapa_luego()
     return f
 
@@ -1101,6 +1189,192 @@ def convertir_proyectos(rutas):
         hechas.append(f)
         avisos.extend(av)
     return hechas, avisos
+
+
+# ---------- notas en nodos y conectores (Markdown, una por archivo en notas/) ----------
+# Cabecera mínima y luego el texto. destino: proyecto · nodo:<ancla> · parte:<n> · conector:<id> · caja:<id>
+
+DESTINO_RE = re.compile(r"(proyecto|nodo:(remota:)?[0-9a-f]{6,32}|parte:\d{1,3}|conector:[\w:>-]{1,120}|caja:[\w-]{1,40})")
+
+
+def _nota_leer(p):
+    try:
+        t = p.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    if not t.startswith("---\n"):
+        return None
+    cab, _, cuerpo = t[4:].partition("\n---\n")
+    d = dict(ln.split(": ", 1) for ln in cab.splitlines() if ": " in ln)
+    return {"id": p.stem, "proyecto": d.get("proyecto", ""), "destino": d.get("destino", ""), "creada": d.get("creada", ""),
+            "cambiada": d.get("cambiada", ""), "texto": cuerpo}
+
+
+def notas(proyecto_id):
+    """Notas de un proyecto, de la más nueva a la más vieja."""
+    out = [n for n in (_nota_leer(p) for p in (DATA / "notas").glob("*.md")) if n and n["proyecto"] == proyecto_id]
+    return sorted(out, key=lambda n: n["creada"], reverse=True)
+
+
+def guardar_nota(proyecto_id, destino, texto, nid=""):
+    """Crea o cambia una nota (Markdown). Queda en el historial de la estructura del proyecto."""
+    _ficha_path(proyecto_id)
+    if not DESTINO_RE.fullmatch(destino or ""):
+        raise ValueError("Destino de nota no válido")
+    if nid and not re.fullmatch(r"[0-9a-f]{32}", nid):
+        raise ValueError("Nota no válida")
+    nid = nid or uuid.uuid4().hex
+    p = DATA / "notas" / f"{nid}.md"
+    antes = _nota_leer(p) if p.exists() else None
+    ahora = datetime.now().isoformat(timespec="seconds")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(f"---\nproyecto: {proyecto_id}\ndestino: {destino}\ncreada: {antes['creada'] if antes else ahora}\n"
+                 f"cambiada: {ahora}\n---\n{str(texto)[:20000]}", encoding="utf-8")
+    actividad("nota", f"Nota {'cambiada' if antes else 'nueva'} en {proyecto_id} ({destino})", str(p))
+    guardar_version(proyecto_id)
+    return _nota_leer(p)
+
+
+def borrar_nota(proyecto_id, nid):
+    if not re.fullmatch(r"[0-9a-f]{32}", nid or ""):
+        raise ValueError("Nota no válida")
+    p = DATA / "notas" / f"{nid}.md"
+    n = _nota_leer(p)
+    if not n or n["proyecto"] != proyecto_id:
+        raise ValueError("No existe esa nota")
+    p.unlink()
+    actividad("nota", f"Nota borrada de {proyecto_id} ({n['destino']})", str(p))
+    guardar_version(proyecto_id)
+
+
+# ---------- historial de la estructura (siempre se guarda: sin tope ni días) ----------
+# Cada punto es una copia comprimida de la ficha + sus notas + el nombre de cada ancla (para ver lo quitado).
+# Automáticos: los cambios de 5 minutos seguidos se juntan en uno. Con nombre: «Guardar versión». No se borran.
+
+import gzip  # noqa: E402  (solo lo usa el historial)
+
+
+def _vdir(i):
+    _ficha_path(i)
+    return DATA / "versiones" / i
+
+
+def _instantanea(i):
+    f = leer_json(_ficha_path(i), None)
+    if not f:
+        raise ValueError("No existe ese proyecto")
+    reg = registro()
+    ids = {c["ancla"] for p in f.get("partes", []) for c in p.get("carpetas", [])}
+    remotas = {c["ancla"]: c["remota"] for p in f.get("partes", []) for c in p.get("carpetas", []) if c.get("remota")}
+    return {"ficha": f, "notas": notas(i), "anclas": {a: ({"ruta": remotas[a].get("url", ""), "nombre": remotas[a]["nombre"]} if a in remotas else
+                                                          {"ruta": reg.get(a, {}).get("ruta", ""), "nombre": Path(reg.get(a, {}).get("ruta", "?")).name})
+                                                     for a in ids}}
+
+
+def _sin_fecha(s):
+    f = dict(s["ficha"])
+    f.pop("actualizado", None)
+    return json.dumps({**s, "ficha": f}, sort_keys=True, ensure_ascii=False)
+
+
+def versiones(i):
+    return leer_json(_vdir(i) / "indice.json", [])
+
+
+def guardar_version(i, nombre=""):
+    """Un punto del historial. Sin nombre: automático (se junta con el anterior si fue hace menos de 5 min).
+    Con nombre: queda aparte y nunca se junta. No guarda nada si no cambió desde el último."""
+    with _fichas_lock:
+        try:
+            s = _instantanea(i)
+        except ValueError:
+            return None
+        d = _vdir(i)
+        idx = versiones(i)
+        ahora = datetime.now()
+        ultimo = idx[-1] if idx else None
+        if ultimo and not nombre:
+            try:
+                previa = json.loads(gzip.decompress((d / ultimo["archivo"]).read_bytes()))
+                if _sin_fecha(previa) == _sin_fecha(s):
+                    return ultimo
+            except (OSError, ValueError):
+                pass
+        juntar = (not nombre and ultimo and ultimo.get("auto")
+                  and ahora - datetime.fromisoformat(ultimo["fecha"]) < timedelta(minutes=5))
+        v = ultimo["v"] if juntar else ahora.strftime("%Y%m%dT%H%M%S%f")[:18]
+        n_carp = sum(len(p.get("carpetas", [])) for p in s["ficha"].get("partes", []))
+        entrada = {"v": v, "fecha": ahora.isoformat(timespec="seconds"), "nombre": str(nombre)[:80], "auto": not nombre,
+                   "archivo": f"{v}.json.gz", "resumen": f"{len(s['ficha'].get('partes', []))} partes · {n_carp} carpetas · "
+                   f"{len(s['ficha'].get('conexiones', []))} conectores · {len(s['notas'])} notas"}
+        d.mkdir(parents=True, exist_ok=True)
+        (d / entrada["archivo"]).write_bytes(gzip.compress(json.dumps(s, ensure_ascii=False).encode("utf-8")))
+        if juntar:
+            idx[-1] = entrada
+        else:
+            idx.append(entrada)
+        escribir_json(d / "indice.json", idx)
+        if nombre:
+            actividad("version", f"Versión «{nombre}» guardada de {s['ficha'].get('nombre', i)}", str(d / entrada["archivo"]))
+        return entrada
+
+
+def leer_version(i, v):
+    e = next((x for x in versiones(i) if x["v"] == v), None)
+    if not e:
+        raise ValueError("No existe esa versión")
+    return json.loads(gzip.decompress((_vdir(i) / e["archivo"]).read_bytes()))
+
+
+def commits_proyecto(i, n=40):
+    """Commits de la carpeta de código (marcas en la línea de tiempo): con cada uno, la versión de la estructura que
+    había en ese momento. Solo si la carpeta usa git y git está instalado; si no, lista vacía."""
+    f = leer_json(_ficha_path(i), {})
+    reg = registro()
+    cod = next((reg[c["ancla"]]["ruta"] for p in f.get("partes", []) if p.get("tipo") == "codigo"
+                for c in p.get("carpetas", []) if c["ancla"] in reg and (Path(reg[c["ancla"]]["ruta"]) / ".git").exists()), "")
+    if not cod or not shutil.which("git"):
+        return []
+    try:
+        r = subprocess.run(["git", "log", f"-{n}", "--format=%H%x09%h%x09%cI%x09%s"], cwd=cod, capture_output=True,
+                           text=True, encoding="utf-8", errors="replace", timeout=10, creationflags=NO_WINDOW)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    vs = versiones(i)
+    out = []
+    for ln in r.stdout.splitlines():
+        h, corto, fecha, titulo = (ln.split("\t") + ["", "", "", ""])[:4]
+        try:
+            fc = datetime.fromisoformat(fecha).replace(tzinfo=None)
+        except ValueError:
+            continue
+        antes = [x for x in vs if datetime.fromisoformat(x["fecha"]) <= fc]
+        out.append({"hash": h, "corto": corto, "fecha": fc.isoformat(timespec="seconds"), "titulo": titulo[:120],
+                    "v": antes[-1]["v"] if antes else ""})
+    return out
+
+
+def restaurar_version(i, v):
+    """Vuelve a una versión: crea un punto nuevo (la actual no se pierde, queda en el historial)."""
+    s = leer_version(i, v)
+    guardar_version(i, f"antes de restaurar {v[:8]}")
+    f = s["ficha"]
+    guardar_ficha(i, {k: f[k] for k in ("nombre", "estado", "avance", "descripcion", "nota", "color", "tecnologia", "enlaces",
+                                        "historial", "conexiones", "cajas", "posiciones") if k in f}
+                  | {"partes": [{"nombre": p["nombre"], "tipo": p["tipo"], "carpetas": [{"ancla": c["ancla"], "activa": c.get("activa", True),
+                                                                                          **({"icono": c["icono"]} if c.get("icono") else {}),
+                                                                                          **({"remota": c["remota"]} if c.get("remota") else {}),
+                                                                                          **({"etapa": c["etapa"]} if c.get("etapa") else {})}
+                                                                         for c in p["carpetas"] if c.get("remota") or c["ancla"] in registro()]}
+                                for p in f.get("partes", [])]})
+    for n in notas(i):  # las notas, como estaban
+        (DATA / "notas" / f"{n['id']}.md").unlink(missing_ok=True)
+    for n in s.get("notas", []):
+        p = DATA / "notas" / f"{n['id']}.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"---\nproyecto: {i}\ndestino: {n['destino']}\ncreada: {n['creada']}\ncambiada: {n['cambiada']}\n---\n{n['texto']}", encoding="utf-8")
+    actividad("version", f"{f.get('nombre', i)} restaurado a la versión del {s['ficha'].get('actualizado', v)}", str(_vdir(i)))
+    guardar_version(i)
 
 
 # ---------- MAPA.md: «lee mi DeskLens / mis anclas» (M1) ----------
@@ -1144,7 +1418,8 @@ def escribir_mapa():
                 otros = [x for x in c["proyectos"] if x != f["id"]]
                 if otros:
                     extra.append("compartida con: " + ", ".join(otros))
-                ln.append(f"| {TIPO_ICONO.get(p['tipo'], '📁')} {p['nombre']} | {c['ruta']} | {estado.get(c['estado'], c['estado'])}"
+                ln.append(f"| {TIPO_ICONO.get(p['tipo'], '📁')} {p['nombre']}{' · ' + c['etapa'] if c.get('etapa') else ''} | {c['ruta']} | "
+                          f"{'🌍 remota' if c['estado'] == 'remota' else estado.get(c['estado'], c['estado'])}"
                           f"{' · ' + ' · '.join(extra) if extra else ''} |")
         nombres = {c["ancla"]: c["nombre"] for p in f["partes"] for c in p["carpetas"]}
         for k in f.get("conexiones") or []:
@@ -1159,7 +1434,7 @@ def escribir_mapa():
     return str(DATA / "MAPA.md")
 
 
-TIPO_ICONO = {"codigo": "💻", "material": "🎬", "web": "🌐", "respaldos": "🗄", "base_datos": "🛢", "documentos": "📄", "otro": "📁"}
+TIPO_ICONO = {"entornos": "🚦", "codigo": "💻", "material": "🎬", "web": "🌐", "respaldos": "🗄", "base_datos": "🛢", "documentos": "📄", "otro": "📁"}
 _mapa_timer = [None]
 
 
@@ -1299,6 +1574,15 @@ def get(ruta, q, proyectos_desklens=()):
         return 200, {"proyectos": relaciones(proyectos_desklens)}
     if r == "actividad":
         return 200, leer_actividad()
+    try:
+        if r == "versiones":
+            return 200, {"versiones": versiones(q.get("id", ""))[::-1], "commits": commits_proyecto(q.get("id", ""))}
+        if r == "version":
+            return 200, leer_version(q.get("id", ""), q.get("v", ""))
+        if r == "notas":
+            return 200, {"notas": notas(q.get("id", ""))}
+    except (ValueError, OSError) as e:
+        return 400, {"error": str(e)}
     if r == "ajustes":
         return 200, {**ajustes(), "respaldo": info_respaldo(), "datos": str(DATA), "mapa_ruta": str(DATA / "MAPA.md"),
                      "mapa_fecha": datetime.fromtimestamp((DATA / "MAPA.md").stat().st_mtime).isoformat(timespec="seconds") if (DATA / "MAPA.md").exists() else "",
@@ -1321,6 +1605,8 @@ def post(ruta, datos):
             return 200, {"ficha": f, "avisos": av}
         if r == "ficha/quitar_carpeta":
             return 200, {"ficha": quitar_carpeta(datos.get("id", ""), datos.get("ancla", ""))}
+        if r == "ficha/mover_carpeta":
+            return 200, {"ficha": mover_carpeta(datos.get("id", ""), datos.get("ancla", ""), datos.get("tipo", ""), datos.get("nombre", ""))}
         if r == "papelera":
             abrir_papelera()
             return 200, {}
@@ -1348,6 +1634,18 @@ def post(ruta, datos):
             return 200, {"recorrido": detener_recorrido()}
         if r == "ajustes":
             return 200, guardar_ajustes(datos)
+        if r == "version/nombre":
+            if not str(datos.get("nombre", "")).strip():
+                raise ValueError("La versión necesita un nombre")
+            return 200, {"version": guardar_version(datos.get("id", ""), str(datos["nombre"]).strip())}
+        if r == "version/restaurar":
+            restaurar_version(datos.get("id", ""), datos.get("v", ""))
+            return 200, {}
+        if r == "nota/guardar":
+            return 200, {"nota": guardar_nota(datos.get("proyecto", ""), datos.get("destino", ""), datos.get("texto", ""), datos.get("id", ""))}
+        if r == "nota/borrar":
+            borrar_nota(datos.get("proyecto", ""), datos.get("id", ""))
+            return 200, {}
         if r == "respaldo/ahora":
             return 200, respaldar()
         if r == "abrir_datos":
