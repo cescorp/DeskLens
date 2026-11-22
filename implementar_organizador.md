@@ -821,7 +821,17 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - **2026-11-21 · Fase 1b (v1.169):** Flujo y Red con Cytoscape 3.30.2 (se carga al abrirlas), posiciones por vista en la ficha, zoom/posición por proyecto, minimapa propio, conectores (modo Conectar: clic origen → clic destino, en vez de arrastrar desde el borde), cajas, notas en nodos y conectores (Markdown en `notas/`, 💬 + cuadro flotante + panel), historial de estructura (`versiones/<id>/`, 5 min, con nombre, commits como marcas, restaurar) y comparativo en las 3 vistas (encima, lado a lado, solo cambios, ↑↓). **Fase 1b completa.**
 - Pendiente aparte: el historial de versiones **de archivos** por ancla + ruta relativa (que no se pierda al mover) con la cuota por proyecto; hoy sigue el de DeskLens por ruta.
 
-### ⏳ Abrir carpetas dentro de Flujo y Red (subflujo · subred), propuesto 2026-11-21
+### ✅ Barra única y ⇆ Comparar en ventana (ok y hecho 2026-11-22)
+- Una barra: pestañas de vista (Contenedor · Flujo · Red) · ⟶ Unir · ▭ Nota libre · ▴ Plegar todo · ↺ Ordenar · ⇆ Comparar… · 🏷 Guardar versión · ⓘ 🗺 ⤢ zoom. Estrecha: solo iconos. «Conector» → unión, «caja» → nota libre (en menús, preguntas y teclas).
+- ⇆ Comparar…: ventana con versiones (con nombre, commits, automáticas), Antes | Ahora en Flujo, Red o Árbol (zoom a la par), Solo cambios, lista de cambios en frases (clic o ↑↓ los señala en los dos lados) y ↶ Restaurar. Historial › ⇆ Comparar abre la misma. Ya no hay comparativo dentro de la pizarra ni del árbol.
+
+### ✅ Panel ⓘ Información + subflujo · subred (ok 2026-11-21, hecho 2026-11-22)
+- Clic en cualquier nodo (o clic derecho › ⓘ Información, también en el árbol del Contenedor): panel derecho con barra de ruta (pulsable desde la carpeta del proyecto), Copiar · Explorador · Terminal/Abrir, tipo, peso, contenido, fechas, atributos, git, ancla, proyectos y notas; lista del contenido con filtro y orden (nombre, peso, fecha). Archivo: datos de `/api/info` y vista previa (texto: 200 líneas; imágenes). Parte y proyecto: sus carpetas con estado, peso de cada una y total, y la fila de etapas en Entornos.
+- Peso: `GET /api/org/carpeta` y `/api/org/peso` (en segundo plano, 3 a la vez, 5 min en memoria, peso de cada hijo directo, sin seguir enlaces ni uniones, sin contar `.desklens-ancla`), `POST /api/org/peso/parar`. Solo dentro de carpetas ancladas.
+- Doble clic en carpeta: despliega ahí mismo (12 + «… N más», que abre la lista en el panel); en archivo: lo abre en una pestaña (Contenedor). Se recuerda por proyecto y vista qué quedó desplegado, si el panel estaba abierto, su ancho y lo último elegido. I abre/cierra el panel, Esc lo cierra.
+- Diferencias con lo propuesto: la vista previa es propia del panel (texto e imágenes), no el visor completo de DeskLens; comparando no se despliega; falta el botón «Plegar todo» (va con el rediseño de las barras).
+
+### Abrir carpetas dentro de Flujo y Red (subflujo · subred), propuesto 2026-11-21 (hecho arriba)
 Hoy el doble clic en una carpeta salta al Contenedor (parece que «solo abre el explorador»). Propuesta: se abre **ahí mismo**.
 - **Flujo → subflujo:** doble clic en 📁 despliega su contenido debajo, como ramas (carpetas primero). Más de 12 elementos: los 12 primeros y una caja «… 30 más» que se abre como **lista con buscador**.
 - **Red → subred:** los hijos salen alrededor de la carpeta, más pequeños, como satélites.

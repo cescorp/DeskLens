@@ -1154,6 +1154,88 @@ def mover_carpeta(proyecto_id, ancla, tipo, nombre=""):
     return f
 
 
+# ---------- ⓘ Panel de información: datos de una carpeta y su peso (en segundo plano, con avance, 5 min en memoria) ----------
+_pesos, _pesos_lock = {}, threading.Lock()
+PESO_VIDA, PESO_A_LA_VEZ = 300, 3
+
+
+def dentro_de_proyecto(ruta):
+    """Solo carpetas y archivos que están dentro de alguna carpeta anclada (el panel no mira el resto del disco)."""
+    try:
+        p = Path(corta(ruta)).resolve()
+    except (OSError, ValueError):
+        return False
+    return any(p == r or r in p.parents for r in rutas_permitidas() if r != DATA.resolve())
+
+
+def _medir(e, ruta):
+    """Recorre la carpeta sumando tamaños; también el peso de cada hijo directo (para la lista del panel). Sin seguir
+    enlaces ni uniones (podrían dar vueltas). e["parar"] lo detiene."""
+    try:
+        pila = []
+        for d in os.scandir(larga(ruta)):
+            if d.name != ANCLA:  # la marca de DeskLens no cuenta (el panel tampoco la lista)
+                pila.append((d, d.name))
+        while pila:
+            if e["parar"]:
+                e["estado"] = "detenido"
+                return
+            d, hijo = pila.pop()
+            try:
+                st = d.stat(follow_symlinks=False)
+                if d.is_symlink() or getattr(st, "st_file_attributes", 0) & 0x400:  # enlace o unión
+                    continue
+                if d.is_dir(follow_symlinks=False):
+                    e["carpetas"] += 1
+                    pila.extend((x, hijo) for x in os.scandir(d.path))
+                else:
+                    e["archivos"] += 1
+                    e["bytes"] += st.st_size
+                    e["hijos"][hijo] = e["hijos"].get(hijo, 0) + st.st_size
+            except OSError:
+                e["sin_acceso"] += 1
+        e["estado"] = "listo"
+    except OSError as x:
+        e.update(estado="error", error=str(x))
+    finally:
+        e["fin"] = time.time()
+
+
+def peso_carpeta(ruta, iniciar=True):
+    """Estado del cálculo del peso de `ruta`: calculando (con lo sumado hasta ahora), listo, en_cola, detenido o error."""
+    k = corta(ruta).lower()
+    with _pesos_lock:
+        e = _pesos.get(k)
+        vivo = e and (e["estado"] == "calculando" or e["estado"] == "listo" and time.time() - e["fin"] < PESO_VIDA)
+        if not vivo and iniciar:
+            if sum(1 for x in _pesos.values() if x["estado"] == "calculando") >= PESO_A_LA_VEZ:
+                return {"estado": "en_cola", "bytes": 0, "carpetas": 0, "archivos": 0, "hijos": {}}
+            e = _pesos[k] = {"estado": "calculando", "bytes": 0, "carpetas": 0, "archivos": 0, "sin_acceso": 0, "hijos": {},
+                             "inicio": time.time(), "fin": 0, "parar": False}
+            threading.Thread(target=_medir, args=(e, corta(ruta)), daemon=True).start()
+        if not e:
+            return {"estado": "sin_calcular"}
+        return {k2: (dict(v) if k2 == "hijos" else v) for k2, v in e.items() if k2 != "parar"}
+
+
+def parar_peso(ruta):
+    with _pesos_lock:
+        e = _pesos.get(corta(ruta).lower())
+        if e and e["estado"] == "calculando":
+            e["parar"] = True
+
+
+def info_carpeta(ruta, peso=True):
+    """Datos de una carpeta para el panel ⓘ: fechas, atributos y su peso (si se pide)."""
+    if not dentro_de_proyecto(ruta):
+        raise ValueError("Esa carpeta no está dentro de un proyecto")
+    st = os.stat(larga(ruta))
+    attrs = getattr(st, "st_file_attributes", 0)
+    return {"nombre": Path(corta(ruta)).name, "ruta": corta(ruta), "modificado": st.st_mtime, "creado": getattr(st, "st_birthtime", st.st_ctime),
+            "atributos": [n for bit, n in ((1, "solo lectura"), (2, "oculto"), (4, "sistema")) if attrs & bit] or ["normal"],
+            "git": os.path.isdir(os.path.join(larga(ruta), ".git")), **({"peso": peso_carpeta(ruta)} if peso else {})}
+
+
 def abrir_papelera():
     """Abre la papelera de Windows (para restaurar desde allí: DeskLens no la vacía ni restaura por su cuenta)."""
     if not WINDOWS:
@@ -1306,7 +1388,7 @@ def guardar_version(i, nombre=""):
         n_carp = sum(len(p.get("carpetas", [])) for p in s["ficha"].get("partes", []))
         entrada = {"v": v, "fecha": ahora.isoformat(timespec="seconds"), "nombre": str(nombre)[:80], "auto": not nombre,
                    "archivo": f"{v}.json.gz", "resumen": f"{len(s['ficha'].get('partes', []))} partes · {n_carp} carpetas · "
-                   f"{len(s['ficha'].get('conexiones', []))} conectores · {len(s['notas'])} notas"}
+                   f"{len(s['ficha'].get('conexiones', []))} uniones · {len(s['notas'])} notas"}
         d.mkdir(parents=True, exist_ok=True)
         (d / entrada["archivo"]).write_bytes(gzip.compress(json.dumps(s, ensure_ascii=False).encode("utf-8")))
         if juntar:
@@ -1557,6 +1639,15 @@ def get(ruta, q, proyectos_desklens=()):
     if not ruta.startswith("/api/org/"):
         return None
     r = ruta[len("/api/org/"):]
+    if r in ("carpeta", "peso"):  # ⓘ panel de información
+        try:
+            if r == "carpeta":
+                return 200, info_carpeta(q.get("ruta", ""), q.get("peso", "1") != "0")
+            if not dentro_de_proyecto(q.get("ruta", "")):
+                return 403, {"error": "Esa carpeta no está dentro de un proyecto"}
+            return 200, peso_carpeta(q.get("ruta", ""), q.get("iniciar", "1") != "0")
+        except (ValueError, OSError) as e:
+            return 400, {"error": str(e)}
     if r == "estado":
         fs = fichas()
         ya = {c["ruta"].lower() for f in fs for p in f["partes"] for c in p["carpetas"]}
@@ -1607,6 +1698,9 @@ def post(ruta, datos):
             return 200, {"ficha": quitar_carpeta(datos.get("id", ""), datos.get("ancla", ""))}
         if r == "ficha/mover_carpeta":
             return 200, {"ficha": mover_carpeta(datos.get("id", ""), datos.get("ancla", ""), datos.get("tipo", ""), datos.get("nombre", ""))}
+        if r == "peso/parar":
+            parar_peso(datos.get("ruta", ""))
+            return 200, {}
         if r == "papelera":
             abrir_papelera()
             return 200, {}

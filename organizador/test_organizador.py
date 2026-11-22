@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -295,6 +296,26 @@ try:
             raise AssertionError(malo)
         except ValueError:
             pass
+    # ⓘ panel: datos y peso de una carpeta del proyecto (en segundo plano), con el peso de cada hijo; fuera de proyectos, no
+    (cal / "app").mkdir()
+    (cal / "app" / "a.bin").write_bytes(b"x" * 3000)
+    (cal / "léeme.txt").write_bytes(b"y" * 500)
+    org.mover_carpeta("despliegue", ac, "entornos")
+    i = org.info_carpeta(str(cal))
+    assert i["nombre"] == "homeshape_calidad" and i["atributos"] and i["peso"]["estado"] in ("calculando", "listo")
+    for _ in range(100):
+        pz = org.peso_carpeta(str(cal))
+        if pz["estado"] == "listo":
+            break
+        time.sleep(0.05)
+    assert pz["bytes"] == 3500 and pz["archivos"] == 2 and pz["carpetas"] == 1 and pz["hijos"]["app"] == 3000, pz
+    assert org.dentro_de_proyecto(str(cal / "app")) and not org.dentro_de_proyecto(str(cal.parent))
+    try:
+        org.info_carpeta(str(cal.parent))
+        raise AssertionError("fuera de proyectos")
+    except ValueError:
+        pass
+    assert org.get("/api/org/peso", {"ruta": str(cal.parent)})[0] == 403
     org.quitar_ficha("despliegue")
 
     # Fase 1b · conectores, cajas y posiciones: se validan y se guardan en la ficha

@@ -192,7 +192,7 @@
     dlg.innerHTML = `<header><b>${titulo}</b><button class="ic" title="Cerrar">✕</button></header><div class="odb">${html}</div>${pie ? `<footer>${pie}</footer>` : ''}`;
     dlg.querySelector('header button').onclick = () => cerrarDlg();
     dlg.onclose = () => pararPoll();
-    delete dlg.dataset.cambios;
+    delete dlg.dataset.cambios; delete dlg.dataset.tipo; dlg.onkeydown = null; // lo que dejó otra ventana (p. ej. ⇆ Comparar)
     dlg.oninput = () => { dlg.dataset.cambios = '1'; }; // algo escrito sin guardar: solo entonces se pregunta al cerrar
     if (!dlg.open) dlg.show(); // sin bloquear la pantalla (no showModal): un clic fuera la cierra
     return dlg;
@@ -641,7 +641,9 @@
     try { v = JSON.parse(LS('desklens.org.vista.' + f.id) || '{}'); } catch {}
     O.adm = { id: f.id, tab: v.tab || 'archivos', q: v.q || '', arbolW: v.arbolW || 320, scroll: v.scroll || 0, ultimo: v.ultimo || '',
       abiertas: new Set(v.abiertas || JSON.parse(LS('desklens.org.abiertas.' + f.id) || '[]')),
-      vista: v.vista || 'contenedor', cmp: v.cmp || { v: '', modo: 'encima', solo: false }, cam: v.cam || {}, mini: v.mini ?? true, notaAbierta: v.notaAbierta || '', notas: [] };
+      vista: v.vista || 'contenedor', cmp: v.cmp || { v: '', modo: 'encima', solo: false }, cam: v.cam || {}, mini: v.mini ?? true, notaAbierta: v.notaAbierta || '', notas: [],
+      reabrir: true, // su último archivo se abre al entrar (una vez)
+      info: { abierto: false, sel: null, ancho: 380, ...(v.info || {}) }, exp: { flujo: [], red: [], ...(v.exp || {}) } }; // ⓘ panel y carpetas desplegadas en Flujo/Red
     api('/api/org/notas?id=' + encodeURIComponent(f.id)).then(r => { if (O.adm?.id !== f.id) return; O.adm.notas = r.notas; if (r.notas.length && O.pantalla === 'proyecto') admin(); }).catch(() => {});
     O.pantalla = 'proyecto'; pintar(); guardarDonde();
   }
@@ -681,12 +683,11 @@
 
   // Archivos: árbol unido por partes (carpetas que se abren al pulsar) + visor de DeskLens a la derecha
   function adminArchivos(f, B) {
-    B.innerHTML = `<div class="oadm"><div class="oarbol">
-        <div class="oaq"><input type="search" id="aQ" placeholder="Buscar en el proyecto…" value="${esc(O.adm.q)}">
-          <select id="aV" title="Vista"><option value="contenedor" selected>🗂 Contenedor</option><option value="flujo">⇢ Flujo</option><option value="red">◉ Red</option></select></div>
+    B.innerHTML = `<div class="obarra">${pestanasVista('contenedor')}${grupoHistorial}<span class="sp"></span></div><div class="oadm"><div class="oarbol">
+        <div class="oaq"><input type="search" id="aQ" placeholder="Buscar en el proyecto…" value="${esc(O.adm.q)}"></div>
         <div id="aTree" class="otree"></div>
         <button class="obtn" id="aJ">🧩 Editar jerarquía</button></div>
-      <div class="ores" title="Arrastra para cambiar el ancho"></div><div class="oslot"></div></div>`;
+      <div class="ores" title="Arrastra para cambiar el ancho"></div><div class="oslot"></div><div class="oinfo oflota" id="pI" hidden></div></div>`;
     // el visor de DeskLens se presta a esta vista (mismas pestañas, editor, PDF, Word…)
     if (!panesHome) { const p = $('#panes'); panesHome = { parent: p.parentNode, next: p.nextSibling }; }
     B.querySelector('.oslot').append($('#panes'));
@@ -699,7 +700,7 @@
       addEventListener('pointermove', mv); addEventListener('pointerup', up);
     };
     B.querySelector('#aJ').onclick = () => { devolverPanes(); editarFicha(f); };
-    B.querySelector('#aV').onchange = e => { O.adm.vista = e.target.value; guardarVista(); admin(); };
+    cablearBarra(f, B);
     const T = B.querySelector('#aTree');
     T.dataset.menuPropio = '1'; // el árbol del proyecto tiene su propio menú (clic derecho)
     const q = B.querySelector('#aQ');
@@ -707,15 +708,25 @@
     q.oninput = () => { O.adm.q = q.value; guardarVista(); clearTimeout(tq); tq = setTimeout(() => O.adm.q.trim() ? buscarEn(f, T) : arbol(f, T), 250); };
     let ts; T.onscroll = () => { clearTimeout(ts); ts = setTimeout(() => { O.adm.scroll = T.scrollTop; guardarVista(); }, 300); };
     O.adm.q.trim() ? buscarEn(f, T) : arbol(f, T);
-    if (!O.adm.q.trim()) compararArbol(f, B, T); // barra ⇆ Comparar (y las marcas, si hay una versión elegida)
     // al volver al proyecto: su último archivo, si lo que se ve ahora no es de este proyecto
     const dentro = r => r && vivas(f).some(c => r.toLowerCase().startsWith(c.ruta.toLowerCase()));
-    if (O.adm.ultimo && !dentro(typeof cur === 'string' ? cur : '')) openTab(O.adm.ultimo, true);
+    // solo una vez al entrar al proyecto (no cada vez que vuelves al Contenedor desde Flujo o Red)
+    if (O.adm.reabrir && O.adm.ultimo && !dentro(typeof cur === 'string' ? cur : '')) openTab(O.adm.ultimo, true);
+    O.adm.reabrir = false;
   }
   const guardarVista = () => O.adm && LS('desklens.org.vista.' + O.adm.id, JSON.stringify({ tab: O.adm.tab, q: O.adm.q, arbolW: O.adm.arbolW,
     scroll: O.adm.scroll, ultimo: O.adm.ultimo, abiertas: [...O.adm.abiertas], vista: O.adm.vista, cmp: O.adm.cmp, cam: O.adm.cam, mini: O.adm.mini,
-    notaAbierta: O.adm.notaAbierta }));
+    notaAbierta: O.adm.notaAbierta, info: O.adm.info, exp: O.adm.exp }));
   const guardarAbiertas = guardarVista;
+  // cerrar la pestaña del último archivo del proyecto lo olvida: no vuelve a abrirse solo
+  if (typeof closeTab === 'function') {
+    const cerrarPestana = closeTab;
+    closeTab = async function (ruta, ...resto) {
+      const r = await cerrarPestana.call(this, ruta, ...resto);
+      if (O.adm?.ultimo === ruta && !tabs.includes(ruta)) { O.adm.ultimo = ''; guardarVista(); }
+      return r;
+    };
+  }
   const abrirArchivo = (ruta, fijo) => { O.adm.ultimo = ruta; guardarVista(); openTab(ruta, fijo); }; // se recuerda el último por proyecto
   function arbol(f, T) {
     T.innerHTML = f.partes.map((p, j) => `<div class="oparte"><div class="ophead">${TIPO[p.tipo][0]} ${esc(p.nombre)}</div>${p.carpetas.map((c, k) => {
@@ -740,8 +751,9 @@
       e.preventDefault(); e.stopPropagation(); // sin el menú general de DeskLens encima
       const ruta = n.dataset.ruta, dir = !!n.dataset.dir, raiz = n.classList.contains('raiz');
       const c = raiz ? f.partes[+n.dataset.j].carpetas[+n.dataset.k] : null;
-      const remota = n.classList.contains('oremota');
+      const remota = n.classList.contains('oremota'), panelI = document.querySelector('#pI');
       openMenu({ x: e.clientX, y: e.clientY }, [
+        ['ⓘ Información', () => infoMostrar(f, panelI, remota ? { tipo: 'remota', ancla: c.ancla } : { tipo: dir ? 'carpeta' : 'archivo', ruta }), { disabled: n.classList.contains('gris') && !remota }],
         ...(remota ? [{ head: c.nombre }] : [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err), { disabled: n.classList.contains('gris') }],
         ...(dir ? [['>_ Terminal aquí', () => { adminSalir(); cerrar(); openTerminal(ruta); }, { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]])]),
         ...(raiz ? menuMover(f, c.ancla, f.partes[+n.dataset.j].tipo) : []),
@@ -899,24 +911,29 @@
   // qué cambió de A (antes) a B (ahora): id → {t: nuevo|quitado|movido|cambiado, txt}; los quitados llevan «antes:» delante
   function diferencias(A, B) {
     const out = new Map(), por = (m, cl) => [...m.nodos.values()].filter(n => n.clase === cl);
+    // txt: el cambio en una frase, para la lista de ⇆ Comparar
+    const nom = (M, id) => M.nodos.get(id)?.nombre || M.nodos.get(id)?.label || id;
     for (const n of por(B, 'carpeta')) {
       const a = A.nodos.get(n.id);
-      if (!a) out.set(n.id, { t: 'nuevo', txt: `+ ${n.nombre}` });
-      else if (a.parte !== n.parte) out.set(n.id, { t: 'movido', txt: `↷ ${n.nombre} · antes en ${a.parte}`, antesParte: a.parte });
-      else if (a.icono !== n.icono || a.nombre !== n.nombre || a.etapa !== n.etapa) out.set(n.id, { t: 'cambiado', txt: `${n.nombre} · ${a.icono || '📁'}→${n.icono || '📁'}${a.nombre !== n.nombre ? ` · antes «${a.nombre}»` : ''}` });
+      if (!a) out.set(n.id, { t: 'nuevo', txt: `Carpeta nueva: ${n.nombre} (en ${n.parte})` });
+      else if (a.parte !== n.parte) out.set(n.id, { t: 'movido', txt: `${n.nombre}: de ${a.parte} a ${n.parte}`, antesParte: a.parte });
+      else if (a.icono !== n.icono || a.nombre !== n.nombre || a.etapa !== n.etapa) out.set(n.id, { t: 'cambiado', txt: `${n.nombre}: ${[
+        a.icono !== n.icono ? `icono ${a.icono || '📁'} → ${n.icono || '📁'}` : '', a.nombre !== n.nombre ? `antes se llamaba «${a.nombre}»` : '',
+        a.etapa !== n.etapa ? `etapa ${a.etapa || '—'} → ${icoEtapa(n.etapa)} ${n.etapa || '—'}` : ''].filter(Boolean).join(' · ')}` });
     }
-    for (const a of por(A, 'carpeta')) if (!B.nodos.has(a.id)) out.set('antes:' + a.id, { t: 'quitado', txt: `− ${a.nombre}`, nodo: a });
+    for (const a of por(A, 'carpeta')) if (!B.nodos.has(a.id)) out.set('antes:' + a.id, { t: 'quitado', txt: `Carpeta quitada: ${a.nombre} (estaba en ${a.parte})`, nodo: a });
     const pb = new Map(por(B, 'parte').map(n => [n.clave, n])), pa = new Map(por(A, 'parte').map(n => [n.clave, n]));
-    for (const [k, n] of pb) if (!pa.has(k)) out.set(n.id, { t: 'nuevo', txt: `+ parte ${n.label}` });
-    for (const [k, a] of pa) if (!pb.has(k)) out.set('antes:' + a.id, { t: 'quitado', txt: `− parte ${a.label}`, nodo: a });
-    for (const n of por(B, 'caja')) { const a = A.nodos.get(n.id); if (!a) out.set(n.id, { t: 'nuevo', txt: `+ caja «${n.texto}»` }); else if (a.texto !== n.texto || a.color !== n.color) out.set(n.id, { t: 'cambiado', txt: `caja «${n.texto}»` }); }
-    for (const a of por(A, 'caja')) if (!B.nodos.has(a.id)) out.set('antes:' + a.id, { t: 'quitado', txt: `− caja «${a.texto}»`, nodo: a });
-    for (const [id, e] of B.aristas) if (e.clase === 'tuya') { const a = A.aristas.get(id); if (!a) out.set(id, { t: 'nuevo', txt: `+ conector «${e.label || '—'}»` }); else if (a.label !== e.label || a.color !== e.color || a.dir !== e.dir || a.source !== e.source || a.target !== e.target) out.set(id, { t: 'cambiado', txt: `conector «${e.label || '—'}»` }); }
-    for (const [id, a] of A.aristas) if (a.clase === 'tuya' && !B.aristas.has(id)) out.set('antes:' + id, { t: 'quitado', txt: `− conector «${a.label || '—'}»`, arista: a });
-    const na = new Map(A.notas.map(n => [n.id, n])), nb = new Map(B.notas.map(n => [n.id, n]));
+    for (const [k, n] of pb) if (!pa.has(k)) out.set(n.id, { t: 'nuevo', txt: `Parte nueva: ${n.label}` });
+    for (const [k, a] of pa) if (!pb.has(k)) out.set('antes:' + a.id, { t: 'quitado', txt: `Parte quitada: ${a.label}`, nodo: a });
+    for (const n of por(B, 'caja')) { const a = A.nodos.get(n.id); if (!a) out.set(n.id, { t: 'nuevo', txt: `Nota libre nueva: «${n.texto}»` }); else if (a.texto !== n.texto || a.color !== n.color) out.set(n.id, { t: 'cambiado', txt: `Nota libre cambiada: «${n.texto}»` }); }
+    for (const a of por(A, 'caja')) if (!B.nodos.has(a.id)) out.set('antes:' + a.id, { t: 'quitado', txt: `Nota libre quitada: «${a.texto}»`, nodo: a });
+    for (const [id, e] of B.aristas) if (e.clase === 'tuya') { const a = A.aristas.get(id), que = `«${e.label || '—'}» (${nom(B, e.source)} → ${nom(B, e.target)})`;
+      if (!a) out.set(id, { t: 'nuevo', txt: `Unión nueva: ${que}` }); else if (a.label !== e.label || a.color !== e.color || a.dir !== e.dir || a.source !== e.source || a.target !== e.target) out.set(id, { t: 'cambiado', txt: `Unión cambiada: ${que}` }); }
+    for (const [id, a] of A.aristas) if (a.clase === 'tuya' && !B.aristas.has(id)) out.set('antes:' + id, { t: 'quitado', txt: `Unión quitada: «${a.label || '—'}» (${nom(A, a.source)} → ${nom(A, a.target)})`, arista: a });
+    const na = new Map(A.notas.map(n => [n.id, n])), nb = new Map(B.notas.map(n => [n.id, n])), en = (M, d) => nom(M, idDeDestino(d)) === 'p' ? 'el proyecto' : nom(M, idDeDestino(d));
     out.notas = new Map(); // destino → nuevo|cambiado|quitado (para el color de 💬)
-    for (const [id, n] of nb) { const a = na.get(id); if (!a || a.texto !== n.texto) { out.notas.set(idDeDestino(n.destino), a ? 'cambiado' : 'nuevo'); out.set('nota:' + id, { t: a ? 'cambiado' : 'nuevo', txt: `💬 nota ${a ? 'cambiada' : 'nueva'}`, de: idDeDestino(n.destino) }); } }
-    for (const [id, a] of na) if (!nb.has(id)) { out.notas.set(idDeDestino(a.destino), 'quitado'); out.set('nota:' + id, { t: 'quitado', txt: '💬 nota borrada', de: idDeDestino(a.destino) }); }
+    for (const [id, n] of nb) { const a = na.get(id); if (!a || a.texto !== n.texto) { out.notas.set(idDeDestino(n.destino), a ? 'cambiado' : 'nuevo'); out.set('nota:' + id, { t: a ? 'cambiado' : 'nuevo', txt: `💬 Nota ${a ? 'cambiada' : 'nueva'} en ${en(B, n.destino)}`, de: idDeDestino(n.destino) }); } }
+    for (const [id, a] of na) if (!nb.has(id)) { out.notas.set(idDeDestino(a.destino), 'quitado'); out.set('nota:' + id, { t: 'quitado', txt: `💬 Nota borrada de ${en(A, a.destino)}`, de: idDeDestino(a.destino) }); }
     return out;
   }
   function resumen(dif) {
@@ -925,117 +942,158 @@
     return dif.size ? Object.entries(c).filter(([, n]) => n).map(([t, n]) => `${CAMBIO[t][1]} ${n} ${CAMBIO[t][2]}${n > 1 ? 's' : ''}`).join(' · ') : '✓ Sin cambios entre las dos';
   }
 
-  // ---------- barra del comparativo (en las 3 vistas) ----------
-  async function barraComparar(f, B, alCambiar) {
-    let vs = { versiones: [], commits: [] };
-    try { vs = await api('/api/org/versiones?id=' + encodeURIComponent(f.id)); } catch {}
-    const cmp = O.adm.cmp, fecha = s => s.replace('T', ' ').slice(0, 16);
-    const opc = `<option value="">— sin comparar —</option>
-      ${vs.versiones.filter(v => !v.auto).length ? `<optgroup label="Versiones con nombre">${vs.versiones.filter(v => !v.auto).map(v => `<option value="${v.v}" ${cmp.v === v.v ? 'selected' : ''}>🏷 ${esc(v.nombre)} · ${fecha(v.fecha)}</option>`).join('')}</optgroup>` : ''}
-      <optgroup label="Automáticas">${vs.versiones.filter(v => v.auto).map(v => `<option value="${v.v}" ${cmp.v === v.v ? 'selected' : ''}>${fecha(v.fecha)} · ${esc(v.resumen)}</option>`).join('')}</optgroup>
-      ${vs.commits.length ? `<optgroup label="Commits del código (⎇ la estructura de ese momento)">${vs.commits.filter(c => c.v).map(c => `<option value="${c.v}" data-c="${c.corto}">⎇ ${c.corto} · ${fecha(c.fecha)} · ${esc(c.titulo.slice(0, 50))}</option>`).join('')}</optgroup>` : ''}`;
-    const bar = Object.assign(document.createElement('div'), { className: 'ocmpbar' });
-    bar.innerHTML = `<label>⇆ Comparar con: <select id="cV">${opc}</select></label>
-      <label><input type="radio" name="cM" value="encima" ${cmp.modo !== 'lado' ? 'checked' : ''}> Encima</label><label><input type="radio" name="cM" value="lado" ${cmp.modo === 'lado' ? 'checked' : ''}> Lado a lado</label>
-      <label><input type="checkbox" id="cS" ${cmp.solo ? 'checked' : ''}> Solo cambios</label>
-      <span class="ocnav" hidden><button class="obtn" id="cA" title="Cambio anterior (↑)">↑</button><button class="obtn" id="cB" title="Cambio siguiente (↓)">↓</button><span id="cN"></span></span>
-      <span class="sp"></span><span id="cR" class="osmall"></span><button class="obtn" id="cG" title="Guarda cómo está ahora la estructura, con un nombre">🏷 Guardar versión</button>`;
-    B.prepend(bar);
-    bar.querySelector('#cV').onchange = e => { cmp.v = e.target.value; guardarVista(); alCambiar(); };
-    bar.querySelectorAll('[name=cM]').forEach(r => r.onchange = () => { cmp.modo = r.value; guardarVista(); alCambiar(); });
-    bar.querySelector('#cS').onchange = e => { cmp.solo = e.target.checked; guardarVista(); alCambiar(); };
-    bar.querySelector('#cG').onclick = async () => {
-      const n = await ask('Guardar versión', 'Nombre de la versión (p. ej. «v3 · antes de reorganizar material»):', ['Guardar', 'Cancelar'], { input: '' });
-      if (!n?.trim()) return;
-      try { await api('/api/org/version/nombre', { id: f.id, nombre: n.trim() }); flash(`🏷 Versión «${n.trim()}» guardada`); admin(); } catch (e) { err(e); }
-    };
-    return bar;
+  // ---------- barra única de la vista del proyecto: vista (pestañas) e historial ----------
+  const VISTAS = [['contenedor', '🗂', 'Contenedor'], ['flujo', '⇢', 'Flujo'], ['red', '◉', 'Red']];
+  const pestanasVista = v => `<div class="oseg" role="tablist" title="Cómo ver el proyecto">${VISTAS.map(([k, i, t]) =>
+    `<button role="tab" class="${v === k ? 'on' : ''}" aria-selected="${v === k}" data-vista="${k}" title="Vista ${t}">${i} <span>${t}</span></button>`).join('')}</div>`;
+  const grupoHistorial = `<span class="osepv"></span><button class="obtn" data-h="comparar" title="Compara la estructura de ahora con una versión anterior (en una ventana)">⇆ <span>Comparar…</span></button>
+    <button class="obtn" data-h="guardar" title="Guarda cómo está ahora la estructura, con un nombre">🏷 <span>Guardar versión</span></button>`;
+  function cablearBarra(f, B) {
+    B.querySelectorAll('[data-vista]').forEach(b => b.onclick = () => { if (O.adm.vista === b.dataset.vista) return; O.adm.vista = b.dataset.vista; guardarVista(); admin(); });
+    B.querySelector('[data-h="comparar"]').onclick = () => comparar(f);
+    B.querySelector('[data-h="guardar"]').onclick = () => guardarVersionNombre(f);
   }
-  async function versionAntes() { // el modelo de la versión elegida para comparar (o null)
-    const v = O.adm.cmp.v; if (!v) return null;
-    O.adm.cache ||= {};
-    try { return O.adm.cache[v] ||= modeloVersion(await api(`/api/org/version?id=${encodeURIComponent(O.adm.id)}&v=${encodeURIComponent(v)}`)); }
-    catch (e) { err(e); return null; }
+  async function guardarVersionNombre(f) {
+    const n = await ask('Guardar versión', 'Nombre de la versión (p. ej. «v3 · antes de reorganizar material»):', ['Guardar', 'Cancelar'], { input: '' });
+    if (!n?.trim()) return;
+    try { await api('/api/org/version/nombre', { id: f.id, nombre: n.trim() }); flash(`🏷 Versión «${n.trim()}» guardada`); if (O.adm?.tab === 'historial') admin(); } catch (e) { err(e); }
   }
-  // ↑ ↓ entre los cambios: centra cada uno (en la pizarra) o lo lleva a la vista (en el árbol)
-  function navegarCambios(bar, ids, ir) {
-    const nav = bar.querySelector('.ocnav'); nav.hidden = !ids.length; let i = -1;
-    const paso = d => { if (!ids.length) return; i = (i + d + ids.length) % ids.length; bar.querySelector('#cN').textContent = `${i + 1} de ${ids.length}`; ir(ids[i]); };
-    bar.querySelector('#cA').onclick = () => paso(-1); bar.querySelector('#cB').onclick = () => paso(1);
-    bar.querySelector('#cN').textContent = `${ids.length} cambio${ids.length === 1 ? '' : 's'}`;
-    O.adm.paso = paso;
-  }
-  addEventListener('keydown', e => { // ↑ ↓ del comparativo (fuera de cuadros de texto)
-    if (!on() || O.pantalla !== 'proyecto' || !O.adm?.cmp?.v || !O.adm.paso || e.target.closest('input, textarea, select, .CodeMirror, #panes')) return;
-    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); O.adm.paso(e.key === 'ArrowDown' ? 1 : -1); }
-  });
 
-  // ---------- Contenedor comparado: marcas en el árbol y carpetas quitadas como fantasma ----------
-  async function compararArbol(f, B, T) {
-    const bar = await barraComparar(f, B, () => admin());
-    const A = await versionAntes(); if (!A) return;
-    const N = modeloActual(f), dif = diferencias(A, N);
-    bar.querySelector('#cR').textContent = resumen(dif);
-    T.classList.toggle('osolo', O.adm.cmp.solo);
-    const ids = [];
-    T.querySelectorAll('.onodo.raiz').forEach(el => {
-      const c = f.partes[+el.dataset.j]?.carpetas[+el.dataset.k], d = c && dif.get('n:' + c.ancla);
-      if (d) { el.classList.add('oc-' + d.t); el.insertAdjacentHTML('beforeend', `<span class="ocm">${d.t === 'movido' ? '↷ antes en ' + esc(d.antesParte) : d.t === 'nuevo' ? '+' : '✎'}</span>`); ids.push(el); }
-      else el.classList.add('oc-ctx');
-    });
-    T.querySelectorAll('.oparte').forEach((box, j) => { // carpetas quitadas: fantasma en su parte (o al final si la parte ya no está)
-      const nombre = f.partes[j]?.nombre;
-      for (const [k, d] of dif) if (d.t === 'quitado' && d.nodo?.clase === 'carpeta' && d.nodo.parte === nombre) {
-        box.insertAdjacentHTML('beforeend', `<div class="onodo raiz oc-quitado" title="${esc(d.nodo.ruta || '')}"><span class="otw"></span><span>${esc(d.nodo.icono || '📁')}</span><span class="onom">${esc(d.nodo.nombre)}</span><span class="ocm">− quitada</span></div>`);
-        ids.push(box.lastElementChild); dif.delete(k);
+  // ---------- ⇆ Comparar la estructura: una ventana como la comparación de git ----------
+  // Izquierda: las versiones (🏷 con nombre, ⎇ commits, · automáticas). Derecha: Antes | Ahora lado a lado (Flujo, Red o
+  // Árbol, con zoom y desplazamiento a la par) y debajo los cambios en frases: clic o ↑ ↓ para ir a cada uno.
+  const fechaV = s => String(s || '').replace('T', ' ').slice(0, 16);
+  async function cargarVersion(v) {
+    O.adm.cache ||= {};
+    return O.adm.cache[v] ||= modeloVersion(await api(`/api/org/version?id=${encodeURIComponent(O.adm.id)}&v=${encodeURIComponent(v)}`));
+  }
+  function arbolComparado(M, dif, antes) { // el árbol de una versión, con las marcas de color (data-k: la clave del cambio)
+    const clave = id => antes && dif.has('antes:' + id) ? 'antes:' + id : id;
+    const marca = id => { const d = dif.get(clave(id)); return d && (antes ? d.t !== 'nuevo' : d.t !== 'quitado') ? 'oc-' + d.t : 'oc-ctx'; };
+    return [...M.nodos.values()].filter(n => n.clase === 'parte').map(p => `<div class="oparte"><div class="ophead ${marca(p.id)}" data-k="${esc(clave(p.id))}">${esc(p.label)}</div>
+      ${[...M.nodos.values()].filter(n => n.clase === 'carpeta' && n.parte === p.clave).map(n => `<div class="onodo raiz ${marca(n.id)}" data-k="${esc(clave(n.id))}" title="${esc(n.ruta || '')}">
+        <span class="otw"></span><span>${esc(n.icono || '📁')}</span><span class="onom">${esc(n.nombre)}</span>${n.etapa ? `<small>${icoEtapa(n.etapa)} ${esc(n.etapa)}</small>` : ''}</div>`).join('') || '<div class="osmall" style="padding:2px 12px">(sin carpetas)</div>'}</div>`).join('')
+      || '<p class="ohint">Sin partes.</p>';
+  }
+  async function comparar(f, elegida) {
+    const d = abrirDlg(`⇆ Comparar la estructura · ${esc(f.nombre)}`, '<p class="ohint">Cargando versiones…</p>', { ancho: 1500,
+      pie: '<button class="obtn" id="kRes" title="La estructura vuelve a como estaba en esa versión (antes se guarda la de ahora)">↶ Restaurar esta versión…</button><span class="sp"></span><button class="obtn primary" id="kX">Cerrar</button>' });
+    d.dataset.tipo = 'cmp'; d.oninput = null; // marcar «Solo cambios» no es un cambio sin guardar
+    const cys = [];
+    const limpiar = () => { while (cys.length) { try { cys.pop().destroy(); } catch {} } };
+    d.onclose = () => { pararPoll(); limpiar(); delete d.dataset.tipo; d.onkeydown = null; };
+    d.querySelector('#kX').onclick = () => cerrarDlg();
+    let vs;
+    try { vs = await api('/api/org/versiones?id=' + encodeURIComponent(f.id)); } catch (e) { d.querySelector('.odb').innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p>`; return; }
+    const linea = [
+      ...vs.versiones.map(v => ({ v: v.v, fecha: v.fecha, ico: v.auto ? '·' : '🏷', txt: v.auto ? String(v.resumen || 'Cambio').replace('conectores', 'uniones').replace(/ · 0 (uniones|notas)/g, '') : v.nombre, sub: v.auto ? 'automática' : 'con nombre' })),
+      ...vs.commits.filter(c => c.v).map(c => ({ v: c.v, fecha: c.fecha, ico: '⎇', txt: `${c.corto} · ${c.titulo}`, sub: 'commit del código' })),
+    ].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
+    if (!linea.length) { d.querySelector('.odb').innerHTML = '<p class="ohint">Todavía no hay versiones: se crean solas con cada cambio de la estructura.</p>'; return; }
+    const cmp = O.adm.cmp;
+    cmp.vista ||= O.adm.vista === 'contenedor' ? 'arbol' : O.adm.vista;
+    let sel = Math.max(0, linea.findIndex(l => l.v === (elegida || cmp.v)));
+    if (!elegida && !cmp.v && linea.length > 1) sel = 1; // la más nueva suele ser la de ahora mismo
+    d.querySelector('.odb').innerHTML = `<div class="ocmp">
+      <div class="ocmpv"><div class="ocmpvi oahora"><span>●</span><b>Ahora</b><small>lo que ves</small></div>
+        ${linea.map((l, i) => `<button class="ocmpvi" data-i="${i}" title="${esc(l.txt)}"><span>${l.ico}</span><b>${esc(l.txt)}</b><small>${fechaV(l.fecha)} · ${l.sub}</small></button>`).join('')}</div>
+      <section class="ocmpd">
+        <div class="ocmpbar2">${`<div class="oseg">${[['flujo', '⇢ Flujo'], ['red', '◉ Red'], ['arbol', '🗂 Árbol']].map(([k, t]) => `<button data-cv="${k}" class="${cmp.vista === k ? 'on' : ''}">${t}</button>`).join('')}</div>`}
+          <label><input type="checkbox" id="kS" ${cmp.solo ? 'checked' : ''}> Solo cambios</label><span class="sp"></span><span id="kR" class="osmall"></span></div>
+        <div class="ocmplados"><div class="ocmplado"><span class="oetq">Antes · <span id="kA"></span></span><div class="ocmplz" id="kcA"></div></div>
+          <div class="ocmplado"><span class="oetq">Ahora</span><div class="ocmplz" id="kcB"></div></div></div>
+        <div class="ocmpcam"><div class="ocmpcab"><b id="kN">Cambios</b><span class="osmall">Clic en uno, o ↑ ↓, para ir a él en los dos lados</span></div><div class="ocmplista"></div></div>
+      </section></div>`;
+    const $d = q => d.querySelector(q), lista = $d('.ocmplista');
+    let tok = 0, cambios = [], actual = -1, ir = () => {};
+    async function pintar() {
+      const t = ++tok, l = linea[sel];
+      cmp.v = l.v; guardarVista();
+      d.querySelectorAll('.ocmpvi[data-i]').forEach(b => b.classList.toggle('on', +b.dataset.i === sel));
+      $d('#kA').textContent = `${l.ico === '·' ? '' : l.ico + ' '}${l.txt.slice(0, 40)} · ${fechaV(l.fecha)}`;
+      $d('#kR').textContent = 'Cargando…';
+      let A;
+      try { A = await cargarVersion(l.v); } catch (e) { $d('#kR').textContent = '⚠ ' + e.message; return; }
+      if (t !== tok || !d.open) return;
+      const N = modeloActual(f), dif = diferencias(A, N), cA = $d('#kcA'), cB = $d('#kcB');
+      $d('#kR').textContent = resumen(dif);
+      limpiar(); cA.innerHTML = cB.innerHTML = ''; cA.className = cB.className = 'ocmplz';
+      if (cmp.vista === 'arbol') {
+        cA.classList.add('otree'); cB.classList.add('otree');
+        cA.classList.toggle('osolo', !!cmp.solo); cB.classList.toggle('osolo', !!cmp.solo);
+        cA.innerHTML = arbolComparado(A, dif, true); cB.innerHTML = arbolComparado(N, dif, false);
+        ir = k => { for (const c of [cA, cB]) { const el = c.querySelector(`[data-k="${CSS.escape(k)}"]`) || c.querySelector(`[data-k="${CSS.escape(k.replace(/^antes:/, ''))}"]`); if (el) { el.scrollIntoView({ block: 'center' }); el.classList.remove('oc-flash'); void el.offsetWidth; el.classList.add('oc-flash'); } } };
+      } else {
+        try { await cargarCy(); } catch (e) { cB.innerHTML = `<p class="oempty">⚠ ${esc(e.message)}</p>`; return; }
+        if (t !== tok || !d.open) return;
+        const cyA = dibujar(cA, A, cmp.vista, null, null, f, true), cyB = dibujar(cB, N, cmp.vista, dif, A, f, true);
+        cys.push(cyA, cyB);
+        cyA.batch(() => { // antes: lo quitado en rojo y lo movido o cambiado en su color; lo demás atenuado
+          cyA.elements().addClass('c-ctx');
+          for (const [k, x] of dif) { const el = cyA.getElementById(k.replace(/^antes:/, '')); if (el.length && x.t !== 'nuevo') el.removeClass('c-ctx').addClass('c-' + x.t); }
+        });
+        for (const cy of [cyA, cyB]) { cy.fit(undefined, 30); if (cy.zoom() > 1.2) { cy.zoom(1.2); cy.center(); } }
+        let sinc = false; // zoom y desplazamiento a la par
+        const par = (a, b) => a.on('viewport', () => { if (sinc) return; sinc = true; b.viewport({ zoom: a.zoom(), pan: a.pan() }); sinc = false; });
+        par(cyB, cyA); par(cyA, cyB); cyA.viewport({ zoom: cyB.zoom(), pan: cyB.pan() });
+        ir = k => {
+          const enB = cyB.getElementById(k), enA = cyA.getElementById(k.replace(/^antes:/, ''));
+          const el = enB.length ? enB : enA; if (!el.length) return;
+          (enB.length ? cyB : cyA).animate({ center: { eles: el }, zoom: Math.max(cyB.zoom(), 1) }, { duration: 250 });
+          for (const e of [enA, enB]) if (e.length) e.flashClass('destello', 900);
+        };
       }
-    });
-    const resto = [...dif.values()].filter(d => d.t === 'quitado' && d.nodo);
-    if (resto.length) T.insertAdjacentHTML('beforeend', `<div class="oparte"><div class="ophead oc-quitado">Ya no están</div>${resto.map(d => `<div class="onodo raiz oc-quitado"><span class="otw"></span><span>${esc(d.nodo.icono || '📁')}</span><span class="onom">${esc(d.nodo.nombre || d.nodo.label)}</span><span class="ocm">−</span></div>`).join('')}</div>`);
-    ids.push(...T.querySelectorAll('.oparte:last-child .oc-quitado'));
-    navegarCambios(bar, ids, el => { el.scrollIntoView({ block: 'center' }); el.classList.remove('oc-flash'); void el.offsetWidth; el.classList.add('oc-flash'); });
-    if (O.adm.cmp.modo === 'lado') { // antes | ahora: el árbol de la versión al lado
-      const lado = Object.assign(document.createElement('div'), { className: 'otree oantes' });
-      lado.innerHTML = `<div class="ophead">Antes</div>` + [...A.nodos.values()].filter(n => n.clase === 'parte').map(p => `<div class="oparte"><div class="ophead">${esc(p.label)}</div>${[...A.nodos.values()].filter(n => n.clase === 'carpeta' && n.parte === p.clave).map(n => `<div class="onodo raiz ${dif.has('antes:' + n.id) ? 'oc-quitado' : 'oc-ctx'}"><span class="otw"></span><span>${esc(n.icono || '📁')}</span><span class="onom">${esc(n.nombre)}</span></div>`).join('')}</div>`).join('');
-      T.parentElement.classList.add('olado'); T.before(lado);
+      cambios = [...dif].map(([k, x]) => ({ k: k.startsWith('nota:') ? x.de : k, x }));
+      $d('#kN').textContent = cambios.length ? `Cambios (${cambios.length})` : 'Cambios';
+      lista.innerHTML = cambios.map((c, j) => `<div class="ocmpc" data-j="${j}"><span>${CAMBIO[c.x.t][1]}</span>${esc(c.x.txt)}</div>`).join('')
+        || '<p class="ohint">✓ Esta versión es igual a la de ahora. Elige otra a la izquierda.</p>';
+      actual = -1;
     }
+    const paso = j => { if (!cambios.length) return; actual = (j + cambios.length) % cambios.length;
+      lista.querySelectorAll('.ocmpc').forEach(r => r.classList.toggle('on', +r.dataset.j === actual));
+      lista.querySelector(`[data-j="${actual}"]`)?.scrollIntoView({ block: 'nearest' }); ir(cambios[actual].k); };
+    lista.onclick = e => { const r = e.target.closest('.ocmpc'); if (r) paso(+r.dataset.j); };
+    d.querySelector('.ocmpv').onclick = e => { const b = e.target.closest('.ocmpvi[data-i]'); if (b && +b.dataset.i !== sel) { sel = +b.dataset.i; pintar(); } };
+    d.querySelectorAll('[data-cv]').forEach(b => b.onclick = () => { cmp.vista = b.dataset.cv; d.querySelectorAll('[data-cv]').forEach(x => x.classList.toggle('on', x === b)); guardarVista(); pintar(); });
+    $d('#kS').onchange = e => { cmp.solo = e.target.checked; guardarVista(); pintar(); };
+    d.onkeydown = e => { // ↑ ↓: cambio anterior / siguiente (fuera de cuadros de texto)
+      if (e.target.closest('input, textarea, select') || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+      e.preventDefault(); paso(actual + (e.key === 'ArrowDown' ? 1 : -1));
+    };
+    $d('#kRes').onclick = async () => {
+      const l = linea[sel];
+      if (await ask('Restaurar versión', `La estructura (partes, carpetas, uniones, notas libres, posiciones y notas) vuelve a como estaba en «${l.txt}» (${fechaV(l.fecha)}). Antes se guarda la de ahora como versión «antes de restaurar». No se mueve ningún archivo.`, ['Restaurar', 'Cancelar']) !== 'Restaurar') return;
+      try { await api('/api/org/version/restaurar', { id: f.id, v: l.v }); O.adm.cache = {}; dlg.close(); flash('↶ Estructura restaurada'); await cargar(); } catch (e) { err(e); }
+    };
+    pintar();
   }
 
   // ---------- Flujo y Red: pizarra sin límites ----------
   let cyActual = null;
   async function adminPizarra(f, B) {
     const vista = O.adm.vista;
-    B.innerHTML = `<div class="opiz"><div class="opizbar">
-        <select id="aV" title="Vista">${[['contenedor', '🗂 Contenedor'], ['flujo', '⇢ Flujo'], ['red', '◉ Red']].map(([v, t]) => `<option value="${v}" ${vista === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
-        <button class="obtn" id="pC" title="Conectar: clic en un nodo y luego en otro (C)">⟶ Conectar</button>
-        <button class="obtn" id="pK" title="Caja libre para pasos o ideas (también: doble clic en un espacio vacío)">+ Caja</button>
-        <button class="obtn" id="pR" title="Volver al orden automático">↺ Reacomodar</button>
-        <span class="sp"></span><span class="osmall opistat" id="pS" title="Arrastra para moverte · rueda: subir y bajar · Ctrl+rueda: zoom · 0: ver todo · C: conectar">Arrastra · Ctrl+rueda: zoom · 0: todo</span>
+    // una sola barra: vista (pestañas) · dibujar · historial · ver. En ventana estrecha los botones quedan en su icono
+    B.innerHTML = `<div class="opiz"><div class="opizbar obarra">${pestanasVista(vista)}<span class="osepv"></span>
+        <button class="obtn" id="pC" title="Une dos nodos con una flecha: clic en uno y luego en otro (C)">⟶ <span>Unir</span></button>
+        <button class="obtn" id="pK" title="Un recuadro con texto en la pizarra, sin carpeta (también: doble clic en un espacio vacío)">▭ <span>Nota libre</span></button>
+        <button class="obtn" id="pP" title="Cierra todas las carpetas desplegadas con doble clic">▴ <span>Plegar todo</span></button>
+        <button class="obtn" id="pR" title="Vuelve a colocar todo solo; lo que moviste a mano queda en el Historial">↺ <span>Ordenar</span></button>
+        ${grupoHistorial}
+        <span class="sp"></span><span class="osmall opistat" id="pS" hidden></span>
+        <button class="obtn ${O.adm.info.abierto ? 'primary' : ''}" id="pI1" title="Panel de información de lo que eliges (I)&#10;Pizarra: arrastra para moverte · rueda: subir y bajar · Ctrl+rueda: zoom · 0: ver todo · C: unir">ⓘ</button>
         <button class="obtn" id="pM" title="Mostrar u ocultar el minimapa">🗺</button>
-        <button class="obtn" id="pF" title="Ver todo (0)">⤢</button><button class="obtn" id="pZm">−</button><span id="pZ" class="osmall">100 %</span><button class="obtn" id="pZp">+</button></div>
-      <div class="opizcuerpo"><div class="olienzos"><div class="olienzo" id="cyA"></div></div><div class="onotas" id="pN" hidden></div></div></div>`;
-    B.querySelector('#aV').onchange = e => { O.adm.vista = e.target.value; guardarVista(); admin(); };
+        <button class="obtn" id="pF" title="Ver todo (0)">⤢ <span>Ver todo</span></button><button class="obtn" id="pZm" title="Alejar">−</button><span id="pZ" class="osmall">100 %</span><button class="obtn" id="pZp" title="Acercar">+</button></div>
+      <div class="opizcuerpo"><div class="olienzos"><div class="olienzo" id="cyA"></div></div><div class="oinfo" id="pI" hidden></div><div class="onotas" id="pN" hidden></div></div></div>`;
+    cablearBarra(f, B);
     try { await cargarCy(); } catch (e) { B.querySelector('.olienzos').innerHTML = `<p class="oempty">⚠ ${esc(e.message)}</p>`; return; }
-    const bar = await barraComparar(f, B, () => admin());
-    const N = modeloActual(f), A = await versionAntes(), dif = A ? diferencias(A, N) : null;
-    if (dif) bar.querySelector('#cR').textContent = resumen(dif);
+    const N = modeloActual(f);
     const lienzos = B.querySelector('.olienzos');
-    const cy = dibujar(lienzos.querySelector('#cyA'), N, vista, dif, A, f);
+    const cy = dibujar(lienzos.querySelector('#cyA'), N, vista, null, null, f);
     cyActual = cy;
-    let cyB = null;
-    if (A && O.adm.cmp.modo === 'lado') { // antes | ahora, con desplazamiento y zoom a la par
-      lienzos.classList.add('olado');
-      lienzos.insertAdjacentHTML('afterbegin', '<div class="olienzo" id="cyB"><span class="oetq">Antes</span></div>');
-      lienzos.querySelector('#cyA').insertAdjacentHTML('beforeend', '<span class="oetq">Ahora</span>');
-      cyB = dibujar(lienzos.querySelector('#cyB'), A, vista, null, null, f, true);
-      let sinc = false;
-      const par = (a, b) => a.on('viewport', () => { if (sinc) return; sinc = true; b.viewport({ zoom: a.zoom(), pan: a.pan() }); sinc = false; });
-      par(cy, cyB); par(cyB, cy);
-    }
     // vista guardada por proyecto: zoom y posición de cada vista
     const cam = O.adm.cam?.[vista];
     const encuadrar = () => { cy.fit(undefined, 40); if (cy.zoom() > 1.2) { cy.zoom(1.2); cy.center(); } }; // pocos nodos: sin acercar de más
-    if (cam && !cyB) cy.viewport(cam); else encuadrar();
+    if (cam) cy.viewport(cam); else encuadrar();
     B.querySelector('#pF').onclick = encuadrar;
     const zoomTxt = () => B.querySelector('#pZ').textContent = Math.round(cy.zoom() * 100) + ' %';
     let tc; cy.on('viewport', () => { zoomTxt(); clearTimeout(tc); tc = setTimeout(() => { (O.adm.cam ||= {})[vista] = { zoom: cy.zoom(), pan: cy.pan() }; guardarVista(); }, 400); });
@@ -1043,7 +1101,7 @@
     B.querySelector('#pZm').onclick = () => cy.zoom({ level: cy.zoom() / 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
     B.querySelector('#pZp').onclick = () => cy.zoom({ level: cy.zoom() * 1.2, renderedPosition: { x: cy.width() / 2, y: cy.height() / 2 } });
     B.querySelector('#pR').onclick = async () => {
-      if (await ask('Reacomodar', `Se olvidan las posiciones que diste a mano en ${vista === 'flujo' ? 'Flujo' : 'Red'} y vuelve el orden automático.`, ['Reacomodar', 'Cancelar']) !== 'Reacomodar') return;
+      if (await ask('Ordenar', `Todo se vuelve a colocar solo en ${vista === 'flujo' ? 'Flujo' : 'Red'}. Las posiciones que diste a mano quedan en el Historial (se pueden recuperar).`, ['Ordenar', 'Cancelar']) !== 'Ordenar') return;
       const pos = { ...(f.posiciones || {}) }; pos[vista] = {}; await guardarDiagrama(f, { posiciones: pos }); admin();
     };
     // minimapa (se recuerda si está a la vista)
@@ -1052,8 +1110,11 @@
     B.querySelector('#pM').onclick = () => { mini.hidden = !mini.hidden; O.adm.mini = !mini.hidden; guardarVista(); };
     // conectar: clic en un nodo y luego en otro
     let conectar = false, origen = null;
-    const modoC = v => { conectar = v; origen = null; cy.nodes().removeClass('origen'); B.querySelector('#pC').classList.toggle('primary', v); B.querySelector('#pS').textContent = v ? '⟶ Clic en el origen y luego en el destino (Esc: cancelar)' : 'Arrastra · Ctrl+rueda: zoom · 0: todo'; };
+    const modoC = v => { conectar = v; origen = null; cy.nodes().removeClass('origen'); B.querySelector('#pC').classList.toggle('primary', v); const s = B.querySelector('#pS'); s.hidden = !v; s.textContent = v ? '⟶ Clic en el primero y luego en el segundo (Esc: cancelar)' : ''; };
     B.querySelector('#pC').onclick = () => modoC(!conectar);
+    B.querySelector('#pP').onclick = () => { // plegar todo lo desplegado en esta vista
+      cy.remove('.sub, .mas'); cy.nodes('.abierta').removeClass('abierta'); O.adm.exp[vista] = []; guardarVista();
+    };
     B.querySelector('#pK').onclick = () => nuevaCaja(f, cy, { x: cy.width() / 2, y: cy.height() / 2 });
     cy.on('tap', 'node', async e => {
       const n = e.target;
@@ -1061,7 +1122,7 @@
       if (!origen) { origen = n; n.addClass('origen'); return; }
       if (origen.id() === n.id()) return;
       const de = origen.id(); modoC(false);
-      const etiqueta = await ask('Nuevo conector', `De «${cy.getElementById(de).data('label')}» a «${n.data('label')}». Etiqueta (p. ej. «usa», «genera», «se publica en»):`, ['Crear', 'Cancelar'], { input: '' });
+      const etiqueta = await ask('Nueva unión', `De «${cy.getElementById(de).data('label')}» a «${n.data('label')}». Etiqueta (p. ej. «usa», «genera», «se publica en»):`, ['Crear', 'Cancelar'], { input: '' });
       if (etiqueta === null) return;
       await guardarDiagrama(f, { conexiones: [...(f.conexiones || []), { id: 'c' + Date.now().toString(36), de, a: n.id(), etiqueta: etiqueta.trim(), color: '#e0a030', dir: '→' }] });
       admin();
@@ -1072,19 +1133,26 @@
       if (conectar || Date.now() - fondo > 500) return;
       const r = ev.currentTarget.getBoundingClientRect(); nuevaCaja(f, cy, { x: ev.clientX - r.left, y: ev.clientY - r.top });
     });
-    // doble clic en una carpeta (dos clics en la MISMA carpeta; el dbltap de Cytoscape no mira si es la misma): al Contenedor
+    // clic: su información en el panel ⓘ. Doble clic (dos clics en el MISMO nodo; el dbltap de Cytoscape no mira si es el
+    // mismo) en una carpeta: despliega o pliega su contenido ahí mismo (subflujo · subred); en un archivo: lo abre en una pestaña
+    const panel = B.querySelector('#pI');
     let ultimo = { id: '', t: 0 };
-    cy.on('tap', 'node[clase="carpeta"]', e => {
+    cy.on('tap', 'node', e => {
       const n = e.target, doble = ultimo.id === n.id() && Date.now() - ultimo.t < 450;
       ultimo = { id: n.id(), t: Date.now() };
-      if (!doble || conectar || n.hasClass('fantasma')) return;
-      O.adm.vista = 'contenedor'; O.adm.abiertas.add(n.data('ruta')); guardarVista(); admin();
+      if (conectar || n.hasClass('fantasma') || n.data('clase') === 'caja') return;
+      if (n.data('clase') === 'mas') return infoMostrar(f, panel, { tipo: 'carpeta', ruta: n.data('ruta') });
+      const sel = selDeNodo(n);
+      if (sel) infoMostrar(f, panel, sel);
+      if (!doble) return;
+      if (sel?.tipo === 'carpeta' && sel.ruta && (n.data('clase') === 'sub' || ['ok', 'movida'].includes(n.data('estado')))) desplegar(f, cy, n);
+      else if (sel?.tipo === 'archivo') abrirEnContenedor(sel.ruta);
     });
     cy.on('cxttap', 'node, edge', e => menuElemento(f, cy, e.target, e.originalEvent));
     cy.on('tap', 'edge[clase="tuya"], node[clase="caja"]', e => { if (!conectar) menuElemento(f, cy, e.target, e.originalEvent); });
     let tp; cy.on('dragfree', 'node', () => { clearTimeout(tp); tp = setTimeout(() => { // posiciones de esta vista, en la ficha
       const pos = { ...(f.posiciones || {}) }; pos[vista] = {};
-      cy.nodes().not('.fantasma').forEach(n => { pos[vista][n.id()] = n.position(); });
+      cy.nodes().not('.fantasma, .sub').forEach(n => { pos[vista][n.id()] = n.position(); }); // lo desplegado no se guarda: se recoloca al abrir
       guardarDiagrama(f, { posiciones: pos });
     }, 600); });
     if (vista === 'red') { // pasar el ratón: resalta sus vecinos
@@ -1106,16 +1174,23 @@
       if (k === '0') { cy.fit(undefined, 40); if (cy.zoom() > 1.2) { cy.zoom(1.2); cy.center(); } }
       else if (k === 'c' || k === 'C') modoC(!conectar);
       else if (k === 'Escape' && conectar) { e.stopPropagation(); modoC(false); }
-      else if (k.startsWith('Arrow') && !O.adm.cmp.v) cy.panBy({ x: k === 'ArrowLeft' ? paso : k === 'ArrowRight' ? -paso : 0, y: k === 'ArrowUp' ? paso : k === 'ArrowDown' ? -paso : 0 });
+      else if ((k === 'i' || k === 'I') && !e.ctrlKey && !e.altKey) infoAlternar(f, panel, B);
+      else if (k === 'Escape' && !panel.hidden) { e.stopPropagation(); infoAlternar(f, panel, B, false); }
+      else if (k.startsWith('Arrow')) cy.panBy({ x: k === 'ArrowLeft' ? paso : k === 'ArrowRight' ? -paso : 0, y: k === 'ArrowUp' ? paso : k === 'ArrowDown' ? -paso : 0 });
       else if (k === 'Delete') { const s = cy.$(':selected').filter('[clase="tuya"], [clase="caja"]'); if (s.length) borrarElementos(f, s); }
       else return;
       e.preventDefault();
     };
-    notasCapa(f, cy, lienzos.querySelector('#cyA'), B.querySelector('#pN'), dif);
-    if (dif) navegarCambios(bar, [...dif.keys()].map(k => k.startsWith('nota:') ? dif.get(k).de : k).filter(id => cy.getElementById(id).length),
-      id => { const el = cy.getElementById(id); cy.animate({ center: { eles: el }, zoom: Math.max(cy.zoom(), 1) }, { duration: 250 }); el.flashClass('destello', 900); });
+    notasCapa(f, cy, lienzos.querySelector('#cyA'), B.querySelector('#pN'), null);
+    B.querySelector('#pI1').onclick = () => infoAlternar(f, panel, B);
+    for (const r of [...(O.adm.exp[vista] || [])].sort((a, b) => a.length - b.length)) { // lo que dejaste desplegado
+      const n = cy.nodes().filter(x => x.data('ruta') === r && (x.data('clase') === 'carpeta' || x.data('dir')));
+      if (n.length) await desplegar(f, cy, n[0], true);
+    }
+    if (O.adm.info.abierto) infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
   }
   // dibuja un modelo en un lienzo; con «dif», marca los cambios y añade los quitados como fantasma
+  const corto = t => String(t || '').split('\n').map(l => [...l].length > 30 ? [...l].slice(0, 29).join('') + '…' : l).join('\n'); // nombres largos con «…» (entero al pasar el ratón)
   function dibujar(cont, M, vista, dif, A, f, soloLectura = false) {
     const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim() || '#888';
     const els = [];
@@ -1138,6 +1213,8 @@
     const pos = M.pos?.[vista] || {}, conPos = els.filter(e => e.group === 'nodes' && pos[e.data.id]).length, nNodos = els.filter(e => e.group === 'nodes').length;
     for (const e of els) if (e.group === 'nodes' && pos[e.data.id]) e.position = { ...pos[e.data.id] };
     const flujo = vista === 'flujo';
+    for (const e of els) if (e.group === 'nodes') e.data.corto = corto(e.data.label);
+    const lado = (l, est) => ({ selector: `node[lado="${l}"]`, style: est });
     const cy = cytoscape({
       container: cont, elements: els, wheelSensitivity: 0.3, userZoomingEnabled: false, boxSelectionEnabled: false, autoungrabify: soloLectura,
       // sin «imagen al moverse» (textureOnViewport): dejaba ver un recuadro gris (la sombra) al desplazarse
@@ -1152,6 +1229,21 @@
           : { shape: 'ellipse', width: 22, height: 22, 'text-valign': 'bottom', 'text-margin-y': 4, 'font-weight': 600 } },
         { selector: 'node.proyecto', style: { shape: flujo ? 'round-rectangle' : 'ellipse', width: flujo ? 'label' : 24, height: flujo ? 'label' : 24, padding: 12, 'background-color': css('--accent'), 'background-opacity': flujo ? .25 : 1,
           'border-color': css('--accent'), 'border-width': 2, 'font-size': 14, 'font-weight': 700, 'text-valign': flujo ? 'center' : 'bottom', 'text-margin-y': flujo ? 0 : 5 } },
+        // lo desplegado con doble clic (subflujo · subred): más pequeño y con borde punteado
+        { selector: 'node.sub, node.mas', style: flujo ? { label: 'data(corto)', shape: 'round-rectangle', width: 'label', height: 'label', padding: 5, 'font-size': 11, 'text-valign': 'center',
+          'background-opacity': .06, 'border-style': 'dashed', 'border-color': n => COL[n.data('tipo')] || '#8f8f8f' }
+          : { label: 'data(corto)', shape: 'ellipse', width: 8, height: 8, 'font-size': 10, 'background-color': n => COL[n.data('tipo')] || '#8f8f8f', 'background-opacity': .55 } },
+        { selector: 'node.subarch', style: flujo ? { 'border-style': 'dotted', 'border-color': css('--line') } : { 'background-color': css('--muted') } },
+        { selector: 'node.mas', style: { 'font-style': 'italic', color: css('--muted') } },
+        { selector: 'edge.sub', style: { width: 1, 'line-color': css('--line'), 'line-style': 'dashed' } },
+        { selector: 'node.abierta', style: { 'border-width': 3, 'border-style': 'double' } },
+        ...(flujo ? [] : [ // Red: etiqueta corta, con fondo (una línea no la tacha) y hacia fuera del centro
+          { selector: 'node.carpeta, node.parte, node.sub, node.mas', style: { label: 'data(corto)', 'text-background-color': css('--bg'), 'text-background-opacity': .85, 'text-background-padding': 2, 'text-background-shape': 'roundrectangle', 'text-max-width': 400 } },
+          lado('der', { 'text-halign': 'right', 'text-valign': 'center', 'text-margin-x': 6, 'text-margin-y': 0, 'text-justification': 'left' }),
+          lado('izq', { 'text-halign': 'left', 'text-valign': 'center', 'text-margin-x': -6, 'text-margin-y': 0, 'text-justification': 'right' }),
+          lado('arr', { 'text-halign': 'center', 'text-valign': 'top', 'text-margin-y': -4 }),
+          lado('aba', { 'text-halign': 'center', 'text-valign': 'bottom', 'text-margin-y': 4 }),
+        ]),
         { selector: 'node.caja', style: { shape: 'round-rectangle', width: 'label', height: 'label', padding: 10, 'background-color': n => n.data('color') || '#e8d9a8', 'background-opacity': .85, 'border-color': '#b59a4a', 'text-valign': 'center', color: '#222' } },
         { selector: 'edge', style: { width: 1.2, 'line-color': css('--faint'), 'curve-style': 'bezier', 'target-arrow-shape': 'none' } },
         { selector: 'edge.jer', style: { 'line-color': css('--line'), width: 1.5 } },
@@ -1174,12 +1266,18 @@
       ],
     });
     cont._cy = cy; // para inspeccionar desde la consola si hace falta
-    if (conPos < nNodos) cy.elements().not('edge.etapa').layout(flujo ? { name: 'breadthfirst', directed: true, roots: ['p'], spacingFactor: 1.15, avoidOverlap: true }
-      : { name: 'cose', animate: false, idealEdgeLength: 120, nodeRepulsion: 12000, nodeOverlap: 20, randomize: true, padding: 30, numIter: 1500 }).run();
+    cy.scratch('soloLectura', soloLectura);
+    if (conPos < nNodos) flujo ? cy.elements().not('edge.etapa').layout({ name: 'breadthfirst', directed: true, roots: ['p'], spacingFactor: 1.15, avoidOverlap: true }).run() : radial(cy);
     cont.dataset.menuPropio = '1'; // DeskLens no pone su menú general aquí: lo pone la pizarra
     new ResizeObserver(() => cy.resize()).observe(cont); // panel de notas abierto, ventana más ancha…: el dibujo se ajusta
     cont.addEventListener('contextmenu', e => e.preventDefault());
     if (conPos && conPos < nNodos) for (const e of els) if (e.group === 'nodes' && pos[e.data.id]) cy.getElementById(e.data.id).position(pos[e.data.id]);
+    if (!flujo) { // Red: cada etiqueta hacia fuera del centro (también tras mover un nodo a mano)
+      ladosRed(cy);
+      cy.on('free', 'node', e => ladosRed(cy, e.target.id() === 'p' ? null : e.target));
+      cy.on('mouseover', 'node', e => { cont.title = e.target.data('label') !== e.target.data('corto') ? e.target.data('label') : ''; });
+      cy.on('mouseout', 'node', () => { cont.title = ''; });
+    }
     // rueda: desplaza (Shift: a los lados); Ctrl+rueda: zoom hacia el ratón
     cont.addEventListener('wheel', ev => {
       ev.preventDefault();
@@ -1187,6 +1285,255 @@
       else cy.panBy(ev.shiftKey ? { x: -ev.deltaY, y: 0 } : { x: -ev.deltaX, y: -ev.deltaY });
     }, { passive: false });
     return cy;
+  }
+  // ---------- subflujo · subred: doble clic en una carpeta despliega su contenido ahí mismo (12 + «… N más») ----------
+  const bajo = (r, base) => { const a = String(r || '').toLowerCase(), b = String(base || '').toLowerCase(); return a === b || a.startsWith(b + '\\') || a.startsWith(b + '/'); };
+  const SUB_MAX = 12;
+  async function desplegar(f, cy, n, restaurar = false) {
+    if (!n?.length && !n?.id) return;
+    const ruta = n.data('ruta'), vista = O.adm.vista, exp = O.adm.exp[vista] ||= [];
+    const ya = cy.nodes().filter(x => x.data('desde') && bajo(x.data('desde'), ruta));
+    if (ya.length) { // abierta: se pliega (con lo de dentro)
+      if (restaurar) return;
+      cy.remove(ya); n.removeClass('abierta');
+      O.adm.exp[vista] = exp.filter(r => !bajo(r, ruta)); return guardarVista();
+    }
+    let items;
+    try { items = (await api('/api/dir?ruta=' + encodeURIComponent(ruta))).filter(i => i.nombre !== '.desklens-ancla'); }
+    catch (e) { if (!restaurar) err(e); return; }
+    if (cy.destroyed() || !n.inside()) return;
+    const ver = items.slice(0, SUB_MAX), resto = items.length - ver.length, tipo = n.data('tipo');
+    const nuevos = ver.map(i => ({ id: 's:' + i.ruta, label: `${i.dir ? '📁' : '📄'} ${i.nombre}`, ruta: i.ruta, dir: !!i.dir, cls: i.dir ? 'sub subdir' : 'sub subarch', clase: 'sub' }));
+    if (resto > 0 || !items.length) nuevos.push({ id: 'mas:' + ruta, label: items.length ? `… ${resto} más` : '(vacía)', ruta, cls: 'mas', clase: 'mas' });
+    const p0 = n.position(), c = cy.getElementById('p').position(), k = nuevos.length, flujo = vista === 'flujo';
+    const a = Math.atan2(p0.y - c.y, p0.x - c.x), abanico = Math.min(Math.PI * .95, .3 * k), R = 110 + (k > 8 ? 40 : 0), cols = Math.min(4, k);
+    cy.batch(() => nuevos.forEach((d, j) => {
+      const pos = flujo ? { x: p0.x + (j % cols - (cols - 1) / 2) * 175, y: p0.y + 80 + Math.floor(j / cols) * 46 }
+        : (an => ({ x: p0.x + R * Math.cos(an), y: p0.y + R * Math.sin(an) }))(k === 1 ? a : a - abanico / 2 + abanico * (j + .5) / k);
+      cy.add({ group: 'nodes', data: { id: d.id, label: d.label, corto: corto(d.label), ruta: d.ruta, dir: d.dir, clase: d.clase, tipo, desde: ruta }, classes: d.cls, position: pos });
+      cy.add({ group: 'edges', data: { id: 'se:' + d.id, source: n.id(), target: d.id, label: '' }, classes: 'sub' });
+    }));
+    n.addClass('abierta');
+    if (!flujo) ladosRed(cy);
+    if (!restaurar && !exp.includes(ruta)) { exp.push(ruta); guardarVista(); }
+  }
+  function abrirEnContenedor(ruta) { // el visor de DeskLens vive en la vista Contenedor
+    O.adm.vista = 'contenedor'; O.adm.ultimo = ruta; guardarVista(); admin(); openTab(ruta, true);
+  }
+
+  // ---------- ⓘ Panel de información: lo que eliges en Flujo, Red o el árbol (carpeta, archivo, parte o proyecto) ----------
+  const fFecha = t => t ? new Date(t * 1000).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' }) : '';
+  const espera = ms => new Promise(r => setTimeout(r, ms));
+  const cuenta = (n, uno, varios) => `${(n || 0).toLocaleString()} ${n === 1 ? uno : varios}`;
+  const raizDe = (f, ruta) => vivas(f).filter(c => bajo(ruta, c.ruta)).sort((a, b) => b.ruta.length - a.ruta.length)[0];
+  function selDeNodo(n) {
+    const clase = n.data('clase');
+    if (clase === 'proyecto') return { tipo: 'proyecto' };
+    if (clase === 'parte') return { tipo: 'parte', clave: n.data('clave') };
+    if (clase === 'carpeta') return n.data('estado') === 'remota' ? { tipo: 'remota', ancla: n.id().slice(2) } : { tipo: 'carpeta', ruta: n.data('ruta'), ancla: n.id().slice(2) };
+    if (clase === 'sub') return { tipo: n.data('dir') ? 'carpeta' : 'archivo', ruta: n.data('ruta') };
+    return null;
+  }
+  function infoAlternar(f, panel, B, abrir = panel.hidden) {
+    if (abrir) return infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
+    infoTok++; panel.hidden = true; O.adm.info.abierto = false; guardarVista();
+    document.querySelector('#pI1')?.classList.remove('primary');
+  }
+  let infoTok = 0;
+  async function infoMostrar(f, panel, sel) {
+    if (!panel) return;
+    const tok = ++infoTok, vivo = () => tok === infoTok && panel.isConnected && !panel.hidden;
+    Object.assign(O.adm.info, { abierto: true, sel }); guardarVista();
+    document.querySelector('#pI1')?.classList.add('primary');
+    panel.hidden = false; panel.style.width = O.adm.info.ancho + 'px';
+    panel.innerHTML = `<div class="oires" title="Arrastra para cambiar el ancho"></div><header><b>ⓘ Información</b><button class="ic" title="Cerrar (Esc)">✕</button></header><div class="oicuerpo" tabindex="-1"><p class="ohint">Cargando…</p></div>`;
+    panel.querySelector('header button').onclick = () => infoAlternar(f, panel, null, false);
+    panel.onkeydown = e => { if (e.key === 'Escape') { e.stopPropagation(); infoAlternar(f, panel, null, false); } };
+    panel.querySelector('.oires').onpointerdown = e => { // ancho del panel: arrastrando su borde izquierdo (se recuerda por proyecto)
+      const x0 = e.clientX, w0 = panel.offsetWidth;
+      const mv = ev => { panel.style.width = Math.max(280, Math.min(800, w0 - (ev.clientX - x0))) + 'px'; };
+      const up = () => { removeEventListener('pointermove', mv); removeEventListener('pointerup', up); O.adm.info.ancho = panel.offsetWidth; guardarVista(); };
+      addEventListener('pointermove', mv); addEventListener('pointerup', up);
+    };
+    const cuerpo = panel.querySelector('.oicuerpo'), titulo = panel.querySelector('header b');
+    const ir = s => infoMostrar(f, panel, s);
+    try {
+      if (sel.tipo === 'proyecto' || sel.tipo === 'parte') await infoResumen(f, sel, cuerpo, titulo, vivo, ir);
+      else if (sel.tipo === 'remota') infoRemota(f, sel, cuerpo, titulo);
+      else if (sel.tipo === 'carpeta') await infoCarpeta(f, sel.ruta, cuerpo, titulo, vivo, ir);
+      else await infoArchivo(f, sel.ruta, cuerpo, titulo, vivo);
+    } catch (e) { if (vivo()) cuerpo.innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p><p class="ohint">${esc(sel.ruta || '')}</p>`; }
+  }
+  // barra de ruta: lo de encima de la carpeta del proyecto en gris; desde ella, cada tramo se puede pulsar
+  function migas(f, ruta, ir, cuerpo) {
+    const r = raizDe(f, ruta);
+    if (!r) return `<div class="omigas">📍 ${esc(ruta)}</div>`;
+    const s = r.ruta.includes('\\') ? '\\' : '/', encima = r.ruta.slice(0, r.ruta.length - r.nombre.length).split(/[\\/]/).filter(Boolean);
+    const tramos = [[r.nombre, r.ruta]];
+    let acc = r.ruta;
+    for (const x of ruta.slice(r.ruta.length).split(/[\\/]/).filter(Boolean)) { acc += s + x; tramos.push([x, acc]); }
+    setTimeout(() => cuerpo.querySelectorAll('.omigas [data-ir]').forEach(a => a.onclick = () => ir({ tipo: 'carpeta', ruta: a.dataset.ir })));
+    return `<div class="omigas" title="${esc(ruta)}">📍 ${encima.map(p => `<span class="ogris">${esc(p)}</span> › `).join('')}${tramos.map(([n, rr], i) => i === tramos.length - 1 ? `<b>${esc(n)}</b>` : `<a data-ir="${esc(rr)}">${esc(n)}</a> › `).join('')}</div>`;
+  }
+  const botonesRuta = (ruta, dir) => `<div class="oiacc"><button class="obtn" data-ac="copiar" title="Copiar la ruta">📋 Copiar</button><button class="obtn" data-ac="explorador">📂 Explorador</button>
+    ${dir ? '<button class="obtn" data-ac="terminal" title="Terminal en esta carpeta">>_ Terminal</button>' : '<button class="obtn primary" data-ac="abrir" title="Abrir en una pestaña (doble clic)">Abrir en pestaña</button>'}</div>`;
+  function accionesRuta(cuerpo, ruta) {
+    cuerpo.querySelectorAll('[data-ac]').forEach(b => b.onclick = () => ({
+      copiar: () => copyText(ruta, '✓ Ruta copiada'), explorador: () => api('/api/mostrar', { ruta }).catch(err),
+      terminal: () => { adminSalir(); cerrar(); openTerminal(ruta); }, abrir: () => abrirEnContenedor(ruta) }[b.dataset.ac]()));
+  }
+  const filas = l => `<dl class="oidl">${l.filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl>`;
+  function textoPeso(p) {
+    if (!p) return '';
+    if (p.estado === 'en_cola') return '<span class="ogris">en cola…</span>';
+    if (p.estado === 'error') return `<span class="owarn">⚠ ${esc(p.error || 'error')}</span>`;
+    const base = `<b>${fmtSize(p.bytes || 0)}</b>`;
+    if (p.estado === 'calculando') return `${base} <span class="ogris">calculando… ${(p.archivos || 0).toLocaleString()} archivos</span> <button class="obtn" data-parar title="Detener el cálculo">✕ Detener</button><div class="oibar"><i></i></div>`;
+    if (p.estado === 'detenido') return `${base} <span class="ogris">(detenido: es lo sumado hasta ahí)</span> <button class="obtn" data-otra>↻ Calcular</button>`;
+    return base + (p.sin_acceso ? ` <span class="ogris" title="Elementos que no se pudieron leer">· ${p.sin_acceso} sin acceso</span>` : '');
+  }
+
+  async function infoCarpeta(f, ruta, cuerpo, titulo, vivo, ir) {
+    const enc = encodeURIComponent(ruta);
+    const [m, todos] = await Promise.all([api('/api/org/carpeta?ruta=' + enc), api('/api/dir?ruta=' + enc)]);
+    if (!vivo()) return;
+    const items = todos.filter(i => i.nombre !== '.desklens-ancla'), r = raizDe(f, ruta), esRaiz = r && r.ruta.toLowerCase() === ruta.toLowerCase();
+    const nn = esRaiz ? (O.adm.notas || []).filter(n => n.destino === 'nodo:' + r.ancla).length : 0, g = esRaiz && O.git[r.ruta];
+    const nd = items.filter(i => i.dir).length;
+    titulo.textContent = `ⓘ ${m.nombre}`;
+    cuerpo.innerHTML = migas(f, ruta, ir, cuerpo) + botonesRuta(ruta, true) + filas([
+      ['Tipo', `📁 Carpeta${r ? ` · ${TIPO[r.tipo][0]} ${esc(r.parte)}` : ''}${esRaiz && r.tipo === 'entornos' ? ` · ${icoEtapa(r.etapa)} ${esc(r.etapa || '')}` : ''}`],
+      ['Peso', `<span id="iP">${textoPeso(m.peso)}</span>`],
+      ['Contiene', `<span id="iC">${cuenta(nd, 'carpeta', 'carpetas')} · ${cuenta(items.length - nd, 'archivo', 'archivos')} aquí</span>`],
+      ['Modificada', fFecha(m.modificado)], ['Creada', fFecha(m.creado)], ['Atributos', esc(m.atributos.join(', '))],
+      ['Git', g?.rama ? `⎇ ${esc(g.rama)} · ${g.cambios ? `${g.cambios} cambio${g.cambios > 1 ? 's' : ''}` : 'al día'}` : m.git ? '⎇ repositorio git' : ''],
+      ['Ancla', esRaiz ? '✓ anclada (se sigue aunque la muevas)' : r ? `dentro de «${esc(r.nombre)}»` : ''],
+      ['Proyectos', esRaiz && r.proyectos.length > 1 ? `🔗 ${r.proyectos.map(id => esc(O.st.fichas.find(x => x.id === id)?.nombre || id)).join(', ')}` : ''],
+      ['Notas', nn ? `💬 ${nn}` : ''],
+    ]) + `<div class="oicab"><b>Contenido (${items.length})</b><span class="sp"></span><input type="search" placeholder="Filtrar…" class="oifil"></div>
+      <div class="oiord">Orden: ${[['nombre', 'Nombre'], ['peso', 'Peso'], ['fecha', 'Fecha']].map(([k, t]) => `<button class="obtn ${(O.adm.info.orden || 'nombre') === k ? 'primary' : ''}" data-or="${k}">${t}</button>`).join('')}</div>
+      <div class="oilista"></div>`;
+    accionesRuta(cuerpo, ruta);
+    let peso = m.peso, filtro = '';
+    const lista = cuerpo.querySelector('.oilista');
+    const pintarLista = () => {
+      const pesoDe = i => i.dir ? peso?.hijos?.[i.nombre] : i.tam, orden = O.adm.info.orden || 'nombre';
+      const ver = items.filter(i => plainTxt(i.nombre).includes(plainTxt(filtro)))
+        .sort(orden === 'peso' ? (a, b) => (pesoDe(b) || 0) - (pesoDe(a) || 0) : orden === 'fecha' ? (a, b) => b.fecha - a.fecha : (a, b) => (b.dir - a.dir) || a.nombre.localeCompare(b.nombre));
+      lista.innerHTML = ver.map(i => `<div class="oifila" data-r="${esc(i.ruta)}" ${i.dir ? 'data-d="1"' : ''} title="${esc(i.ruta)}">${fileIcon(i.nombre, i.dir)}<span class="onom">${esc(i.nombre)}</span>
+        <small>${pesoDe(i) != null ? fmtSize(pesoDe(i)) : i.dir ? (peso?.estado === 'calculando' || peso?.estado === 'en_cola' ? '…' : '') : ''}</small><small>${i.fecha ? new Date(i.fecha * 1000).toLocaleDateString([], { dateStyle: 'short' }) : ''}</small></div>`).join('')
+        || `<p class="ohint">${items.length ? 'Nada coincide.' : '(vacía)'}</p>`;
+    };
+    pintarLista();
+    cuerpo.querySelector('.oifil').oninput = e => { filtro = e.target.value; pintarLista(); };
+    cuerpo.querySelectorAll('[data-or]').forEach(b => b.onclick = () => { O.adm.info.orden = b.dataset.or; guardarVista(); cuerpo.querySelectorAll('[data-or]').forEach(x => x.classList.toggle('primary', x === b)); pintarLista(); });
+    lista.onclick = e => { const x = e.target.closest('.oifila'); if (x) ir({ tipo: x.dataset.d ? 'carpeta' : 'archivo', ruta: x.dataset.r }); };
+    lista.ondblclick = e => { const x = e.target.closest('.oifila'); if (x && !x.dataset.d) abrirEnContenedor(x.dataset.r); };
+    // el peso llega poco a poco (el servidor lo calcula aparte): se refresca hasta que termina o eliges otra cosa
+    const pintarPeso = () => {
+      const el = cuerpo.querySelector('#iP'); if (!el) return;
+      el.innerHTML = textoPeso(peso);
+      el.querySelector('[data-parar]')?.addEventListener('click', () => api('/api/org/peso/parar', { ruta }).catch(err));
+      el.querySelector('[data-otra]')?.addEventListener('click', () => ir({ tipo: 'carpeta', ruta }));
+      if (peso.estado === 'listo') cuerpo.querySelector('#iC').textContent = `${cuenta(peso.carpetas, 'carpeta', 'carpetas')} · ${cuenta(peso.archivos, 'archivo', 'archivos')} (con lo de dentro)`;
+      pintarLista();
+    };
+    while (vivo() && (peso.estado === 'calculando' || peso.estado === 'en_cola')) {
+      await espera(700); if (!vivo()) return;
+      peso = await api('/api/org/peso?ruta=' + enc); if (!vivo()) return;
+      pintarPeso();
+    }
+    if (vivo()) pintarPeso();
+  }
+
+  async function infoArchivo(f, ruta, cuerpo, titulo, vivo) {
+    const m = await api('/api/info?ruta=' + encodeURIComponent(ruta));
+    if (!vivo()) return;
+    titulo.textContent = `ⓘ ${m.nombre}`;
+    const ext = (m.extension || '').toLowerCase(), img = /^\.(png|jpe?g|gif|webp|bmp|svg)$/.test(ext), txt = !!m.codificacion;
+    const gt = m.git?.estado && m.git.estado !== 'limpio' ? esc((typeof GIT_TXT !== 'undefined' && GIT_TXT[m.git.estado]) || m.git.estado) : '';
+    cuerpo.innerHTML = migas(f, ruta, s => infoMostrar(f, cuerpo.closest('.oinfo'), s), cuerpo) + botonesRuta(ruta, false) + filas([
+      ['Tamaño', `<b>${fmtSize(m.tam)}</b>${ext ? ` · ${esc(ext.slice(1).toUpperCase())}` : ''}${txt ? ` · ${esc(m.codificacion)} · ${esc(m.eol)} · ${(m.lineas || 0).toLocaleString()} líneas` : ''}`],
+      ['Modificado', fFecha(m.modificado)], ['Creado', fFecha(m.creado)], ['Atributos', esc((m.atributos || []).join(', '))], ['Git', gt ? `● ${gt}` : ''],
+      ...Object.entries(m.doc || {}).filter(([, v]) => v != null && v !== '').slice(0, 6).map(([k, v]) => [k, esc(String(v))]),
+    ]) + `<div class="oicab"><b>Vista previa</b></div><div class="oiprev">${img ? `<img src="${esc(raw(ruta))}" alt="">` : txt ? '<p class="ohint">Cargando…</p>' : '<p class="ohint">Sin vista previa aquí: ábrelo en una pestaña.</p>'}</div>`;
+    accionesRuta(cuerpo, ruta);
+    if (!txt || img) return;
+    const a = await api('/api/abrir?ruta=' + encodeURIComponent(ruta));
+    if (!vivo()) return;
+    const lineas = String(a.texto || '').split('\n');
+    cuerpo.querySelector('.oiprev').innerHTML = `<pre>${esc(lineas.slice(0, 200).join('\n'))}</pre>${lineas.length > 200 ? `<p class="ohint">… ${lineas.length - 200} líneas más: ábrelo en una pestaña.</p>` : ''}`;
+  }
+
+  function infoRemota(f, sel, cuerpo, titulo) {
+    const c = f.partes.flatMap(p => p.carpetas).find(x => x.ancla === sel.ancla);
+    if (!c) { cuerpo.innerHTML = '<p class="ohint">Esa etapa ya no está en el proyecto.</p>'; return; }
+    titulo.textContent = `ⓘ ${c.nombre}`;
+    cuerpo.innerHTML = filas([['Tipo', '🌍 Etapa remota (sin carpeta en este PC)'], ['Etapa', `${icoEtapa(c.etapa)} ${esc(c.etapa || '')}`], ['Dirección', c.ruta ? `<code>${esc(c.ruta)}</code>` : 'sin dirección']])
+      + (c.ruta ? `<div class="oiacc"><button class="obtn" data-c>📋 Copiar</button>${/^https?:\/\//.test(c.ruta) ? '<button class="obtn primary" data-w>🌐 Abrir</button>' : ''}</div>` : '');
+    cuerpo.querySelector('[data-c]')?.addEventListener('click', () => copyText(c.ruta, '✓ Copiado'));
+    cuerpo.querySelector('[data-w]')?.addEventListener('click', () => { adminSalir(); cerrar(); openTab('web:' + c.ruta, true); });
+  }
+
+  // proyecto o parte: sus carpetas con estado y peso (se suman al llegar) y, en Entornos, la fila de etapas
+  async function infoResumen(f, sel, cuerpo, titulo, vivo, ir) {
+    const partes = sel.tipo === 'parte' ? f.partes.filter(p => p.nombre === sel.clave) : f.partes;
+    if (!partes.length) { cuerpo.innerHTML = '<p class="ohint">Esa parte ya no está en el proyecto.</p>'; return; }
+    titulo.textContent = sel.tipo === 'parte' ? `ⓘ ${TIPO[partes[0].tipo][0]} ${partes[0].nombre}` : `ⓘ ${f.nombre}`;
+    const est = c => c.estado === 'remota' ? '🌍' : c.estado === 'ok' || c.estado === 'movida' ? '✓' : BORRADA[c.estado] ? '🗑' : '⚠';
+    const vivasAqui = partes.flatMap(p => p.carpetas.filter(c => c.estado === 'ok' || c.estado === 'movida'));
+    const total = partes.reduce((s, p) => s + p.carpetas.length, 0);
+    cuerpo.innerHTML = filas([
+      ['Tipo', sel.tipo === 'parte' ? `Parte ${TIPO[partes[0].tipo][0]} ${TIPO[partes[0].tipo][1]}` : `Proyecto · ${f.partes.length} parte${f.partes.length === 1 ? '' : 's'}`],
+      ['Peso total', '<span id="iT">…</span>'], ['Carpetas', `${total} (${vivasAqui.length} a la vista)`],
+      ...(sel.tipo === 'proyecto' ? [['Estado', esc((ESTADO[f.estado] || ['', f.estado || ''])[1])], ['Avance', `${f.avance || 0} %`]] : []),
+    ]) + partes.map(p => `<div class="oicab"><b>${TIPO[p.tipo][0]} ${esc(p.nombre)}</b></div>
+      ${p.tipo === 'entornos' && p.carpetas.length ? `<div class="oietapas">${p.carpetas.map(c => `${icoEtapa(c.etapa)} ${esc(c.nombre)}`).join(' <span>→</span> ')}</div>` : ''}
+      <div class="oilista">${p.carpetas.map(c => `<div class="oifila" ${c.estado === 'remota' ? `data-rem="${esc(c.ancla)}"` : `data-r="${esc(c.ruta)}"`} title="${esc(c.ruta)}"><span>${est(c)}</span>${esc(c.icono || '📁')}<span class="onom">${esc(c.nombre)}</span>
+        <small data-p="${esc(c.ruta)}"></small></div>`).join('') || '<p class="ohint">(sin carpetas)</p>'}</div>`).join('');
+    cuerpo.querySelectorAll('.oifila').forEach(x => x.onclick = () => ir(x.dataset.rem ? { tipo: 'remota', ancla: x.dataset.rem } : { tipo: 'carpeta', ruta: x.dataset.r }));
+    const pesos = new Map(vivasAqui.map(c => [c.ruta, null]));
+    while (vivo()) {
+      for (const r of pesos.keys()) if (!['listo', 'detenido', 'error'].includes(pesos.get(r)?.estado)) {
+        try { pesos.set(r, await api('/api/org/peso?ruta=' + encodeURIComponent(r))); } catch { pesos.set(r, { estado: 'error' }); }
+        if (!vivo()) return;
+      }
+      const sum = [...pesos.values()].reduce((s, p) => s + (p?.bytes || 0), 0), falta = [...pesos.values()].some(p => !p || p.estado === 'calculando' || p.estado === 'en_cola');
+      cuerpo.querySelector('#iT').innerHTML = `<b>${fmtSize(sum)}</b>${falta ? ' <span class="ogris">calculando…</span><div class="oibar"><i></i></div>' : ''}`;
+      cuerpo.querySelectorAll('[data-p]').forEach(s => { const p = pesos.get(s.dataset.p); s.textContent = p?.bytes != null ? fmtSize(p.bytes) + (p.estado === 'calculando' ? '…' : '') : ''; });
+      if (!falta) return;
+      await espera(800);
+    }
+  }
+
+  // Red radial: el proyecto en el centro, las partes en un anillo y sus carpetas en abanico por fuera, dentro del trozo de su
+  // parte (más carpetas, más ángulo: nada se amontona). Las cajas van en fila debajo. Sin azar: siempre sale igual.
+  function radial(cy) {
+    const padre = new Map(), hijos = new Map();
+    cy.edges().forEach(e => { if (e.hasClass('jer') || e.id().startsWith('g:')) { padre.set(e.target().id(), e.source().id()); (hijos.get(e.source().id()) || hijos.set(e.source().id(), []).get(e.source().id())).push(e.target().id()); } });
+    const partes = (hijos.get('p') || []), peso = id => Math.max(1, (hijos.get(id) || []).length), total = partes.reduce((s, id) => s + peso(id), 0) || 1;
+    const hojas = partes.reduce((s, id) => s + (hijos.get(id) || []).length, 0);
+    const R1 = Math.max(170, partes.length * 70 / (2 * Math.PI)), R2 = Math.max(R1 + 160, hojas * 46 / (2 * Math.PI)); // 46 px entre carpetas vecinas
+    const P = new Map([['p', { x: 0, y: 0 }]]);
+    let a0 = -Math.PI / 2 - Math.PI * peso(partes[0] || '') / total; // la primera parte arriba
+    for (const id of partes) {
+      const tramo = 2 * Math.PI * peso(id) / total, medio = a0 + tramo / 2, hs = hijos.get(id) || [];
+      P.set(id, { x: R1 * Math.cos(medio), y: R1 * Math.sin(medio) });
+      hs.forEach((h, k) => { const a = hs.length === 1 ? medio : a0 + tramo * (k + .5) / hs.length; P.set(h, { x: R2 * Math.cos(a), y: R2 * Math.sin(a) }); });
+      a0 += tramo;
+    }
+    let x = -R2, y = R2 + 120; // cajas y sueltos: en fila debajo
+    cy.nodes().forEach(n => { if (!P.has(n.id())) { P.set(n.id(), { x, y }); x += 220; if (x > R2) { x = -R2; y += 90; } } });
+    cy.batch(() => cy.nodes().forEach(n => n.position(P.get(n.id()))));
+  }
+  function ladosRed(cy, solo) {
+    const c = cy.getElementById('p').position() || { x: 0, y: 0 };
+    cy.batch(() => (solo ? solo : cy.nodes('.carpeta, .parte, .sub, .mas')).forEach(n => {
+      const p = n.position(), dx = p.x - c.x, dy = p.y - c.y, r = Math.hypot(dx, dy) || 1;
+      // carpetas: hacia fuera; partes: de lado (hacia fuera sigue la línea a sus carpetas y hacia dentro la del centro)
+      n.data('lado', n.hasClass('parte') ? (Math.abs(dx) > Math.abs(dy) ? (dy < 0 ? 'arr' : 'aba') : 'der')
+        : dx / r > .35 ? 'der' : dx / r < -.35 ? 'izq' : dy < 0 ? 'arr' : 'aba');
+    }));
   }
   function minimapa(cont, cy) {
     const c = Object.assign(document.createElement('canvas'), { className: 'omini', width: 180, height: 120, title: 'Minimapa: clic o arrastra para ir' });
@@ -1217,7 +1564,7 @@
     } catch (e) { err(e); }
   }
   async function nuevaCaja(f, cy, rp) {
-    const t = await ask('Caja libre', 'Texto de la caja (pasos o ideas, p. ej. «Grabar → Editar → Subir»):', ['Crear', 'Cancelar'], { input: '' });
+    const t = await ask('Nota libre', 'Texto del recuadro (pasos o ideas, p. ej. «Grabar → Editar → Subir»):', ['Crear', 'Cancelar'], { input: '' });
     if (!t?.trim()) return;
     const id = 'b' + Date.now().toString(36), m = cy.pan(), z = cy.zoom();
     const pos = { ...(f.posiciones || {}) }; pos[O.adm.vista] = { ...(pos[O.adm.vista] || {}), ['caja:' + id]: { x: (rp.x - m.x) / z, y: (rp.y - m.y) / z } };
@@ -1226,33 +1573,43 @@
   }
   async function borrarElementos(f, s) {
     const cx = new Set(s.filter('[clase="tuya"]').map(e => e.id().slice(2))), cj = new Set(s.filter('[clase="caja"]').map(n => n.id().slice(5)));
-    if (await ask('Borrar', `Se borra${cx.size + cj.size > 1 ? 'n' : ''} ${[cx.size ? `${cx.size} conector(es)` : '', cj.size ? `${cj.size} caja(s)` : ''].filter(Boolean).join(' y ')} del diagrama (queda en el historial).`, ['Borrar', 'Cancelar'], { danger: true }) !== 'Borrar') return;
+    if (await ask('Borrar', `Se borra${cx.size + cj.size > 1 ? 'n' : ''} ${[cx.size ? `${cx.size} unión(es)` : '', cj.size ? `${cj.size} nota(s) libre(s)` : ''].filter(Boolean).join(' y ')} del diagrama (queda en el historial).`, ['Borrar', 'Cancelar'], { danger: true }) !== 'Borrar') return;
     await guardarDiagrama(f, { conexiones: (f.conexiones || []).filter(c => !cx.has(c.id) && !cj.has(c.de.slice(5)) && !cj.has(c.a.slice(5))), cajas: (f.cajas || []).filter(b => !cj.has(b.id)) });
     admin();
   }
   function menuElemento(f, cy, el, ev) {
     const id = el.id(), clase = el.data('clase'), x = { x: ev?.clientX ?? 200, y: ev?.clientY ?? 200 };
     if (el.hasClass('fantasma')) return;
+    const panelI = document.querySelector('#pI');
+    if (clase === 'sub' || clase === 'mas') { // lo desplegado (subflujo · subred): no lleva notas ni «Mover a»
+      const r = el.data('ruta'), dir = clase === 'mas' || el.data('dir');
+      return openMenu(x, [{ head: el.data('label') }, ['ⓘ Información', () => infoMostrar(f, panelI, { tipo: dir ? 'carpeta' : 'archivo', ruta: r })],
+        ['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta: r }).catch(err)],
+        clase === 'mas' ? ['▴ Plegar', () => desplegar(f, cy, cy.nodes().filter(n => n.data('ruta') === r && n.data('clase') !== 'mas')[0])]
+          : dir ? ['▾ Desplegar o plegar (doble clic)', () => desplegar(f, cy, el)] : ['Abrir en una pestaña (doble clic)', () => abrirEnContenedor(r)]]);
+    }
     const notas = ['💬 Notas…', () => panelNotas(f, id)];
     if (clase === 'tuya') {
       const c = (f.conexiones || []).find(k => 'c:' + k.id === id); if (!c) return;
       const cambia = async cam => { await guardarDiagrama(f, { conexiones: f.conexiones.map(k => k === c ? { ...k, ...cam } : k) }); admin(); };
-      return openMenu(x, [{ head: `Conector «${c.etiqueta || '—'}»` }, notas, ['✎ Cambiar etiqueta…', async () => { const t = await ask('Etiqueta', 'Etiqueta del conector:', ['Guardar', 'Cancelar'], { input: c.etiqueta }); if (t !== null) cambia({ etiqueta: t.trim() }); }],
+      return openMenu(x, [{ head: `Unión «${c.etiqueta || '—'}»` }, notas, ['✎ Cambiar etiqueta…', async () => { const t = await ask('Etiqueta', 'Etiqueta de la unión:', ['Guardar', 'Cancelar'], { input: c.etiqueta }); if (t !== null) cambia({ etiqueta: t.trim() }); }],
         '-', ...[['#e0a030', 'Ámbar'], ['#2f7fd8', 'Azul'], ['#2e9e5b', 'Verde'], ['#d24a4a', 'Rojo'], ['#7c5cdb', 'Morado']].map(([col, n]) => [`● ${n}`, () => cambia({ color: col }), { html: `<span style="color:${col}">●</span> ${n}` }]),
         '-', ['→ Una dirección', () => cambia({ dir: '→' })], ['↔ Las dos', () => cambia({ dir: '↔' })], ['— Sin flecha', () => cambia({ dir: '—' })],
-        '-', ['🗑 Borrar conector', () => borrarElementos(f, el), { danger: true }]]);
+        '-', ['🗑 Borrar unión', () => borrarElementos(f, el), { danger: true }]]);
     }
     if (clase === 'caja') {
       const b = (f.cajas || []).find(k => 'caja:' + k.id === id); if (!b) return;
       const cambia = async cam => { await guardarDiagrama(f, { cajas: f.cajas.map(k => k === b ? { ...k, ...cam } : k) }); admin(); };
-      return openMenu(x, [{ head: 'Caja' }, notas, ['✎ Cambiar texto…', async () => { const t = await ask('Caja', 'Texto:', ['Guardar', 'Cancelar'], { input: b.texto }); if (t?.trim()) cambia({ texto: t.trim() }); }],
+      return openMenu(x, [{ head: 'Nota libre' }, notas, ['✎ Cambiar texto…', async () => { const t = await ask('Nota libre', 'Texto:', ['Guardar', 'Cancelar'], { input: b.texto }); if (t?.trim()) cambia({ texto: t.trim() }); }],
         '-', ...[['#e8d9a8', 'Arena'], ['#bfe3c9', 'Verde'], ['#c7dcf5', 'Azul'], ['#f3c6c6', 'Rosa']].map(([col, n]) => [n, () => cambia({ color: col }), { html: `<span style="color:${col}">■</span> ${n}` }]),
-        '-', ['🗑 Borrar caja', () => borrarElementos(f, el), { danger: true }]]);
+        '-', ['🗑 Borrar nota libre', () => borrarElementos(f, el), { danger: true }]]);
     }
     const ruta = el.data('ruta');
     const viva = ruta && el.data('estado') !== 'remota';
-    openMenu(x, [{ head: el.data('label') }, notas, ...(viva ? [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err)], ['🗂 Ver en el Contenedor', () => { O.adm.vista = 'contenedor'; O.adm.abiertas.add(ruta); guardarVista(); admin(); }]] : []),
-      ...(clase === 'carpeta' && !O.adm.cmp?.v ? menuMover(f, id.slice(2), el.data('tipo')) : [])]);
+    const sel = selDeNodo(el);
+    openMenu(x, [{ head: el.data('label') }, ...(sel ? [['ⓘ Información', () => infoMostrar(f, panelI, sel)]] : []), notas,
+      ...(clase === 'carpeta' && viva && !el.cy().scratch('soloLectura') ? [['▾ Desplegar o plegar (doble clic)', () => desplegar(f, cy, el)]] : []), ...(viva ? [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err)], ['🗂 Ver en el Contenedor', () => { O.adm.vista = 'contenedor'; O.adm.abiertas.add(ruta); guardarVista(); admin(); }]] : []),
+      ...(clase === 'carpeta' && !el.cy().scratch('soloLectura') ? menuMover(f, id.slice(2), el.data('tipo')) : [])]);
   }
 
   // ---------- notas en nodos y conectores: 💬 con su número, cuadro flotante al pasar el ratón y panel para editar ----------
@@ -1294,7 +1651,7 @@
     if (!panel) return;
     O.adm.notaAbierta = id; guardarVista();
     const ns = (O.adm.notas || []).filter(n => idDeDestino(n.destino) === id), el = cyActual?.getElementById(id);
-    const titulo = id === 'p' ? f.nombre : el?.length ? (el.data('label') || 'Conector') : id;
+    const titulo = id === 'p' ? f.nombre : el?.length ? (el.data('label') || 'Unión') : id;
     panel.hidden = false;
     panel.innerHTML = `<header><b>💬 Notas · ${esc(titulo)}</b><button class="ic" title="Cerrar">✕</button></header>
       <div class="onotalista">${ns.map(n => `<article data-id="${n.id}"><div class="onotamd">${mdHtml(n.texto)}</div>
@@ -1343,9 +1700,9 @@
       const n = await ask('Guardar versión', 'Nombre de la versión:', ['Guardar', 'Cancelar'], { input: '' });
       if (n?.trim()) try { await api('/api/org/version/nombre', { id: f.id, nombre: n.trim() }); adminHistorial(f, B); } catch (e) { err(e); }
     };
-    B.querySelectorAll('[data-c]').forEach(b => b.onclick = () => { O.adm.cmp.v = b.dataset.c; O.adm.tab = 'archivos'; guardarVista(); admin(); });
+    B.querySelectorAll('[data-c]').forEach(b => b.onclick = () => comparar(f, b.dataset.c)); // el mismo modal de ⇆ Comparar…
     B.querySelectorAll('[data-r]').forEach(b => b.onclick = async () => {
-      if (await ask('Restaurar versión', 'La estructura (partes, carpetas, conectores, cajas, posiciones y notas) vuelve a como estaba. Antes se guarda la de ahora como versión «antes de restaurar». No se mueve ningún archivo.', ['Restaurar', 'Cancelar']) !== 'Restaurar') return;
+      if (await ask('Restaurar versión', 'La estructura (partes, carpetas, uniones, notas libres, posiciones y notas) vuelve a como estaba. Antes se guarda la de ahora como versión «antes de restaurar». No se mueve ningún archivo.', ['Restaurar', 'Cancelar']) !== 'Restaurar') return;
       try { await api('/api/org/version/restaurar', { id: f.id, v: b.dataset.r }); O.adm.cache = {}; flash('↶ Estructura restaurada'); await cargar(); } catch (e) { err(e); }
     });
   }
@@ -1357,8 +1714,10 @@
   document.body.append(pal);
   let palSel = 0, palItems = [], palT;
   KEYS.push(['Pizarra (Flujo y Red)', [['Arrastrar en un espacio vacío', 'Mover la pizarra'], ['Rueda · Shift+rueda', 'Mover arriba/abajo · a los lados'],
-    ['Ctrl+rueda', 'Zoom hacia el ratón'], ['0', 'Ver todo'], ['Flechas', 'Mover la pizarra'], ['C', 'Conectar: clic en un nodo y luego en otro'],
-    ['Doble clic en un espacio vacío', 'Caja libre'], ['Supr', 'Borrar el conector o la caja elegidos'], ['↑ / ↓ (comparando)', 'Cambio anterior / siguiente']]]);
+    ['Ctrl+rueda', 'Zoom hacia el ratón'], ['0', 'Ver todo'], ['Flechas', 'Mover la pizarra'], ['C', 'Unir: clic en un nodo y luego en otro'],
+    ['Doble clic en un espacio vacío', 'Nota libre'], ['Supr', 'Borrar la unión o la nota libre elegida'],
+    ['Clic en un nodo', 'Su información en el panel ⓘ'], ['Doble clic en una carpeta', 'Desplegar o plegar su contenido ahí mismo (12 + «… N más»)'],
+    ['Doble clic en un archivo', 'Abrirlo en una pestaña'], ['I', 'Abrir o cerrar el panel ⓘ Información'], ['Esc (con el panel abierto)', 'Cerrar el panel ⓘ'], ['↑ / ↓ (en ⇆ Comparar)', 'Cambio anterior / siguiente']]]);
   KEYS.push(['Proyectos · Ctrl+E', [['Ctrl+E', 'Lo abierto, agrupado por proyecto; escribiendo, busca proyectos, carpetas, archivos y acciones'],
     ['↑ / ↓ · Enter', 'Moverse y abrir'], ['Supr', 'Cerrar la pestaña elegida (en la lista de abiertos)'], ['Esc', 'Cerrar la lista']]]);
   addEventListener('keydown', e => {
