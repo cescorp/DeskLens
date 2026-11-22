@@ -1,6 +1,9 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: lo desplegado sin montarse
+`organizador.js`: `ordenarRama(cy, n, flujo, animar)` recoloca todo lo desplegado de la carpeta del proyecto de la que cuelga (`anclaDe`): Red en abanico con un hueco por carpeta proporcional a lo que tiene abierto (`desc`), Flujo en filas de 4 con el ancho de cada rama (`medir`/`colocar`). Luego `separar()` (cajas con su nombre; solo mueve `.sub`/`.mas`, en Flujo solo de lado) y otra pasada tras `ladosRed` porque los nombres cambian de lado. Anima desde donde estaban. Se llama al desplegar y al plegar. Red: `min-zoomed-font-size` en lo desplegado. Probado con 3 carpetas de 14 archivos + 6 documentos: 0 solapes en Red y en Flujo (antes, decenas).
+
 ## 2026-11-22 · Organizador: 🎯 foco, 🔍 filtro y 🗂 Explorador en el panel derecho
 `organizador.js`: `enfocar(f, cy, ruta)` abre el camino con `desplegar` (desde `raizDe`), pliega los `.sub` abiertos fuera del camino y `marcarFoco` (clase `.fuera` en todo menos camino + contenido; sube por aristas sub/jer/etapa y por el bloque compuesto; camino `.ofoco` arriba). `quitarFoco` con clic en el fondo o Esc. Doble clic: foco (otra vez en el enfocado: pliega). Filtro: `CATS`/`catDe`/`pasaFiltro`; `desplegar` filtra antes del límite y guarda todo en `cy.scratch('todos')` para contar; `aplicarFiltro` vuelve a desplegar y re-marca el foco. Panel: `armarPanel` (pestañas, ancho), `explorarEnPanel` usa `arbol()` (ahora devuelve la promesa de su restauración: si no, marcaba antes de que terminara y se perdía) con sus propios clics; `marcarExplorador`, `filtrarExplorador`. `aislar()`: los clics del filtro y del camino no llegan a Cytoscape (contaban como «clic en el fondo» y quitaban el foco). Arreglos de paso: el nodo 'p' no se re-desplegaba al volver; en Flujo lo de dentro sigue el lado de su carpeta.
 

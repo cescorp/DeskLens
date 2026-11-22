@@ -835,6 +835,11 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ Lo desplegado sin montarse (ok y hecho 2026-11-22)
+- Sin física libre (no se desordena): lo del proyecto no se mueve; solo lo desplegado se ordena.
+- Red: abanico desde su carpeta, hueco para cada carpeta abierta según lo suyo; líneas cortas. Flujo: árbol en filas de 4.
+- Lo que aún se toque se aparta lo justo (contando el nombre), animado. Al alejar en Red, nombres de lo desplegado ocultos.
+
 ### ✅ 🎯 Foco en Red y Flujo · 🔍 filtro flotante · 🗂 Explorador en el panel derecho (ok y hecho 2026-11-22)
 - Doble clic en carpeta o archivo: despliega el camino y enfoca (camino + contenido en color, lo demás opaco); hermanas plegadas; camino pulsable arriba. Clic en el fondo o Esc: sin foco (lo desplegado se queda).
 - Panel derecho con pestañas ⓘ Info · 🗂 Explorador: el árbol sigue al foco (camino abierto, enfocado marcado, resto gris); clic en el explorador enfoca en el dibujo; clic sencillo en un nodo: ⓘ Info sin cambiar el foco.

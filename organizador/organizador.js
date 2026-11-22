@@ -1986,6 +1986,7 @@
         { selector: 'node.abierta', style: { 'border-width': 3, 'border-style': 'double' } },
         ...(flujo ? [] : [ // Red: etiqueta corta, con fondo (una línea no la tacha) y hacia fuera del centro
           { selector: 'node.carpeta, node.parte, node.sub, node.mas', style: { label: 'data(corto)', 'text-background-color': css('--bg'), 'text-background-opacity': .85, 'text-background-padding': 2, 'text-background-shape': 'roundrectangle', 'text-max-width': 400 } },
+          { selector: 'node.sub, node.mas', style: { 'min-zoomed-font-size': 7 } }, // al alejar, los nombres de lo desplegado se esconden (no se tachan)
           lado('der', { 'text-halign': 'right', 'text-valign': 'center', 'text-margin-x': 6, 'text-margin-y': 0, 'text-justification': 'left' }),
           lado('izq', { 'text-halign': 'left', 'text-valign': 'center', 'text-margin-x': -6, 'text-margin-y': 0, 'text-justification': 'right' }),
           lado('arr', { 'text-halign': 'center', 'text-valign': 'top', 'text-margin-y': -4 }),
@@ -2045,6 +2046,7 @@
     if (ya.length) { // abierta: se pliega (con lo de dentro)
       if (restaurar) return;
       cy.remove(ya); n.removeClass('abierta');
+      ordenarRama(cy, n, vista === 'flujo', true); // lo de alrededor se vuelve a juntar
       for (const r of Object.keys(todos)) if (bajo(r, ruta)) delete todos[r];
       cy.scratch('pintarFiltro')?.();
       O.adm.exp[vista] = exp.filter(r => !bajo(r, ruta)); return guardarVista();
@@ -2062,7 +2064,8 @@
     // la principal despliega hacia arriba (abajo están sus partes y a la derecha sus etapas); lo de dentro sigue hacia el mismo lado
     const fuente = n.incomers('edge.sub').sources()[0], raiz = n.id() === 'p';
     const arriba = raiz ? -1 : fuente ? (p0.y < fuente.position().y ? -1 : 1) : 1;
-    const a = raiz ? -Math.PI / 2 : Math.atan2(p0.y - c.y, p0.x - c.x), abanico = Math.min(Math.PI * .95, .3 * k), R = 110 + (k > 8 ? 40 : 0), cols = Math.min(4, k);
+    const a = raiz ? -Math.PI / 2 : Math.atan2(p0.y - c.y, p0.x - c.x), abanico = Math.min(Math.PI * .95, .3 * k), cols = Math.min(4, k);
+    const R = Math.max(110 + (k > 8 ? 40 : 0), k * 34 / abanico); // al menos 34 px entre vecinos del abanico
     cy.batch(() => nuevos.forEach((d, j) => {
       const pos = flujo ? { x: p0.x + (j % cols - (cols - 1) / 2) * 175, y: p0.y + arriba * (80 + Math.floor(j / cols) * 46) }
         : (an => ({ x: p0.x + R * Math.cos(an), y: p0.y + R * Math.sin(an) }))(k === 1 ? a : a - abanico / 2 + abanico * (j + .5) / k);
@@ -2072,8 +2075,91 @@
     }));
     n.addClass('abierta');
     if (!flujo) ladosRed(cy);
+    ordenarRama(cy, n, flujo, !restaurar);
     cy.scratch('pintarFiltro')?.();
     if (!restaurar && !exp.includes(ruta)) { exp.push(ruta); guardarVista(); }
+  }
+  // Lo desplegado, ordenado como un árbol (aprobado 2026-11-22): cada carpeta abierta tiene su sitio y sus cosas no se mezclan
+  // con las de la vecina. Red: abanico desde su carpeta, con un hueco para cada una según lo que tiene abierto. Flujo: filas
+  // de 4 debajo (o encima) de su carpeta, cada carpeta abierta con el ancho de lo suyo. Luego se aparta lo que aún se toque.
+  const hijosSub = n => n.outgoers('edge.sub').targets().filter(x => x.visible()).toArray();
+  const anclaDe = n => { for (let i = 0; i < 40 && n.data('desde'); i++) { const s = n.incomers('edge.sub').sources()[0]; if (!s) break; n = s; } return n; };
+  function ordenarRama(cy, n, flujo, animar = true) {
+    if (cy.destroyed()) return;
+    const A = anclaDe(n), destino = new Map();
+    if (!hijosSub(A).length) return separar(cy, flujo, animar);
+    if (flujo) {
+      const FILA = 58, COLS = 4, med = new Map();
+      const medir = x => {
+        const ks = hijosSub(x), w0 = x.outerWidth() + 18;
+        ks.forEach(medir);
+        const filas = []; for (let i = 0; i < ks.length; i += COLS) filas.push(ks.slice(i, i + COLS));
+        const w = Math.max(w0, ...filas.map(f => f.reduce((t, k) => t + med.get(k.id()).w, 0)));
+        const h = filas.reduce((t, f) => t + FILA + Math.max(...f.map(k => med.get(k.id()).h)), 0);
+        med.set(x.id(), { w, h, filas });
+      };
+      medir(A);
+      const dir = A.id() === 'p' ? -1 : 1; // la raíz, hacia arriba (abajo están sus partes); las demás, hacia abajo
+      const colocar = (x, px, py) => {
+        let y = py;
+        for (const f of med.get(x.id()).filas) {
+          y += dir * FILA;
+          let xx = px - f.reduce((t, k) => t + med.get(k.id()).w, 0) / 2;
+          for (const k of f) { const wk = med.get(k.id()).w, pos = { x: xx + wk / 2, y }; destino.set(k.id(), pos); colocar(k, pos.x, pos.y); xx += wk; }
+          y += dir * Math.max(...f.map(k => med.get(k.id()).h));
+        }
+      };
+      colocar(A, A.position().x, A.position().y);
+    } else {
+      const desc = x => hijosSub(x).reduce((t, k) => t + 1 + desc(k), 0);
+      const c = (cy.getElementById('bloque:entornos').length ? cy.getElementById('bloque:entornos') : cy.getElementById('p')).position();
+      const colocar = (x, pos, ang, sector) => {
+        const ks = hijosSub(x); if (!ks.length) return;
+        const pesos = ks.map(k => 1 + desc(k)), W = pesos.reduce((a, b) => a + b, 0);
+        const r = Math.max(110, ks.length * 34 / sector, Math.sqrt(W) * 28); // corto: lo que aún se toque lo aparta separar()
+        let a0 = ang - sector / 2;
+        ks.forEach((k, i) => {
+          const parte = sector * pesos[i] / W, medio = a0 + parte / 2, p = { x: pos.x + r * Math.cos(medio), y: pos.y + r * Math.sin(medio) };
+          destino.set(k.id(), p);
+          colocar(k, p, medio, Math.min(Math.PI * .9, Math.max(parte * 1.4, .9)));
+          a0 += parte;
+        });
+      };
+      const W = desc(A), ang = A.id() === 'p' ? -Math.PI / 2 : Math.atan2(A.position().y - c.y, A.position().x - c.x);
+      colocar(A, A.position(), ang, Math.min(Math.PI * 1.5, Math.max(1, .22 * W)));
+    }
+    const antes = new Map(); destino.forEach((p, id) => { const m = cy.getElementById(id); antes.set(id, { ...m.position() }); m.position(p); });
+    separar(cy, flujo, false); // lo que aún se toque, se aparta (ya en su sitio final)
+    if (!flujo) { ladosRed(cy); separar(cy, flujo, false); ladosRed(cy); } // los nombres cambian de lado: otra pasada
+    if (animar) destino.forEach((p, id) => { const m = cy.getElementById(id), fin = { ...m.position() }; m.position(antes.get(id)); m.animate({ position: fin }, { duration: 280, easing: 'ease-out-cubic' }); });
+  }
+  // Sin montarse (aprobado 2026-11-22): lo desplegado se aparta lo justo de lo que tenga encima, contando su nombre.
+  // Las carpetas, partes y etapas del proyecto no se mueven nunca (no se desordena); en Flujo se aparta de lado (las filas se quedan).
+  function separar(cy, flujo, animar = true) {
+    const L = cy.nodes().filter(n => !n.isParent() && n.visible() && !n.hasClass('fantasma')).map(n => {
+      const b = n.boundingBox({ includeLabels: true, includeOverlays: false }), p = n.position();
+      return { n, x: p.x, y: p.y, x0: p.x, y0: p.y, w: b.w + 10, h: b.h + 6, dx: (b.x1 + b.x2) / 2 - p.x, dy: (b.y1 + b.y2) / 2 - p.y, mov: n.hasClass('sub') || n.hasClass('mas') };
+    });
+    if (!L.some(o => o.mov)) return;
+    for (let it = 0; it < 150; it++) {
+      let algo = false;
+      for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+        const a = L[i], b = L[j]; if (!a.mov && !b.mov) continue;
+        const ax = a.x + a.dx, ay = a.y + a.dy, bx = b.x + b.dx, by = b.y + b.dy;
+        const ox = (a.w + b.w) / 2 - Math.abs(ax - bx), oy = (a.h + b.h) / 2 - Math.abs(ay - by);
+        if (ox <= 0 || oy <= 0) continue;
+        algo = true;
+        const porX = flujo || ox < oy, d = (porX ? ox : oy) / 2 + .5; // por el lado que menos hay que mover
+        const sg = porX ? (Math.sign(ax - bx) || (i % 2 ? 1 : -1)) : (Math.sign(ay - by) || (i % 2 ? 1 : -1));
+        const ka = a.mov ? (b.mov ? 1 : 2) : 0, kb = b.mov ? (a.mov ? 1 : 2) : 0; // si el otro no se mueve, se aparta solo él
+        if (porX) { a.x += sg * d * ka; b.x -= sg * d * kb; } else { a.y += sg * d * ka; b.y -= sg * d * kb; }
+      }
+      if (!algo) break;
+    }
+    for (const o of L) if (o.mov && (Math.abs(o.x - o.x0) > .5 || Math.abs(o.y - o.y0) > .5)) {
+      animar ? o.n.animate({ position: { x: o.x, y: o.y } }, { duration: 260, easing: 'ease-out-cubic', complete: () => flujo || ladosRed(cy, o.n) }) : o.n.position({ x: o.x, y: o.y });
+    }
+    if (!animar && !flujo) ladosRed(cy);
   }
   // ---------- 🎯 foco (aprobado 2026-11-22): doble clic en Red o Flujo (o clic en 🗂 Explorador) despliega hasta esa carpeta o
   // archivo; su camino y su contenido quedan en color y lo demás opaco; las carpetas hermanas se pliegan. Arriba, el camino.
