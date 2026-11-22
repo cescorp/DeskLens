@@ -29,6 +29,7 @@ body.orgfull #ribbon [data-v]:not([data-v=o]){box-shadow:none!important}body.org
 .obody{flex:1;min-height:0;overflow:auto;padding:16px}
 .obanner{display:flex;align-items:center;gap:10px;margin:0 0 14px;padding:10px 14px;border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:8px;background:var(--side)}
 .obanner .sp{flex:1}
+.obanner .oxban{padding:2px 8px;min-width:0;color:var(--muted)}
 .oempty{max-width:560px;margin:40px auto;text-align:center;color:var(--muted)}
 .oempty h3{color:var(--ink);font-size:18px;margin:0 0 8px}
 
@@ -340,3 +341,71 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .otl .onodo.oparten{cursor:default;font-weight:600;color:var(--ink)}.otl .onodo.oparten:hover{background:none}
 .otl .ovacia{padding:2px 4px}
 .otl .onodo .oi{margin-right:1px}
+
+/* ---------- barra del tablero en una fila y ＋ Nuevo proyecto (2026-11-22) ---------- */
+.obar.otab{flex-wrap:nowrap;gap:6px;padding:7px 14px}
+.obar.otab h2{font-size:15px}
+.obar.otab input[type=search]{width:190px;min-width:70px;flex:0 1 190px}
+.obtn.osel b{font-weight:500;opacity:.7;margin-left:2px}
+.obtn.oico{padding:4px 8px}
+@media (max-width:900px){.obar.otab .osel span{display:none}.obar.otab input[type=search]{flex-basis:90px}}
+dialog#orgDlg[data-tipo="nuevo"]{height:calc(100vh - 48px)}
+dialog#orgDlg[data-tipo="nuevo"]>.odb{flex:1;padding:0;overflow:hidden;display:flex}
+.onv{flex:1;display:grid;grid-template-columns:minmax(380px,1.15fr) minmax(320px,1fr);grid-template-rows:auto 1fr;min-height:0;min-width:0}
+.onvtop{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.onvtop label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+.onvtop input,.onvtop select{font:inherit;font-size:13.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.onvtop #nvN{width:300px;font-weight:600}
+.onvtop .sp{flex:1}
+.onvizq{overflow:auto;padding:4px 16px 14px;border-right:1px solid var(--line);min-width:0}
+.onvizq h5{display:flex;align-items:center;gap:6px;margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.onvizq h5 small{text-transform:none;letter-spacing:0}
+.onvizq h5 .sp{flex:1}
+.onvruta{display:flex;gap:6px;flex-wrap:wrap}
+.onvruta input{flex:1 1 260px;min-width:0;font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.onvruta input:focus{outline:2px solid color-mix(in srgb,var(--accent) 50%,transparent);border-color:var(--accent)}
+.onvl{display:flex;flex-direction:column;gap:3px}
+.onvfila{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:4px 6px;border:1px solid var(--line);border-radius:7px;background:var(--side);font-size:13px;min-width:0}
+.onvfila:focus{outline:2px solid var(--accent)}
+.onvfila .onvr{flex:1;min-width:120px;display:flex;align-items:baseline;gap:6px;overflow:hidden}
+.onvr b{font-weight:600;white-space:nowrap}
+.onvpadre{direction:rtl;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.onvfila select{font:inherit;font-size:12px;padding:2px 4px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
+.onvst{width:22px;flex:none;border:0;background:none;color:var(--muted);cursor:pointer;font-size:14px;padding:0;display:inline-flex;justify-content:center}
+.onvst:disabled{opacity:.25;cursor:default}
+.onvfila.oviejo{opacity:.7;background:none}
+.onvav{flex-basis:100%;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center;padding-left:28px;font-size:11.5px;color:var(--muted)}
+.oseg.onvseg button{font-size:11px;padding:1px 7px}
+.onvsug{background:none;border-style:dashed}
+.onvsug small{color:var(--muted)}
+.onvviejas summary{cursor:pointer;font-size:12px;color:var(--muted);padding:2px 0 4px}
+.onvviejas{margin-bottom:4px}
+.onvprop{margin:6px 0 0}
+.onvflash{animation:onvflash 1.6s ease-out}
+@keyframes onvflash{0%,30%{background:color-mix(in srgb,var(--accent) 28%,transparent)}100%{background:transparent}}
+.onvder{display:flex;flex-direction:column;min-height:0;min-width:0}
+.onvdh{display:flex;align-items:center;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line)}
+.onvdh .sp{flex:1}
+.onvv{flex:1;min-height:0;overflow:auto;position:relative}
+.onvv.otl{padding:12px 10px}
+.onvv.onvcy{overflow:hidden}
+#nvRes{padding:6px 14px;border-top:1px solid var(--line)}
+.onvexp{border:1px solid var(--line);border-radius:8px;margin-top:8px;background:var(--bg);overflow:hidden}
+.onvexb{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--line);background:var(--side)}
+.onvexr{font-size:12.5px;font-weight:600;direction:rtl;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.onvexb .sp{display:none}
+.onvexb small{white-space:nowrap}
+.onvexc{display:grid;grid-template-columns:150px 1fr;height:250px}
+.onvexs{overflow:auto;border-right:1px solid var(--line);padding:4px;font-size:12.5px;display:flex;flex-direction:column}
+.onvexs a{flex:none;padding:3px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.onvexs a:hover,.onvexi:hover{background:var(--hover)}
+.onvexs h6{margin:8px 6px 2px;font-size:11px;color:var(--muted);font-weight:500}
+.onvexl{overflow:auto;padding:3px}
+.onvexi{display:flex;align-items:center;gap:6px;padding:2px 6px;border-radius:5px;font-size:13px}
+.onvexi.gris{opacity:.55}
+.onvexn{cursor:pointer;flex:1;min-width:0;overflow-wrap:anywhere}
+.onvexn[data-entra]:hover{text-decoration:underline}
+.onvexf{display:flex;align-items:center;gap:6px;padding:6px 8px;border-top:1px solid var(--line)}
+.onvexf .sp{flex:1}
+.otl .onodo.oacceso .onom{font-style:italic}
+@media (max-width:980px){.onv{grid-template-columns:1fr;grid-template-rows:auto auto minmax(260px,1fr)}.onvizq{border-right:0;border-bottom:1px solid var(--line);overflow:visible}dialog#orgDlg[data-tipo="nuevo"]>.odb{overflow:auto}}

@@ -410,6 +410,53 @@ try:
         pass
     assert any(x["serie"] == s for x in org.discos())
 
+    # ＋ Nuevo proyecto a mano: analizar una ruta, sugerencias por nombre y añadir carpetas y archivos
+    a = org.analizar_ruta(str(hs))
+    assert a["existe"] and a["dir"] and a["git"] and a["tipo"] == "codigo" and any(x["id"] == "homeshape" for x in a["proyectos"]), a
+    assert org.analizar_ruta(str(disco / "no-existe"))["existe"] is False
+    assert org.analizar_ruta(str(hs / "resources"))["dentro_de"], "cuelga de una carpeta de otro proyecto"
+    assert org.analizar_ruta(str(disco))["contiene"], "contiene carpetas de proyectos"
+    assert org.analizar_ruta(str(cal))["tipo"] == "entornos" and org.analizar_ruta(str(cal))["etapa"] == "Calidad"
+    try:
+        org.analizar_ruta("")
+        raise AssertionError("ruta vacía")
+    except ValueError:
+        pass
+    sg = org.sugerencias("homeshape", [str(hs)])
+    rutas_sg = [x["ruta"] for x in sg["carpetas"]]
+    assert str(hs) not in rutas_sg and str(vid) in rutas_sg and not any(r.startswith(str(hs) + os.sep) for r in rutas_sg), rutas_sg
+    assert org.sugerencias("app")["aviso"] and not org.sugerencias("ab")["carpetas"]
+    nuevo = carpeta("nuevo-proy", git=True)
+    doc = carpeta("docs-nuevo", archivos=["requisitos.pdf"])
+    f, av = org.crear_ficha({"nombre": "nuevo-proy", "principal_ruta": str(nuevo), "partes": [
+        {"tipo": "codigo", "carpetas": [{"ruta": str(nuevo)}]},
+        {"tipo": "documentos", "carpetas": [{"archivo": {"ruta": str(doc / "requisitos.pdf")}}, {"archivo": {"ruta": str(doc / "no.pdf")}}]}]})
+    assert f["id"] == "nuevo-proy" and f["principal"] == org.leer_ancla(nuevo) and any("No existe el archivo" in x for x in av), av
+    fs = {x["id"]: x for x in org.fichas(False)}
+    acc = [c for p in fs["nuevo-proy"]["partes"] for c in p["carpetas"] if c["ancla"].startswith("archivo:")]
+    assert len(acc) == 1 and acc[0]["estado"] == "ok" and acc[0]["nombre"] == "requisitos.pdf", acc
+    assert not (doc / org.ANCLA).exists(), "un acceso a archivo no pone ancla en su carpeta"
+    assert org.dentro_de_proyecto(str(doc / "requisitos.pdf"))
+    # ＋ Añadir carpetas: a la parte de su tipo (se crea), «Mover aquí» la quita del otro proyecto
+    f, av = org.anadir_carpetas("nuevo-proy", [{"ruta": str(cal), "tipo": "entornos"}, {"ruta": str(nuevo), "tipo": "codigo"}],
+                                movidas={str(cal): ["homeshape"]})
+    assert any(p["tipo"] == "entornos" and p["carpetas"][0]["etapa"] == "Calidad" for p in f["partes"]) and any("Ya estaba" in x for x in av), (f, av)
+    ac = org.leer_ancla(cal)
+    assert not any(c["ancla"] == ac for p in org.leer_json(org._ficha_path("homeshape"), {})["partes"] for c in p["carpetas"]), "movida, no compartida"
+    org.mover_carpeta("nuevo-proy", acc[0]["ancla"], "material")
+    try:
+        org.mover_carpeta("nuevo-proy", acc[0]["ancla"], "entornos")
+        raise AssertionError("un archivo no es una etapa")
+    except ValueError:
+        pass
+    (doc / "requisitos.pdf").unlink()
+    assert any(x["id"].startswith("archivo:") and x["estado"] == "falta" for x in org.alertas())
+    assert org.leer_version("nuevo-proy", org.versiones("nuevo-proy")[-1]["v"])["anclas"][acc[0]["ancla"]]["nombre"] == "requisitos.pdf"
+    code, r = org.get("/api/org/analizar", {"ruta": str(hs)})
+    assert code == 200 and r["git"]
+    assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
+    assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
+
     # HTTP
     assert org.get("/api/otra", {}) is None and org.post("/api/otra", {}) is None
     code, est = org.get("/api/org/estado", {}, [str(hs), str(disco / "sin-ficha")])

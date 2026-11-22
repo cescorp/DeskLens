@@ -821,6 +821,20 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - **2026-11-21 · Fase 1b (v1.169):** Flujo y Red con Cytoscape 3.30.2 (se carga al abrirlas), posiciones por vista en la ficha, zoom/posición por proyecto, minimapa propio, conectores (modo Conectar: clic origen → clic destino, en vez de arrastrar desde el borde), cajas, notas en nodos y conectores (Markdown en `notas/`, 💬 + cuadro flotante + panel), historial de estructura (`versiones/<id>/`, 5 min, con nombre, commits como marcas, restaurar) y comparativo en las 3 vistas (encima, lado a lado, solo cambios, ↑↓). **Fase 1b completa.**
 - Pendiente aparte: el historial de versiones **de archivos** por ancla + ruta relativa (que no se pierda al mover) con la cuota por proyecto; hoy sigue el de DeskLens por ruta.
 
+### ✅ ＋ Nuevo proyecto a mano y barra del tablero en una fila (ok y hecho 2026-11-22)
+- **Barra en una fila**: estado en desplegable con su número, ↕ orden, ▦ ☰ vista, ⚠ 💽 📋 ⚙ como iconos, **＋ Nuevo ▾** (Nuevo proyecto… · Buscar en discos… · Convertir proyectos de DeskLens).
+- **Modal «Nuevo proyecto»** (no bloquea; pregunta solo si hay carpetas añadidas):
+  - Arriba: nombre (sigue a la ★ mientras no se cambie) y estado.
+  - Izquierda: ruta escrita o pegada (Enter añade), **📁 Examinar…** (explorador dentro del modal, con /api/explorar), ＋ Archivo… y ☁ Etapa remota…; lista «En el proyecto» con ★, tipo/etapa y ✕; avisos en la fila (ya en otro proyecto → Compartir / Mover aquí; dentro de otra añadida; no existe).
+  - Sugerencias por nombre parecido, al instante, de los nombres guardados por el último recorrido de discos (con su fecha); ＋ Añadir / ＋ Añadir todas.
+  - Derecha: **así queda**, en vivo (Árbol · Flujo · Red), lo nuevo parpadea.
+  - Tipo sugerido por la ruta y el nombre; la primera carpeta es la ★ (si llega una con git, la propone).
+  - Pie: cuántas anclas se pondrán; Crear y abrir · Crear y seguir con otro.
+- **Dentro del proyecto**: clic derecho › ＋ Añadir carpetas… en Contenedor, Flujo y Red abre el mismo modal para ese proyecto.
+- **Archivos sueltos** como accesos ↗ (ancla «archivo:<id>» en la ficha, sin archivo de ancla): si se mueven salen en ⚠.
+- Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
+- Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
+
 ### ✅ Carpeta principal, entornos como iguales, iconos monocromos y líneas en el árbol (ok y hecho 2026-11-22)
 - La principal ★ es la raíz (por defecto git o Código; ★ Hacer principal en los menús). El proyecto se llama como ella salvo nombre puesto a mano.
 - Entornos: en cadena desde la principal («pasa a», línea gruesa); las demás partes salen de ella («contiene», línea gris fina). Flujo: fila a la derecha; Red: línea recta desde el centro; tarjeta: «★ principal → etapas».

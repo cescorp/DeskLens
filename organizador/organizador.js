@@ -74,13 +74,18 @@
   ($('#ribbon [data-v=g]') || $('#ribbon .sp')).after(btn);
   // otra vista de la cinta (Explorador, Buscar, Git) sale del tablero antes de abrirse
   $('#ribbon').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b !== btn && b.dataset.v && on()) cerrar(); }, true);
-  KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Esc', 'Salir del tablero de proyectos (o volver al tablero desde un proyecto o desde el editor de jerarquía)']]]);
+  KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
+    ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
+    ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'], ['Esc', 'Salir del tablero de proyectos (o volver al tablero desde un proyecto o desde el editor de jerarquía)']]]);
   addEventListener('keydown', e => {
     if (e.ctrlKey && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'o') { e.preventDefault(); on() ? cerrar() : abrir(); }
     else if (e.key === 'Escape' && on() && !document.querySelector('dialog[open]') && !$('#menu')) {
       if (O.pantalla === 'jerarquia') O.jer.volver(); else if (O.pantalla === 'proyecto') { if (!e.target.closest?.('#panes')) adminSalir(); } else if (O.pantalla === 'arranque' && O.st?.fichas.length) { O.pantalla = 'tablero'; pintar(); } else cerrar();
     }
   });
+  addEventListener('keydown', e => { // Ctrl+N en el tablero: ＋ Nuevo proyecto (antes que el «nuevo archivo» de DeskLens)
+    if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'n' && on() && O.pantalla === 'tablero' && !document.querySelector('dialog[open]')) { e.preventDefault(); e.stopImmediatePropagation(); nuevoProyecto(); }
+  }, true);
   // Dónde lo dejaste: si el tablero quedó abierto y en qué proyecto. Al abrir 🗂 (y al arrancar DeskLens) se vuelve ahí;
   // la pestaña, la vista (Contenedor, Flujo, Red), el zoom y lo abierto de cada proyecto los guarda su propia vista.
   const donde = () => { try { return JSON.parse(LS('desklens.org.donde') || '{}'); } catch { return {}; } };
@@ -135,19 +140,23 @@
       avance: (a, b) => b.avance - a.avance, estado: (a, b) => Object.keys(ESTADO).indexOf(a.estado) - Object.keys(ESTADO).indexOf(b.estado) };
     return fs.sort((a, b) => (b.fijado - a.fijado) || by[O.orden](a, b));
   }
-  function barra() {
+  const ORDENES = [['actividad', 'Última actividad'], ['nombre', 'Nombre'], ['avance', 'Avance'], ['estado', 'Estado']];
+  function barra() { // una sola fila (aprobado 2026-11-22): estado en desplegable, orden e iconos compactos, ＋ Nuevo ▾
     const n = k => O.st.fichas.filter(f => k === 'todos' ? f.estado !== 'archivo' : f.estado === k).length;
-    const chips = ['todos', ...Object.keys(ESTADO)].map(k => `<button data-f="${k}" class="${O.filtro === k ? 'on' : ''}">${k === 'todos' ? 'Todos' : ESTADO[k][1]}<b>${n(k)}</b></button>`).join('');
-    return `<div class="obar"><h2>🗂 Proyectos</h2><div class="ochips">${chips}</div>
-      <input type="search" id="oQ" placeholder="Filtrar proyectos…" value="${esc(O.q)}">
+    const est = O.filtro === 'todos' ? 'Todos' : `${ESTADO[O.filtro][0]} ${ESTADO[O.filtro][1]}`;
+    const ord = ORDENES.find(o => o[0] === O.orden)?.[1] || '';
+    return `<div class="obar otab"><h2>🗂 Proyectos</h2>
+      <button class="obtn osel" id="oEst" title="Qué proyectos se ven (por estado)">${est} <b>${n(O.filtro)}</b> ▾</button>
+      <input type="search" id="oQ" placeholder="🔍 Filtrar…" value="${esc(O.q)}" title="Filtrar por nombre, descripción o tecnología">
       <span class="sp"></span>
-      <label>Orden <select id="oOrden">${[['actividad', 'Última actividad'], ['nombre', 'Nombre'], ['avance', 'Avance'], ['estado', 'Estado']].map(([v, t]) => `<option value="${v}" ${O.orden === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-      <label>Vista <select id="oVista"><option value="tarjetas" ${O.vista === 'tarjetas' ? 'selected' : ''}>▦ Tarjetas</option><option value="lista" ${O.vista === 'lista' ? 'selected' : ''}>☰ Lista</option><option disabled>◉ Red (llega en la Fase 1b)</option></select></label>
-      <button class="obtn ${O.st.alertas ? 'warn' : ''}" id="oAl" title="Anclas no encontradas">⚠ ${O.st.alertas}</button>
-      <button class="obtn" id="oDi" title="Discos donde se buscan anclas">💽 ${O.st.discos_activos}</button>
-      <button class="obtn" id="oAc" title="Actividad: qué está pasando y dónde">📋${O.st.recorrido?.activo ? ' ⟳' : ''}</button>
-      <button class="obtn" id="oAj" title="Ajustes del organizador">⚙</button>
-      <button class="obtn primary" id="oBuscar">+ Buscar en discos</button></div>`;
+      <button class="obtn osel" id="oOrd" title="Orden de los proyectos">↕ <span>${ord}</span> ▾</button>
+      <span class="oseg" title="Ver en tarjetas o en lista"><button data-v="tarjetas" class="${O.vista !== 'lista' ? 'on' : ''}" title="Tarjetas">▦</button><button data-v="lista" class="${O.vista === 'lista' ? 'on' : ''}" title="Lista">☰</button></span>
+      <span class="osepv"></span>
+      <button class="obtn oico ${O.st.alertas ? 'warn' : ''}" id="oAl" title="Anclas no encontradas: ${O.st.alertas}">⚠${O.st.alertas ? ' ' + O.st.alertas : ''}</button>
+      <button class="obtn oico" id="oDi" title="Discos donde se buscan anclas: ${O.st.discos_activos} marcado(s)">💽 ${O.st.discos_activos}</button>
+      <button class="obtn oico" id="oAc" title="Actividad: qué está pasando y dónde">📋${O.st.recorrido?.activo ? ' ⟳' : ''}</button>
+      <button class="obtn oico" id="oAj" title="Ajustes del organizador">⚙</button>
+      <button class="obtn primary" id="oNuevo" title="Nuevo proyecto (Ctrl+N), buscar en discos o convertir los de DeskLens">＋ Nuevo ▾</button></div>`;
   }
   function tarjeta(f) {
     const cuenta = {}; f.partes.forEach(p => cuenta[p.tipo] = (cuenta[p.tipo] || 0) + p.carpetas.length);
@@ -175,7 +184,10 @@
   function tablero() {
     if (!O.st.fichas.length) { O.pantalla = 'arranque'; return arranque(); }
     const fs = filtradas();
-    const banner = O.st.sin_convertir?.length ? `<div class="obanner">Tienes <b>${O.st.sin_convertir.length}</b> proyecto(s) en DeskLens sin ficha.<span class="sp"></span><button class="obtn primary" id="oConv">Convertirlos en fichas</button></div>` : '';
+    // El aviso se cierra con ✕ y no vuelve, salvo que aparezca otro proyecto sin ficha que no estaba al cerrarlo.
+    let cerrados = []; try { cerrados = JSON.parse(LS('desklens.org.avisoSinFicha') || '[]'); } catch {}
+    const sinFicha = O.st.sin_convertir || [], avisar = sinFicha.some(x => !cerrados.includes(x));
+    const banner = avisar ? `<div class="obanner">Tienes <b>${sinFicha.length}</b> proyecto(s) en DeskLens sin ficha.<span class="sp"></span><button class="obtn primary" id="oConv">Convertirlos en fichas</button><button class="obtn oxban" id="oConvX" title="Cerrar este aviso (vuelve solo si aparece otro proyecto sin ficha; también puedes convertirlos desde 🔍 Buscar en discos)">✕</button></div>` : '';
     const cuerpo = !fs.length ? '<p class="oempty">Ningún proyecto con este filtro.</p>' : O.vista === 'lista'
       ? `<table class="olist"><thead><tr><th>Proyecto</th><th>Estado</th><th>Avance</th><th>Partes</th><th>Git</th><th>Actualizado</th></tr></thead><tbody>${fs.map(f => {
         const c = codigoDe(f), g = c && O.git[c.ruta];
@@ -183,14 +195,18 @@
           <td>${f.partes.map(p => icoT(p.tipo)).join(' ')}${f.papelera ? ` <span class="owarn">🗑 ${f.papelera}</span>` : ''}${f.avisos - f.papelera ? ` <span class="owarn">⚠ ${f.avisos - f.papelera}</span>` : ''}</td><td>${g?.rama ? `⎇ ${esc(g.rama)}${g.cambios ? ` · ${g.cambios}` : ''}` : ''}</td><td>${esc(f.actualizado || '')}</td></tr>`; }).join('')}</tbody></table>`
       : `<div class="ocards">${fs.map(tarjeta).join('')}</div>`;
     root.innerHTML = barra() + `<div class="obody">${banner}${cuerpo}</div>`;
-    root.querySelectorAll('.ochips button').forEach(b => b.onclick = () => { O.filtro = b.dataset.f; LS('desklens.org.filtro', O.filtro); tablero(); });
+    const nEst = k => O.st.fichas.filter(f => k === 'todos' ? f.estado !== 'archivo' : f.estado === k).length;
+    root.querySelector('#oEst').onclick = e => openMenu(e.currentTarget, ['todos', ...Object.keys(ESTADO)].map(k => [k === 'todos' ? 'Todos' : ESTADO[k][1],
+      () => { O.filtro = k; LS('desklens.org.filtro', k); tablero(); }, { html: `${O.filtro === k ? '✓' : '<span style="visibility:hidden">✓</span>'} ${k === 'todos' ? 'Todos (sin Archivo)' : ESTADO[k].join(' ')} <b style="opacity:.6">${nEst(k)}</b>` }]));
+    root.querySelector('#oOrd').onclick = e => openMenu(e.currentTarget, ORDENES.map(([v, t]) => [t, () => { O.orden = v; LS('desklens.org.orden', v); tablero(); },
+      { html: `${O.orden === v ? '✓' : '<span style="visibility:hidden">✓</span>'} ${t}` }]));
+    root.querySelectorAll('.oseg [data-v]').forEach(b => b.onclick = () => { O.vista = b.dataset.v; LS('desklens.org.vista', O.vista); tablero(); });
+    root.querySelector('#oNuevo').onclick = e => menuNuevo(e.currentTarget, sinFicha);
     const q = root.querySelector('#oQ'); q.oninput = () => { O.q = q.value; const pos = q.selectionStart; tablero(); const n = root.querySelector('#oQ'); n.focus(); n.setSelectionRange(pos, pos); };
-    root.querySelector('#oOrden').onchange = e => { O.orden = e.target.value; LS('desklens.org.orden', O.orden); tablero(); };
-    root.querySelector('#oVista').onchange = e => { O.vista = e.target.value; LS('desklens.org.vista', O.vista); tablero(); };
     root.querySelector('#oAl').onclick = alertasDlg; root.querySelector('#oDi').onclick = discosDlg;
     root.querySelector('#oAc').onclick = actividadDlg; root.querySelector('#oAj').onclick = ajustesDlg;
-    root.querySelector('#oBuscar').onclick = () => { O.pantalla = 'arranque'; O.props = null; arranque(); };
     root.querySelector('#oConv')?.addEventListener('click', convertir);
+    root.querySelector('#oConvX')?.addEventListener('click', () => { LS('desklens.org.avisoSinFicha', JSON.stringify(sinFicha)); tablero(); });
     root.querySelectorAll('[data-id]').forEach(el => el.onclick = e => {
       const f = O.st.fichas.find(x => x.id === el.dataset.id), a = e.target.closest('[data-a]')?.dataset.a;
       if (!a) return adminAbrir(f); // clic en la tarjeta: la vista de administración del proyecto
@@ -198,7 +214,7 @@
     });
   }
   async function accion(a, f, b) {
-    const c = codigoDe(f) || f.partes.flatMap(p => p.carpetas).find(x => x.estado === 'ok' || x.estado === 'movida');
+    const c = codigoDe(f) || f.partes.flatMap(p => p.carpetas).find(x => (x.estado === 'ok' || x.estado === 'movida') && !x.acceso);
     try {
       if (a === 'menu') return openMenu(b, [['📋 Ficha…', () => fichaDlg(f)], ['🧩 Editar jerarquía…', () => editarFicha(f)], '-',
         ...Object.keys(ESTADO).map(k => [`${ESTADO[k][0]} ${ESTADO[k][1]}`, () => guardar(f.id, { estado: k }), { disabled: f.estado === k }]),
@@ -219,6 +235,302 @@
     if (await ask('Quitar del organizador', `«${f.nombre}» deja de estar en el tablero. No se borra nada del disco: las carpetas y sus anclas se quedan donde están (la ficha se guarda en historial/organizador/quitados/).`, ['Quitar', 'Cancelar'], { danger: true }) !== 'Quitar') return;
     try { await api('/api/org/ficha/quitar', { id: f.id }); await cargar(); } catch (e) { err(e); }
   }
+  const buscarEnDiscos = () => { O.pantalla = 'arranque'; O.props = null; arranque(); };
+  function menuNuevo(b, sinFicha = O.st?.sin_convertir || []) {
+    openMenu(b, [['＋ Nuevo proyecto…', () => nuevoProyecto(), { html: '＋ Nuevo proyecto… <small style="opacity:.6">Ctrl+N</small>' }],
+      ['🔍 Buscar en discos…', buscarEnDiscos],
+      [`⇪ Convertir proyectos de DeskLens (${sinFicha.length})`, convertir, { disabled: !sinFicha.length }]]);
+  }
+
+  // ---------- ＋ Nuevo proyecto · ＋ Añadir carpetas (aprobado 2026-11-22) ----------
+  // A la izquierda se añade (ruta escrita o pegada, 📁 Examinar, ＋ Archivo, ☁ Etapa remota, sugerencias por nombre);
+  // a la derecha se ve en vivo cómo queda (Árbol · Flujo · Red). Con `f`, añade a ese proyecto. No se mueve ningún archivo.
+  const ORD_ETAPA = { Pruebas: 0, Calidad: 1, 'Producción': 2 };
+  const padreDe = r => String(r || '').replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '') + '\\'; // la carpeta de arriba (la ruta entera, al pasar el ratón)
+  const normRuta = r => String(r || '').replace(/[\\/]+$/, '').toLowerCase();
+  function nuevoProyecto(f = null, tipoInicial = '') {
+    if (f) f = O.st.fichas.find(x => x.id === f.id) || f;
+    const N = { nombre: '', tocado: false, estado: 'activo', items: [], principal: '', vista: LS('desklens.org.nuevo.vista') || 'arbol', nuevo: '', propuesta: '', exp: null, sug: null };
+    const cys = [], limpiarCy = () => { while (cys.length) { try { cys.pop().destroy(); } catch {} } };
+    const d = abrirDlg(f ? `＋ Añadir carpetas · ${esc(f.nombre)}` : '＋ Nuevo proyecto', `<div class="onv">
+      ${f ? '' : `<div class="onvtop"><label>Nombre <input id="nvN" placeholder="Se llama como la ★ mientras no le pongas otro" spellcheck="false"></label>
+        <small id="nvNs" class="osmall"></small><span class="sp"></span>
+        <label>Estado <select id="nvE">${Object.entries(ESTADO).map(([k, v]) => `<option value="${k}">${v.join(' ')}</option>`).join('')}</select></label></div>`}
+      <div class="onvizq">
+        <h5>Añadir</h5>
+        <div class="onvruta"><input id="nvR" list="nvRL" placeholder="Escribe o pega una ruta (G:\\www\\proyecto) y pulsa Enter" spellcheck="false" autocomplete="off"><datalist id="nvRL"></datalist>
+          <button class="obtn" id="nvX" title="Elegir carpetas (Ctrl+O)">📁 Examinar…</button><button class="obtn" id="nvA" title="Un archivo suelto (p. ej. un PDF de requisitos): entra como acceso ↗">＋ Archivo…</button>
+          <button class="obtn" id="nvRem" title="Una etapa que no es una carpeta de este PC (p. ej. el VPS)">☁ Etapa remota…</button></div>
+        <div id="nvExp" hidden></div>
+        <h5>En el proyecto <span id="nvC" class="osmall"></span></h5>
+        <div id="nvL" class="onvl"></div>
+        <h5>Sugerencias <small id="nvSi" class="osmall"></small><span class="sp"></span><button class="obtn" id="nvSt" hidden>＋ Añadir todas</button></h5>
+        <div id="nvS" class="onvl"></div>
+      </div>
+      <div class="onvder">
+        <div class="onvdh"><b>Así queda</b><span class="sp"></span><span class="oseg">${[['arbol', '🗂 Árbol'], ['flujo', '⇢ Flujo'], ['red', '◉ Red']].map(([v, t]) => `<button data-nv="${v}">${t}</button>`).join('')}</span></div>
+        <div id="nvV" class="onvv"></div>
+        <div id="nvRes" class="osmall"></div>
+      </div></div>`, { ancho: 1240,
+      pie: `<span id="nvPie" class="osmall"></span><span class="sp"></span><button class="obtn" id="nvCan">Cancelar</button>
+        ${f ? '<button class="obtn primary" id="nvOk" title="Ctrl+Enter">Añadir al proyecto</button>' : '<button class="obtn" id="nvOtro">Crear y seguir con otro</button><button class="obtn primary" id="nvOk" title="Ctrl+Enter">Crear y abrir</button>'}` });
+    d.dataset.tipo = 'nuevo'; d.oninput = null; // solo pregunta al cerrar si añadiste algo
+    d.onclose = () => { pararPoll(); limpiarCy(); delete d.dataset.tipo; d.onkeydown = null; };
+    const $n = q => d.querySelector(q);
+    const existentes = () => f ? f.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))) : [];
+    const yaEsta = ruta => N.items.find(it => normRuta(it.ruta) === normRuta(ruta)) || existentes().find(x => normRuta(x.c.ruta) === normRuta(ruta));
+    const principalIt = () => N.items.find(it => normRuta(it.ruta) === normRuta(N.principal));
+    const nombreAuto = () => principalIt()?.nombre || '';
+    const marcarCambios = () => { if (N.items.length) d.dataset.cambios = '1'; else delete d.dataset.cambios; };
+    const valorTipo = it => it.tipo === 'entornos' ? 'entornos|' + (it.etapa || 'Pruebas') : it.tipo;
+    const opcionesTipo = it => Object.entries(TIPO).flatMap(([t, [, nom]]) => t === 'entornos' ? (it.archivo ? [] : Object.keys(ORD_ETAPA).map(e => [`entornos|${e}`, `Entornos · ${e}`])) : it.remota ? [] : [[t, nom]]);
+
+    // ---- añadir ----
+    async function anadir(ruta, { tipo = '', archivo = false, accion = '', silencio = false } = {}) {
+      ruta = String(ruta || '').trim().replace(/^"(.*)"$/, '$1');
+      if (!ruta) return;
+      const ya = yaEsta(ruta);
+      if (ya) { if (!silencio) flash(ya.c ? `«${ya.c.nombre}» ya es parte de «${f.nombre}»` : `«${ya.nombre}» ya está en la lista`); return; }
+      let a;
+      try { a = await api('/api/org/analizar?ruta=' + encodeURIComponent(ruta)); } catch (e) { return flash('⚠ ' + e.message); }
+      if (!a.existe) return flash(`⚠ No existe: ${a.ruta}`);
+      if (a.error) return flash('⚠ ' + a.error);
+      if (yaEsta(a.ruta)) return;
+      if (f && a.proyectos.some(x => x.id === f.id)) return flash(`«${a.nombre}» ya es parte de «${f.nombre}»`);
+      const esArchivo = !a.dir;
+      let t = tipo || tipoInicial || a.tipo || 'otro';
+      if (esArchivo && t === 'entornos') t = 'documentos';
+      const it = { ruta: a.ruta, nombre: a.nombre, dir: a.dir, archivo: esArchivo, tipo: t, etapa: t === 'entornos' ? a.etapa || 'Pruebas' : '', git: a.git, info: a,
+        accion: accion || 'compartir' };
+      N.items.push(it);
+      if (!f && !principalIt() && it.dir) N.principal = it.ruta; // la primera carpeta es la ★
+      else if (!f && it.git && !principalIt()?.git && !N.propuesta) N.propuesta = it.ruta; // llegó una con git: se propone como ★
+      N.nuevo = it.ruta;
+      if (archivo && !esArchivo) flash('Era una carpeta: se añadió como carpeta');
+      marcarCambios(); pintar(); sugerir();
+    }
+    function quitarIt(it) {
+      N.items = N.items.filter(x => x !== it);
+      if (normRuta(N.principal) === normRuta(it.ruta)) N.principal = f ? '' : N.items.find(x => x.dir && !x.remota)?.ruta || '';
+      if (N.propuesta === it.ruta) N.propuesta = '';
+      marcarCambios(); pintar(); sugerir();
+    }
+    // ---- la lista «En el proyecto» ----
+    function avisosDe(it) {
+      const a = it.info || {}, out = [];
+      const otros = (a.proyectos || []).filter(x => !f || x.id !== f.id);
+      if (otros.length) out.push(`<span class="owarn">🔗 ya está en ${otros.map(x => `«${esc(x.nombre)}»`).join(', ')}</span>
+        <span class="oseg onvseg"><button data-acc="compartir" class="${it.accion !== 'mover' ? 'on' : ''}" title="Queda en los dos proyectos">Compartir</button><button data-acc="mover" class="${it.accion === 'mover' ? 'on' : ''}" title="Se quita del otro proyecto al crear (solo la ficha)">Mover aquí</button></span>`);
+      const padre = N.items.find(x => x !== it && x.dir && normRuta(it.ruta).startsWith(normRuta(x.ruta) + '\\'));
+      if (padre) out.push(`<span class="owarn">ⓘ está dentro de «${esc(padre.nombre)}», ya añadida</span>`);
+      const ajeno = x => !f || (x.ids || []).some(i => i !== f.id); // lo de este mismo proyecto no es aviso
+      for (const x of (a.dentro_de || []).filter(ajeno)) out.push(`<span>ⓘ cuelga de ${esc(x.ruta)} (de ${x.proyectos.map(n => `«${esc(n)}»`).join(', ')})</span>`);
+      const cont = (a.contiene || []).filter(ajeno);
+      if (cont.length) out.push(`<span title="${esc(cont.map(x => x.ruta).join(' · '))}">ⓘ contiene ${cont.length} elemento(s) de otros proyectos</span>`);
+      if (it.archivo) out.push('<span>↗ acceso a un archivo: no lleva ancla; si lo mueves, sale en ⚠</span>');
+      if (it.remota) out.push(`<span>☁ ${esc(it.remota.url || 'sin dirección')}</span>`);
+      return out.length ? `<div class="onvav">${out.join('')}</div>` : '';
+    }
+    function pintarLista() {
+      const L = $n('#nvL');
+      const viejas = existentes().map(({ c, p }) => `<div class="onvfila oviejo" title="${esc(c.ruta)}"><span class="onvst">${c.ancla === f.principal ? svgI('principal', 'var(--accent)', 'Carpeta principal') : ''}</span>${icoC(c, p.tipo)}<span class="onvr"><b>${esc(c.nombre)}</b><small class="onvpadre">${esc(padreDe(c.ruta))}</small></span><small>${esc(p.nombre)}${c.etapa ? ' · ' + esc(c.etapa) : ''}</small><small class="osmall">ya en el proyecto</small></div>`).join('');
+      L.innerHTML = (viejas ? `<details class="onvviejas"><summary>${existentes().length} ya en el proyecto</summary>${viejas}</details>` : '')
+        + (N.items.map((it, i) => {
+          const pr = normRuta(it.ruta) === normRuta(N.principal);
+          const ico = it.remota ? svgI('produccion', COLT.entornos) : it.archivo ? svgI('documentos', COLT[it.tipo]) : it.tipo === 'entornos' ? icoE(it.etapa) : svgI(icoKey(it.info?.icono) || 'carpeta', COLT[it.tipo]);
+          return `<div class="onvfila ${it.ruta === N.nuevo ? 'onvflash' : ''}" data-i="${i}" tabindex="0" title="${esc(it.ruta)}">
+            <button class="onvst ${pr ? 'on' : ''}" data-star ${it.dir && !it.remota ? '' : 'disabled'} title="${pr ? 'Carpeta principal (la raíz del proyecto)' : it.dir && !it.remota ? 'Hacerla la carpeta principal ★' : 'Solo una carpeta de este PC puede ser la principal'}">${pr ? svgI('principal', 'var(--accent)') : '☆'}</button>
+            ${ico}<span class="onvr"><b>${esc(it.nombre)}</b>${it.git ? ' <span title="Repositorio git">⎇</span>' : ''}${it.archivo ? ' <span title="Acceso a un archivo">↗</span>' : ''}<small class="onvpadre">${esc(it.remota ? it.remota.url || 'sin dirección' : padreDe(it.ruta))}</small></span>
+            <select data-tipo title="Tipo de parte">${opcionesTipo(it).map(([v, t]) => `<option value="${v}" ${valorTipo(it) === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+            <button class="ic" data-x title="Quitar de la lista (Supr)">✕</button>${avisosDe(it)}</div>`;
+        }).join('') || `<p class="ohint">${f ? 'Añade carpetas o archivos: escribe o pega una ruta, usa 📁 Examinar o elige de las sugerencias.' : 'Empieza por la carpeta principal del proyecto (la del código o la que usa git): escribe o pega su ruta, o usa 📁 Examinar. La primera carpeta que añadas será la ★.'}</p>`)
+        + (N.propuesta && principalIt() && normRuta(N.propuesta) !== normRuta(N.principal) && yaEsta(N.propuesta) ? `<div class="obanner onvprop">⎇ «${esc(yaEsta(N.propuesta).nombre)}» usa git. ¿Es ella la carpeta principal?<span class="sp"></span><button class="obtn" id="nvProp">★ Hacerla principal</button><button class="ic" id="nvPropX" title="No">✕</button></div>` : '');
+      $n('#nvC').textContent = N.items.length ? `(${N.items.length} nueva${N.items.length > 1 ? 's' : ''})` : '';
+      L.querySelectorAll('.onvfila[data-i]').forEach(el => {
+        const it = N.items[+el.dataset.i];
+        el.querySelector('[data-x]').onclick = () => quitarIt(it);
+        el.querySelector('[data-star]').onclick = () => { N.principal = it.ruta; N.propuesta = ''; pintar(); sugerir(); };
+        el.querySelector('[data-tipo]').onchange = e => { const [t, et] = e.target.value.split('|'); it.tipo = t; it.etapa = et || ''; N.nuevo = it.ruta; pintar(); };
+        el.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => { it.accion = b.dataset.acc; pintar(); });
+        el.onkeydown = e => { if (e.key === 'Delete' && !e.target.closest('select')) { e.preventDefault(); quitarIt(it); setTimeout(() => $n('.onvfila[data-i]')?.focus(), 0); } };
+      });
+      $n('#nvProp')?.addEventListener('click', () => { N.principal = N.propuesta; N.propuesta = ''; pintar(); sugerir(); });
+      $n('#nvPropX')?.addEventListener('click', () => { N.propuesta = ''; pintar(); });
+    }
+    // ---- «Así queda»: la ficha como quedaría ----
+    function fichaVista() {
+      const partes = f ? f.partes.map(p => ({ ...p, carpetas: p.carpetas.map(c => ({ ...c })) })) : [];
+      const parteDe = t => partes.find(p => p.tipo === t) || (partes.push({ nombre: TIPO[t][1], tipo: t, carpetas: [] }), partes.at(-1));
+      N.items.forEach((it, i) => parteDe(it.tipo).carpetas.push({ ancla: 'nv' + i, nombre: it.nombre, ruta: it.ruta, estado: it.remota ? 'remota' : 'ok', remota: it.remota,
+        icono: it.archivo ? '📄' : it.info?.icono || '📁', icono_propio: false, etapa: it.etapa, git: it.git, proyectos: [], acceso: it.archivo, _nuevo: it.ruta === N.nuevo }));
+      for (const p of partes) if (p.tipo === 'entornos') p.carpetas.sort((a, b) => (ORD_ETAPA[a.etapa] ?? 9) - (ORD_ETAPA[b.etapa] ?? 9));
+      const iPr = N.items.findIndex(it => normRuta(it.ruta) === normRuta(N.principal));
+      const nombre = f ? f.nombre : N.nombre.trim() || nombreAuto() || 'Proyecto nuevo';
+      return { id: '_nuevo', nombre, principal: iPr >= 0 ? 'nv' + iPr : f?.principal || '', partes, posiciones: {}, cajas: [], conexiones: [] };
+    }
+    function arbolVista(F, T) {
+      T.className = 'onvv otl';
+      const todas = F.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))), pr = todas.find(x => x.c.ancla === F.principal);
+      if (!pr) { T.innerHTML = '<p class="ohint" style="padding:16px">Aquí se verá el proyecto: la ★ arriba, sus etapas en fila y las demás partes colgando de ella.</p>'; return; }
+      const fila = ({ c, p }) => { const esP = c.ancla === F.principal;
+        return `<div class="onodo raiz ${c._nuevo ? 'onvflash' : ''} ${esP ? 'oprincipal' : ''}" title="${esc(c.ruta || '')}"><span class="otw"></span>${esP ? svgI('principal', 'var(--accent)', 'Carpeta principal') : ''}${c.acceso ? svgI('documentos', COLT[p.tipo]) : icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span>${c.acceso ? '<small>↗ acceso</small>' : ''}${esP ? '<small>principal</small>' : p.tipo === 'entornos' ? `<small>${esc(c.etapa || '')}</small>` : ''}${c.git ? '<span title="git">⎇</span>' : ''}</div>`; };
+      const etapas = todas.filter(x => x.p.tipo === 'entornos' && x.c.ancla !== F.principal);
+      const cadena = i => i >= etapas.length ? '' : `<div class="orama oetapa">${fila(etapas[i])}<div class="ohijos">${cadena(i + 1)}</div></div>`;
+      const partes = F.partes.map(p => ({ p, cs: p.carpetas.filter(c => c.ancla !== F.principal) })).filter(x => x.p.tipo !== 'entornos' && x.cs.length);
+      T.innerHTML = `<div class="orama oraiz">${fila(pr)}<div class="ohijos">${cadena(0)}${partes.map(({ p, cs }) => `<div class="orama"><div class="onodo oparten"><span class="otw"></span>${icoT(p.tipo)}<span class="onom">${esc(p.nombre)}</span><small>${cs.length}</small></div>
+        <div class="ohijos">${cs.map(c => `<div class="orama">${fila({ c, p })}</div>`).join('')}</div></div>`).join('')}</div></div>`;
+      marcarUltimos(T);
+    }
+    let tokV = 0;
+    async function pintarVista() {
+      const V = $n('#nvV'), F = fichaVista(), t = ++tokV;
+      d.querySelectorAll('[data-nv]').forEach(b => b.classList.toggle('on', b.dataset.nv === N.vista));
+      const n = F.partes.reduce((s, p) => s + p.carpetas.length, 0), git = F.partes.flatMap(p => p.carpetas).filter(c => c.git).length;
+      $n('#nvRes').textContent = n ? `${n} elemento(s) en ${F.partes.filter(p => p.carpetas.length).length} parte(s)${git ? ` · ${git} con git` : ''}` : '';
+      limpiarCy();
+      if (N.vista === 'arbol' || !F.principal) return arbolVista(F, V);
+      V.className = 'onvv onvcy'; V.innerHTML = '';
+      try { await cargarCy(); } catch (e) { V.innerHTML = `<p class="oempty">⚠ ${esc(e.message)}</p>`; return; }
+      if (t !== tokV || !d.open) return;
+      const M = modelo(F, c => c, []), cy = dibujar(V, M, N.vista, null, null, F, true);
+      cys.push(cy); cy.fit(undefined, 24); if (cy.zoom() > 1.1) { cy.zoom(1.1); cy.center(); }
+      const k = N.items.findIndex(it => it.ruta === N.nuevo), el = k < 0 ? null : cy.getElementById(normRuta(N.items[k].ruta) === normRuta(N.principal) ? 'p' : 'n:nv' + k);
+      if (el?.length) { el.addClass('c-nuevo'); setTimeout(() => { try { el.removeClass('c-nuevo'); } catch {} }, 1600); }
+    }
+    function pintar() {
+      if (!f) {
+        const auto = nombreAuto(), inN = $n('#nvN');
+        if (!N.tocado) { N.nombre = auto; if (document.activeElement !== inN) inN.value = auto; }
+        $n('#nvNs').textContent = N.tocado ? (auto && N.nombre !== auto ? '✎ nombre propio' : '') : auto ? '↺ sigue a la ★' : '';
+      }
+      pintarLista(); pintarVista();
+      const n = N.items.filter(it => it.dir && !it.remota).length, acc = N.items.filter(it => it.archivo).length, rem = N.items.filter(it => it.remota).length;
+      $n('#nvPie').textContent = N.items.length ? `Se pondrá un ancla oculta en ${n} carpeta(s)${acc ? ` · ${acc} acceso(s) a archivos` : ''}${rem ? ` · ${rem} etapa(s) remota(s)` : ''}. No se mueve ni copia ningún archivo.` : 'No se mueve ni copia ningún archivo: solo se crea la ficha y se pone un ancla oculta en cada carpeta.';
+      $n('#nvOk').disabled = !N.items.length || (!f && !principalIt());
+      if ($n('#nvOtro')) $n('#nvOtro').disabled = $n('#nvOk').disabled;
+      setTimeout(() => { if (N.nuevo) { N.nuevo = ''; d.querySelectorAll('.onvflash').forEach(x => x.classList.remove('onvflash')); } }, 1600);
+    }
+    // ---- sugerencias por nombre (de lo que guardó el último recorrido de discos; al instante) ----
+    let tS, tokS = 0;
+    function sugerir() {
+      clearTimeout(tS);
+      tS = setTimeout(async () => {
+        const nombre = f ? f.nombre : N.nombre.trim() || nombreAuto(), t = ++tokS, S = $n('#nvS');
+        if (!nombre) { S.innerHTML = '<p class="ohint">Cuando haya nombre o ★, aquí salen las carpetas con nombre parecido de tus discos.</p>'; $n('#nvSi').textContent = ''; $n('#nvSt').hidden = true; return; }
+        const excl = [...N.items.map(it => it.ruta), ...existentes().map(x => x.c.ruta)].filter(Boolean).join('|');
+        let r; try { r = await api(`/api/org/sugerencias?nombre=${encodeURIComponent(nombre)}&excluir=${encodeURIComponent(excl)}`); } catch (e) { S.innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p>`; return; }
+        if (t !== tokS || !d.open) return;
+        const vistos = r.discos.filter(x => x.visto);
+        $n('#nvSi').textContent = `parecidas a «${nombre}»` + (vistos.length ? ` · según el recorrido de ${vistos.map(x => `${x.letra} (${x.visto.slice(0, 10)})`).join(', ')}` : '');
+        const lista = r.carpetas.filter(x => !yaEsta(x.ruta));
+        $n('#nvSt').hidden = lista.filter(x => !x.proyectos.length).length < 2;
+        S.innerHTML = (r.aviso ? `<p class="ohint">${esc(r.aviso)}${/Buscar en discos/.test(r.aviso) ? ' <button class="obtn" id="nvBd">🔍 Buscar en discos</button>' : ''}</p>` : '')
+          + (lista.map((x, i) => `<div class="onvfila onvsug" data-s="${i}" title="${esc(x.ruta)}"><span class="onvst"></span>${x.tipo === 'entornos' ? icoE(x.etapa) : icoT(x.tipo)}<span class="onvr"><b>${esc(x.nombre)}</b>${x.git ? ' ⎇' : ''}<small class="onvpadre">${esc(padreDe(x.ruta))}</small></span>
+              <small>${esc(x.tipo === 'entornos' ? 'Entornos · ' + (x.etapa || 'Pruebas') : TIPO[x.tipo][1])}?${x.fecha ? ' · modif. ' + esc(x.fecha.replace('T', ' ')) : ''}</small>
+              ${x.proyectos.length ? `<span class="owarn" title="Ya es parte de otro proyecto">🔗 ${x.proyectos.map(p => esc(p.nombre)).join(', ')}</span><button class="obtn" data-sc>Compartir</button><button class="obtn" data-sm>Mover aquí</button>` : '<button class="obtn" data-sa>＋ Añadir</button>'}</div>`).join('')
+          || (r.aviso ? '' : '<p class="ohint">No hay carpetas con nombre parecido en los discos recorridos.</p>'));
+        S.querySelectorAll('[data-s]').forEach(el => {
+          const x = lista[+el.dataset.s], add = accion => anadir(x.ruta, { tipo: x.tipo, accion });
+          el.querySelector('[data-sa]')?.addEventListener('click', () => add());
+          el.querySelector('[data-sc]')?.addEventListener('click', () => add('compartir'));
+          el.querySelector('[data-sm]')?.addEventListener('click', () => add('mover'));
+        });
+        $n('#nvBd')?.addEventListener('click', () => { delete d.dataset.cambios; cerrarDlg(); buscarEnDiscos(); });
+        $n('#nvSt').onclick = async () => { for (const x of lista.filter(x => !x.proyectos.length)) await anadir(x.ruta, { tipo: x.tipo, silencio: true }); };
+      }, 250);
+    }
+    // ---- 📁 Examinar (explorador dentro de la ventana; el mismo /api/explorar de DeskLens) ----
+    async function explorar(modo, ruta) {
+      const X = $n('#nvExp');
+      if (modo === false) { X.hidden = true; N.exp = null; return; }
+      N.exp = { modo, marcadas: new Set(N.exp?.modo === modo ? N.exp.marcadas : []) };
+      let ex;
+      try { ex = await api('/api/explorar?ruta=' + encodeURIComponent(ruta ?? LS('desklens.org.nuevo.ruta') ?? '')); } catch (e) { try { ex = await api('/api/explorar?ruta='); } catch { return flash('⚠ ' + e.message); } }
+      if (ex.ruta) LS('desklens.org.nuevo.ruta', ex.ruta);
+      const items = ex.items.filter(i => i.dir || modo === 'archivo');
+      const link = (ico, r, n) => `<a data-go="${esc(r)}" title="${esc(r)}">${ico} ${esc(n)}</a>`;
+      X.hidden = false;
+      X.innerHTML = `<div class="onvexp"><div class="onvexb"><button class="obtn" data-up ${ex.padre === null ? 'disabled' : ''} title="Subir">↑</button><span class="onvexr" title="${esc(ex.ruta || '')}">${esc(ex.ruta || 'Este equipo')}</span>
+          <span class="sp"></span><small class="osmall">${modo === 'archivo' ? 'Archivos: márcalos · doble clic: entrar' : 'Márcalas · clic en el nombre: entrar'}</small><button class="ic" data-cerrar title="Cerrar el explorador">✕</button></div>
+        <div class="onvexc"><div class="onvexs">${ex.lugares.map(x => link('🏠', x.ruta, x.nombre)).join('')}${ex.proyectos.length ? '<h6>Proyectos de DeskLens</h6>' + ex.proyectos.map(x => link('📁', x.ruta, x.nombre)).join('') : ''}<h6>Unidades</h6>${ex.unidades.map(u => link('💽', u, u)).join('')}</div>
+          <div class="onvexl">${items.map((x, i) => { const ya = yaEsta(x.ruta), marcable = ex.ruta && (modo === 'archivo' ? !x.dir : x.dir);
+            return `<div class="onvexi ${x.atenuada ? 'gris' : ''}" data-e="${i}"><input type="checkbox" ${!marcable || ya ? 'disabled' : ''} ${ya ? 'checked' : N.exp.marcadas.has(x.ruta) ? 'checked' : ''}>
+              <span class="onvexn" ${x.dir ? 'data-entra' : ''}>${x.dir ? '📁' : fileIcon ? fileIcon(x.nombre) : '📄'} ${esc(x.nombre)}</span>${x.tipo?.length ? `<small>${esc(x.tipo.join(' · '))}</small>` : ''}${ya ? '<small>✓ en la lista</small>' : ''}</div>`; }).join('') || '<p class="ohint">No hay nada aquí.</p>'}</div></div>
+        <div class="onvexf">${modo === 'dir' && ex.ruta ? `<button class="obtn" data-aqui title="${esc(ex.ruta)}">＋ Añadir «${esc(ex.ruta.split(/[\\/]/).filter(Boolean).pop() || ex.ruta)}»</button>` : ''}<span class="sp"></span>
+          <button class="obtn primary" data-marc ${N.exp.marcadas.size ? '' : 'disabled'}>＋ Añadir marcad${modo === 'archivo' ? 'os' : 'as'} (${N.exp.marcadas.size})</button></div></div>`;
+      X.querySelectorAll('[data-go]').forEach(a => a.onclick = () => explorar(modo, a.dataset.go));
+      X.querySelector('[data-up]').onclick = () => explorar(modo, ex.padre ?? '');
+      X.querySelector('[data-cerrar]').onclick = () => explorar(false);
+      X.querySelector('[data-aqui]')?.addEventListener('click', () => anadir(ex.ruta).then(() => explorar(modo, ex.ruta)));
+      const btnM = X.querySelector('[data-marc]');
+      X.querySelectorAll('[data-e]').forEach(el => {
+        const x = items[+el.dataset.e], cb = el.querySelector('input');
+        cb.onchange = () => { cb.checked ? N.exp.marcadas.add(x.ruta) : N.exp.marcadas.delete(x.ruta); btnM.disabled = !N.exp.marcadas.size; btnM.textContent = `＋ Añadir marcad${modo === 'archivo' ? 'os' : 'as'} (${N.exp.marcadas.size})`; };
+        const n = el.querySelector('[data-entra]');
+        if (n) { if (modo === 'archivo') n.ondblclick = () => explorar(modo, x.ruta); else n.onclick = () => explorar(modo, x.ruta); }
+        else el.querySelector('.onvexn').onclick = () => { if (!cb.disabled) { cb.checked = !cb.checked; cb.onchange(); } };
+      });
+      btnM.onclick = async () => { const rs = [...N.exp.marcadas]; N.exp.marcadas.clear(); for (const r of rs) await anadir(r, { archivo: modo === 'archivo', silencio: true }); explorar(modo, ex.ruta); };
+    }
+    // ---- la ruta escrita: autocompletar con las carpetas de su carpeta de arriba ----
+    const inR = $n('#nvR'), cacheEx = new Map(); let tR;
+    inR.oninput = () => { clearTimeout(tR); tR = setTimeout(async () => {
+      const v = inR.value.trim().replace(/^"|"$/g, ''), k = v.lastIndexOf('\\'); if (k < 2) return;
+      const padre = v.slice(0, k + 1);
+      let ex = cacheEx.get(padre.toLowerCase());
+      if (!ex) { try { ex = await api('/api/explorar?ruta=' + encodeURIComponent(padre)); cacheEx.set(padre.toLowerCase(), ex); } catch { return; } }
+      $n('#nvRL').innerHTML = ex.items.filter(x => x.dir && x.ruta.toLowerCase().startsWith(v.toLowerCase())).slice(0, 40).map(x => `<option value="${esc(x.ruta)}">`).join('');
+    }, 180); };
+    inR.onkeydown = e => { if (e.key === 'Enter' && !e.ctrlKey) { e.preventDefault(); const v = inR.value; inR.value = ''; anadir(v); } };
+    $n('#nvX').onclick = () => N.exp?.modo === 'dir' ? explorar(false) : explorar('dir');
+    $n('#nvA').onclick = () => N.exp?.modo === 'archivo' ? explorar(false) : explorar('archivo');
+    $n('#nvRem').onclick = async () => {
+      const nombre = await ask('Etapa remota', 'Nombre (p. ej. «VPS producción»):', ['Siguiente', 'Cancelar'], { input: '' }); if (!nombre?.trim()) return;
+      const url = await ask('Etapa remota', 'Dirección: https://… o ssh usuario@servidor (opcional):', ['Añadir', 'Cancelar'], { input: '' }); if (url === null) return;
+      const it = { ruta: 'remota:' + nombre.trim(), nombre: nombre.trim(), remota: { nombre: nombre.trim(), url: url.trim() }, tipo: 'entornos', etapa: 'Producción', info: {}, accion: 'compartir' };
+      N.items.push(it); N.nuevo = it.ruta; marcarCambios(); pintar();
+    };
+    if (!f) {
+      $n('#nvN').oninput = e => { N.nombre = e.target.value; N.tocado = !!N.nombre.trim() && N.nombre.trim() !== nombreAuto(); if (!N.nombre.trim()) N.tocado = false; pintar(); sugerir(); };
+      $n('#nvE').onchange = e => { N.estado = e.target.value; };
+    }
+    d.querySelectorAll('[data-nv]').forEach(b => b.onclick = () => { N.vista = b.dataset.nv; LS('desklens.org.nuevo.vista', N.vista); pintarVista(); });
+    d.onkeydown = e => {
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); if (!$n('#nvOk').disabled) enviar(false); }
+      else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); e.stopPropagation(); explorar('dir'); }
+    };
+    // ---- crear o añadir ----
+    async function enviar(seguir) {
+      const ok = $n('#nvOk'); ok.disabled = true;
+      const movidas = {};
+      for (const it of N.items) { const otros = (it.info?.proyectos || []).filter(x => !f || x.id !== f.id).map(x => x.id); if (it.accion === 'mover' && otros.length) movidas[it.ruta] = otros; }
+      const carpeta = it => it.remota ? { remota: it.remota, etapa: it.etapa } : it.archivo ? { archivo: { ruta: it.ruta } } : { ruta: it.ruta, ...(it.tipo === 'entornos' ? { etapa: it.etapa } : {}) };
+      try {
+        let r;
+        if (f) r = await api('/api/org/ficha/anadir', { id: f.id, carpetas: N.items.map(it => ({ ...carpeta(it), tipo: it.tipo })), principal_ruta: N.principal || '', carpetas_movidas: movidas });
+        else {
+          const partes = [];
+          for (const it of N.items) { const p = partes.find(x => x.tipo === it.tipo) || (partes.push({ nombre: TIPO[it.tipo][1], tipo: it.tipo, carpetas: [] }), partes.at(-1)); p.carpetas.push(carpeta(it)); }
+          for (const p of partes) if (p.tipo === 'entornos') p.carpetas.sort((a, b) => (ORD_ETAPA[a.etapa] ?? 9) - (ORD_ETAPA[b.etapa] ?? 9));
+          r = await api('/api/org/ficha/crear', { nombre: N.nombre.trim() || nombreAuto(), estado: N.estado, partes, principal_ruta: N.principal, carpetas_movidas: movidas });
+        }
+        r.avisos?.forEach(a => flash('⚠ ' + a));
+        flash(f ? `✓ ${N.items.length} añadida(s) a «${f.nombre}» (nada se movió en el disco)` : `✓ Proyecto «${r.ficha.nombre}» creado (nada se movió en el disco)`);
+        delete d.dataset.cambios; d.close();
+        await cargar();
+        if (f) return;
+        if (seguir) return nuevoProyecto();
+        const nueva = O.st.fichas.find(x => x.id === r.ficha.id); if (nueva) adminAbrir(nueva);
+      } catch (e) { ok.disabled = false; err(e); }
+    }
+    $n('#nvOk').onclick = () => enviar(false);
+    $n('#nvOtro')?.addEventListener('click', () => enviar(true));
+    $n('#nvCan').onclick = () => cerrarDlg();
+    pintar(); sugerir();
+    setTimeout(() => (f ? inR : $n('#nvR')).focus(), 30);
+    return d;
+  }
+
   async function convertir() {
     const n = O.st.sin_convertir.length;
     if (await ask('Convertir en fichas', `Cada uno de los ${n} proyecto(s) de DeskLens pasa a una ficha con su carpeta como parte 💻 Código, y se le pone su ancla (.desklens-ancla). La barra lateral sigue igual.`, ['Convertir', 'Cancelar']) !== 'Convertir') return;
@@ -780,6 +1092,8 @@
       const borrada = BORRADA[c.estado], viva = c.estado === 'ok' || c.estado === 'movida', principal = c.ancla === f.principal;
       if (c.estado === 'remota') return `<div class="onodo raiz oremota" data-j="${j}" data-k="${k}" data-url="${esc(c.ruta)}" title="Etapa remota · ${esc(c.ruta || 'sin dirección')}">
         <span class="otw"></span>${icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span><small>${esc(c.etapa || '')} · ${esc(c.ruta || 'sin dirección')}</small></div>`;
+      if (String(c.ancla).startsWith('archivo:')) return `<div class="onodo raiz oacceso ${viva ? '' : 'gris'}" data-j="${j}" data-k="${k}" data-ruta="${esc(c.ruta)}" title="Acceso a un archivo · ${esc(c.ruta)}">
+        <span class="otw"></span>${svgI('documentos', COLT[p.tipo])}<span class="onom">${esc(c.nombre)}</span><span title="Acceso: no lleva ancla">↗</span>${viva ? '' : '<span class="owarn">⚠ no está</span>'}</div>`;
       const nn = nNotas(c.ancla);
       const marcas = `${nn ? `<span class="onotat" title="${nn} nota(s): se ven y editan en Flujo o Red">${svgI('notas')}${nn}</span>` : ''}${c.git ? '<span title="Repositorio git">⎇</span>' : ''}${c.proyectos.length > 1 ? `<span title="Compartida con ${c.proyectos.length - 1} proyecto(s) más">🔗</span>` : ''}${borrada ? `<span class="owarn">🗑 ${borrada}</span>` : c.estado === 'desconectado' ? '<span class="owarn">⚠ no conectado</span>' : c.estado === 'falta' ? '<span class="owarn">⚠ no encontrada</span>' : ''}`;
       const det = [principal ? 'principal' : '', p.tipo === 'entornos' ? c.etapa || 'Etapa' : ''].filter(Boolean).join(' · ');
@@ -787,7 +1101,7 @@
         <span class="otw">${viva ? (O.adm.abiertas.has(c.ruta) ? '▾' : '▸') : ''}</span>${principal ? svgI('principal', 'var(--accent)', 'Carpeta principal') : ''}${icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span>${marcas}${det ? `<small>${esc(det)}</small>` : ''}</div>${extra}`;
     };
     const pr = donde.get(f.principal);
-    if (!pr) { T.innerHTML = '<p class="ohint">El proyecto no tiene carpetas: añádelas con 🧩 Editar jerarquía.</p>'; return; }
+    if (!pr) { T.innerHTML = '<p class="ohint">El proyecto no tiene carpetas: añádelas con clic derecho › ＋ Añadir carpetas…</p>'; return; }
     // etapas (sin la principal), en cadena: cada una cuelga de la anterior
     const etapas = f.partes.filter(p => p.tipo === 'entornos').flatMap(p => p.carpetas).filter(c => c.ancla !== f.principal).map(c => donde.get(c.ancla));
     const cadena = i => i >= etapas.length ? '' : `<div class="orama oetapa">${fila(etapas[i], `<div class="ohijos">${etapas[i].c.estado === 'remota' ? '' : `<div class="ocont" data-de="${esc(etapas[i].c.ruta)}"></div>`}${cadena(i + 1)}</div>`)}</div>`;
@@ -810,7 +1124,13 @@
     };
     T.ondblclick = e => { const n = e.target.closest('.onodo'); if (n && !n.dataset.dir) abrirArchivo(n.dataset.ruta, true); };
     T.oncontextmenu = e => {
-      const n = e.target.closest('.onodo'); if (!n || n.classList.contains('oparten') || n.classList.contains('gris') && !n.classList.contains('raiz')) return;
+      const n = e.target.closest('.onodo');
+      if (!n || n.classList.contains('oparten')) { // el fondo o una parte: añadir
+        e.preventDefault(); e.stopPropagation();
+        const pt = n ? f.partes[+n.dataset.parte] : null;
+        return openMenu({ x: e.clientX, y: e.clientY }, [{ head: pt ? pt.nombre : f.nombre }, [pt ? `＋ Añadir carpetas a ${pt.nombre}…` : '＋ Añadir carpetas…', () => nuevoProyecto(f, pt?.tipo || '')]]);
+      }
+      if (n.classList.contains('gris') && !n.classList.contains('raiz')) return;
       e.preventDefault(); e.stopPropagation(); // sin el menú general de DeskLens encima
       const ruta = n.dataset.ruta, dir = !!n.dataset.dir, raiz = n.classList.contains('raiz');
       const c = raiz ? f.partes[+n.dataset.j].carpetas[+n.dataset.k] : null;
@@ -819,7 +1139,7 @@
         ['ⓘ Información', () => infoMostrar(f, panelI, remota ? { tipo: 'remota', ancla: c.ancla } : { tipo: dir ? 'carpeta' : 'archivo', ruta }), { disabled: n.classList.contains('gris') && !remota }],
         ...(remota ? [{ head: c.nombre }] : [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err), { disabled: n.classList.contains('gris') }],
         ...(dir ? [['>_ Terminal aquí', () => { adminSalir(); cerrar(); openTerminal(ruta); }, { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]])]),
-        ...(raiz && !remota && c.ancla !== f.principal ? ['-', hacerPrincipalItem(f, c.ancla, c.nombre)] : []),
+        ...(raiz && !remota && !n.classList.contains('oacceso') && c.ancla !== f.principal ? ['-', hacerPrincipalItem(f, c.ancla, c.nombre)] : []),
         ...(raiz ? menuMover(f, c.ancla, f.partes[+n.dataset.j].tipo) : []),
         ...(raiz ? ['-', ['Quitar del proyecto…', async () => {
           if (await ask('Quitar del proyecto', `«${c.nombre}» deja de ser parte de «${f.nombre}». No se borra nada del disco.`, ['Quitar', 'Cancelar'], { danger: true }) !== 'Quitar') return;
@@ -835,7 +1155,7 @@
   }, { html: `${svgI('principal', 'var(--accent)')} Hacer principal`, title: 'La raíz del proyecto: de ella salen sus entornos y sus partes' }];
   // «Mover a» (clic derecho en el árbol, Flujo y Red): pasa la carpeta a otra parte; solo la ficha, nada en el disco
   function menuMover(f, ancla, tipoActual) {
-    const remota = String(ancla).startsWith('remota:');
+    const remota = String(ancla).startsWith('remota:'), acceso = String(ancla).startsWith('archivo:');
     return ['-', { head: 'Mover a' }, ...Object.entries(TIPO).filter(([t]) => t !== tipoActual).map(([t, [, nom]]) => [nom, async () => {
       try {
         const r = await api('/api/org/ficha/mover_carpeta', { id: f.id, ancla, tipo: t, nombre: nom });
@@ -843,7 +1163,7 @@
         flash(`✓ Pasada a ${nom}${t === 'entornos' && c?.etapa ? ` · etapa ${c.etapa}` : ''} (solo la ficha: nada se movió en el disco)`);
         await cargar();
       } catch (x) { err(x); }
-    }, { disabled: remota && t !== 'entornos', html: `${svgI(t, COLT[t])} ${nom}` }])];
+    }, { disabled: remota && t !== 'entornos' || acceso && t === 'entornos', html: `${svgI(t, COLT[t])} ${nom}` }])];
   }
   const marcarUltimos = T => T.querySelectorAll('.ohijos').forEach(h => {
     const hs = [...h.querySelectorAll(':scope > .orama, :scope > .ocont > .orama')];
@@ -963,7 +1283,8 @@
       const et = p.tipo === 'entornos' ? `${c.etapa || 'Etapa'}\n` : '';
       return { id, label: `${et}${marca}${d.nombre}`, ico: d.estado === 'remota' ? 'produccion' : p.tipo === 'entornos' ? icoKeyEtapa(c.etapa) : icoKey(c.icono || d.icono), clase: 'carpeta', tipo: p.tipo, parte: p.nombre, etapa: c.etapa || '',
         icono: c.icono_propio === false ? '' : c.icono || '', // solo el elegido a mano (el sugerido no es un cambio)
-        icoAuto: d.icono || '', nombre: d.nombre, ruta: d.ruta, estado: d.estado || 'ok', compartida: (d.proyectos || []).length > 1, ancla: c.ancla };
+        icoAuto: d.icono || '', nombre: d.nombre, ruta: d.ruta, estado: d.estado || 'ok', compartida: (d.proyectos || []).length > 1, ancla: c.ancla,
+        ...(String(c.ancla).startsWith('archivo:') || c.acceso ? { acceso: true, ico: 'documentos', label: `↗ ${marca}${d.nombre}` } : {}) };
     };
     if (pr) { const n = nodoCarpeta(pr.c, pr.p, 'p'); m.nodos.set('p', { ...n, ico: 'principal', clase: 'proyecto', principal: true, proyecto: ficha.nombre }); } // su icono es la ★
     else m.nodos.set('p', { id: 'p', label: ficha.nombre, ico: 'principal', clase: 'proyecto' });
@@ -1245,6 +1566,7 @@
       else if (sel?.tipo === 'archivo') abrirEnContenedor(sel.ruta);
     });
     cy.on('cxttap', 'node, edge', e => menuElemento(f, cy, e.target, e.originalEvent));
+    cy.on('cxttap', e => { if (e.target === cy) openMenu({ x: e.originalEvent?.clientX ?? 200, y: e.originalEvent?.clientY ?? 200 }, [{ head: f.nombre }, ['＋ Añadir carpetas…', () => nuevoProyecto(f)]]); });
     cy.on('tap', 'edge[clase="tuya"], node[clase="caja"]', e => { if (!conectar) menuElemento(f, cy, e.target, e.originalEvent); });
     let tp; cy.on('dragfree', 'node', () => { clearTimeout(tp); tp = setTimeout(() => { // posiciones de esta vista, en la ficha
       const pos = { ...(f.posiciones || {}) }; pos[vista] = {};
@@ -1374,7 +1696,7 @@
         { selector: '.origen', style: { 'border-color': '#e0a030', 'border-width': 4 } },
         { selector: ':selected', style: { 'border-color': css('--accent'), 'border-width': 3, 'line-color': css('--accent') } },
         { selector: '.atenuado', style: { opacity: .15 } },
-        { selector: '.c-ctx', style: { opacity: O.adm.cmp.solo ? 0 : .3 } },
+        { selector: '.c-ctx', style: { opacity: O.adm?.cmp?.solo ? 0 : .3 } },
         { selector: '.c-nuevo', style: { 'border-color': CAMBIO.nuevo[0], 'border-width': 4, 'line-color': CAMBIO.nuevo[0] } },
         { selector: '.c-quitado', style: { 'border-color': CAMBIO.quitado[0], 'border-width': 3, 'border-style': 'dashed', 'line-color': CAMBIO.quitado[0], 'line-style': 'dashed', opacity: .75, 'text-decoration': 'line-through' } },
         { selector: '.c-movido', style: { 'border-color': CAMBIO.movido[0], 'border-width': 4, 'line-color': CAMBIO.movido[0] } },
@@ -1450,7 +1772,7 @@
     const clase = n.data('clase');
     if (clase === 'proyecto') return { tipo: 'proyecto' };
     if (clase === 'parte') return { tipo: 'parte', clave: n.data('clave') };
-    if (clase === 'carpeta') return n.data('estado') === 'remota' ? { tipo: 'remota', ancla: n.id().slice(2) } : { tipo: 'carpeta', ruta: n.data('ruta'), ancla: n.id().slice(2) };
+    if (clase === 'carpeta') return n.data('estado') === 'remota' ? { tipo: 'remota', ancla: n.id().slice(2) } : n.data('acceso') ? { tipo: 'archivo', ruta: n.data('ruta') } : { tipo: 'carpeta', ruta: n.data('ruta'), ancla: n.id().slice(2) };
     if (clase === 'sub') return { tipo: n.data('dir') ? 'carpeta' : 'archivo', ruta: n.data('ruta') };
     return null;
   }
@@ -1749,8 +2071,10 @@
     const viva = ruta && el.data('estado') !== 'remota';
     const sel = selDeNodo(el);
     openMenu(x, [{ head: el.data('label') }, ...(sel ? [['ⓘ Información', () => infoMostrar(f, panelI, sel)]] : []), notas,
-      ...(clase === 'carpeta' && viva && !el.cy().scratch('soloLectura') ? [['▾ Desplegar o plegar (doble clic)', () => desplegar(f, cy, el)]] : []), ...(viva ? [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err)], ['🗂 Ver en el Contenedor', () => { O.adm.vista = 'contenedor'; O.adm.abiertas.add(ruta); guardarVista(); admin(); }]] : []),
-      ...(clase === 'carpeta' && viva && !el.cy().scratch('soloLectura') ? ['-', hacerPrincipalItem(f, id.slice(2), el.data('nombre'))] : []),
+      ...(clase === 'carpeta' && viva && !el.data('acceso') && !el.cy().scratch('soloLectura') ? [['▾ Desplegar o plegar (doble clic)', () => desplegar(f, cy, el)]] : []),
+      ...(el.data('acceso') && viva ? [['Abrir en una pestaña (doble clic)', () => abrirEnContenedor(ruta)]] : []), ...(viva ? [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err)], ['🗂 Ver en el Contenedor', () => { O.adm.vista = 'contenedor'; O.adm.abiertas.add(ruta); guardarVista(); admin(); }]] : []),
+      ...(clase === 'carpeta' && viva && !el.data('acceso') && !el.cy().scratch('soloLectura') ? ['-', hacerPrincipalItem(f, id.slice(2), el.data('nombre'))] : []),
+      ...((clase === 'parte' || clase === 'proyecto') && !el.cy().scratch('soloLectura') ? ['-', ['＋ Añadir carpetas…', () => nuevoProyecto(f, clase === 'parte' ? el.data('tipo') : '')]] : []),
       ...(clase === 'carpeta' && !el.cy().scratch('soloLectura') ? menuMover(f, id.slice(2), el.data('tipo')) : [])]);
   }
 

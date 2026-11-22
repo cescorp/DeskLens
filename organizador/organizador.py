@@ -60,6 +60,8 @@ def escribir_json(p, datos):
 
 
 TIPOS = ["codigo", "entornos", "material", "web", "respaldos", "base_datos", "documentos", "otro"]
+NOMBRE_TIPO = {"codigo": "Código", "entornos": "Entornos", "material": "Material", "web": "Web", "respaldos": "Respaldos",
+               "base_datos": "Base de datos", "documentos": "Documentos", "otro": "Otra"}
 # 🚦 Entornos: etapas del despliegue en orden (pruebas → calidad → producción). Cada etapa es una carpeta anclada o una
 # etapa remota (nombre + dirección, p. ej. el VPS), guardada como carpeta con ancla «remota:<id>» (sin archivo .desklens-ancla).
 ETAPAS = [(("prueba", "test", "dev", "desarrollo", "local"), "Pruebas"), (("calidad", "qa", "staging", "preprod"), "Calidad"),
@@ -764,7 +766,7 @@ def iniciar_recorrido(series, modo="anclas", buscar=()):
         return recorrido.estado()
     if modo == "anclas":
         if not buscar:
-            buscar = [x["id"] for x in alertas() if x["estado"] == "falta"]  # en la papelera o sin disco: no se busca
+            buscar = [x["id"] for x in alertas() if x["estado"] == "falta" and not x["id"].startswith("archivo:")]  # en la papelera o sin disco: no se busca
         orden = {}
         reg = registro()
         for i in buscar:  # primero el disco donde estaba cada ancla
@@ -890,7 +892,7 @@ def principal_de(f, ruta_de):
     """La carpeta principal del proyecto (su raíz en el dibujo): la elegida a mano (★ Hacer principal) si sigue en la
     ficha; si no, la que usa git (primero la de Código), luego la primera de Código y si no, la primera carpeta.
     Las etapas remotas no pueden serlo. ruta_de(ancla) → ruta actual o ''."""
-    cs = [(p.get("tipo"), c["ancla"]) for p in f.get("partes", []) for c in p.get("carpetas", []) if not str(c["ancla"]).startswith("remota:")]
+    cs = [(p.get("tipo"), c["ancla"]) for p in f.get("partes", []) for c in p.get("carpetas", []) if not str(c["ancla"]).startswith(("remota:", "archivo:"))]
     if f.get("principal") in {a for _, a in cs}:
         return f["principal"]
 
@@ -977,6 +979,17 @@ def _partes(partes, avisos):
                 cs.append({"ancla": "remota:" + rid, "remota": {"nombre": str(r["nombre"]).strip()[:60], "url": str(r.get("url", "")).strip()[:300]},
                            "etapa": str(c.get("etapa", ""))[:30], "activa": True})
                 continue
+            if c.get("archivo") or str(c.get("ancla", "")).startswith("archivo:"):  # acceso a un archivo suelto (sin ancla en el disco)
+                ruta_a = str((c.get("archivo") or {}).get("ruta") or c.get("ruta") or "").strip()
+                rid = str(c.get("ancla", ""))[8:] or uuid.uuid4().hex[:12]
+                if not re.fullmatch(r"[0-9a-f]{6,32}", rid) or not ruta_a:
+                    raise ValueError("Acceso a archivo no válido: necesita la ruta")
+                if not str(c.get("ancla", "")).startswith("archivo:") and not larga(ruta_a).is_file():
+                    avisos.append(f"No existe el archivo: {ruta_a}")
+                    continue
+                if not any(x["ancla"] == "archivo:" + rid for x in cs):
+                    cs.append({"ancla": "archivo:" + rid, "archivo": {"ruta": str(Path(os.path.abspath(corta(ruta_a))))}, "activa": True})
+                continue
             if c.get("ancla"):
                 if c["ancla"] not in reg:
                     raise ValueError("Ancla desconocida")
@@ -1012,13 +1025,16 @@ def crear_ficha(datos):
         while _ficha_path(i).exists():
             i, n = f"{base}-{n}", n + 1
         f = {"id": i, **f, "partes": _partes(datos.get("partes"), avisos)}
+        if datos.get("principal_ruta"):  # «＋ Nuevo proyecto»: la ★ llega como ruta (aún no tenía ancla)
+            f["principal"] = _ancla_de_ruta(f, datos["principal_ruta"]) or f.get("principal", "")
         if "nombre_sigue" not in datos and f["nombre"] == nombre_principal(f):
             f["nombre_sigue"] = True  # se llama como su carpeta principal: la sigue si la renombras
         escribir_json(_ficha_path(i), f)
         actividad("ficha", f"Ficha creada: {f['nombre']}", str(_ficha_path(i)))
         guardar_version(i)
         mapa_luego()
-        return f, avisos
+    _quitar_de_otros(datos.get("carpetas_movidas") or {}, f)
+    return f, avisos
 
 
 def guardar_ficha(i, datos):
@@ -1071,6 +1087,12 @@ def fichas(ubicar_anclas=True):
                     c.update(ruta=c["remota"].get("url", ""), estado="remota", nombre=c["remota"]["nombre"], icono_propio=False,
                              icono="🌍", proyectos=[f["id"]], git=False, eliminada="")
                     continue
+                if i.startswith("archivo:"):  # acceso a archivo: está o no está en su ruta (no lleva ancla)
+                    ra = c["archivo"].get("ruta", "")
+                    ok = larga(ra).is_file() if ra else False
+                    c.update(ruta=ra, estado="ok" if ok else "falta", nombre=Path(ra).name or "?", icono_propio=False, icono="📄",
+                             proyectos=[f["id"]], git=False, eliminada="", acceso=True)
+                    continue
                 if i not in estados:
                     estados[i] = ubicar(i, reg) if ubicar_anclas else ("ok", reg.get(i, {}).get("ruta", ""))
                 est, ruta = estados[i]
@@ -1122,8 +1144,10 @@ def rutas_permitidas():
         return []
     if marca != _permitidas["marca"]:
         reg = registro()
-        ids = {c["ancla"] for f in fichas_crudas() for p in f.get("partes", []) for c in p.get("carpetas", [])}
-        _permitidas.update(marca=marca, rutas=[Path(reg[i]["ruta"]).resolve() for i in ids if i in reg] + [DATA.resolve()])
+        cs = [c for f in fichas_crudas() for p in f.get("partes", []) for c in p.get("carpetas", [])]
+        ids = {c["ancla"] for c in cs}
+        _permitidas.update(marca=marca, rutas=[Path(reg[i]["ruta"]).resolve() for i in ids if i in reg] + [DATA.resolve()]
+                           + [Path(c["archivo"]["ruta"]).resolve() for c in cs if c.get("archivo", {}).get("ruta")])
     return _permitidas["rutas"]
 
 
@@ -1169,6 +1193,8 @@ def mover_carpeta(proyecto_id, ancla, tipo, nombre=""):
             return f
         if ancla.startswith("remota:") and tipo != "entornos":
             raise ValueError("Una etapa remota solo puede ir en Entornos")
+        if ancla.startswith("archivo:") and tipo == "entornos":
+            raise ValueError("Un archivo no puede ser una etapa de Entornos")
         origen["carpetas"].remove(item)
         destino = next((x for x in f["partes"] if x.get("tipo") == tipo), None)
         if not destino:
@@ -1315,10 +1341,159 @@ def convertir_proyectos(rutas):
     return hechas, avisos
 
 
+# ---------- ＋ Nuevo proyecto a mano y ＋ Añadir carpetas (aprobado 2026-11-22) ----------
+
+def _ancla_de_ruta(f, ruta):
+    """Ancla de la ficha `f` que está en `ruta` ('' si ninguna)."""
+    reg, r = registro(), os.path.normcase(os.path.abspath(corta(ruta)))
+    for p in f.get("partes", []):
+        for c in p.get("carpetas", []):
+            if os.path.normcase(os.path.abspath(reg.get(c["ancla"], {}).get("ruta", "") or "?")) == r:
+                return c["ancla"]
+    return ""
+
+
+def _quitar_de_otros(movidas, f):
+    """«Mover aquí»: {ruta: [ids de los proyectos de donde se quita]}. La carpeta queda solo en `f`."""
+    for ruta, ids in movidas.items():
+        a = _ancla_de_ruta(f, ruta)
+        for i in ids or []:
+            if a and i != f["id"]:
+                try:
+                    quitar_carpeta(i, a)
+                except ValueError:
+                    pass
+
+
+def _usos_por_ruta():
+    """{ruta normalizada: {ids de proyectos}} y {id: nombre}, de carpetas ancladas y accesos a archivos."""
+    reg, usos, nombres = registro(), {}, {}
+    for f in fichas_crudas():
+        nombres[f["id"]] = f.get("nombre", f["id"])
+        for q in f.get("partes", []):
+            for c in q.get("carpetas", []):
+                rc = reg.get(c["ancla"], {}).get("ruta") or (c.get("archivo") or {}).get("ruta")
+                if rc:
+                    usos.setdefault(os.path.normcase(rc), set()).add(f["id"])
+    return usos, nombres
+
+
+def analizar_ruta(ruta):
+    """Lo que el modal necesita saber de una ruta antes de añadirla: si existe, si es carpeta o archivo, tipo y etapa
+    sugeridos, si tiene git, en qué proyectos está ya y si cuelga de (o contiene) carpetas de otros proyectos."""
+    ruta = str(ruta or "").strip().strip('"')
+    if not ruta:
+        raise ValueError("Escribe una ruta")
+    p = Path(os.path.abspath(corta(ruta)))
+    L = larga(p)
+    out = {"ruta": str(p), "nombre": p.name or str(p), "existe": L.exists(), "dir": L.is_dir()}
+    if not out["existe"]:
+        return out
+    if out["dir"] and p == Path(p.anchor):
+        out["error"] = "Es un disco entero: elige una carpeta dentro de él"
+    git = out["dir"] and (L / ".git").exists()
+    codigo = git or (out["dir"] and any((L / m).exists() for m in MARCAS))
+    out.update(git=git, tipo=tipo_sugerido(p, codigo) if out["dir"] else "documentos", etapa=etapa_sugerida(p.name),
+               icono=icono_sugerido(p.name, git) if out["dir"] else "📄")
+    if out["tipo"] == "otro" and normalizar(p.name).startswith("bk"):
+        out["tipo"] = "respaldos"
+    out["ancla"] = (leer_ancla(p) if out["dir"] else None) or ""
+    usos, nombres = _usos_por_ruta()
+    yo = os.path.normcase(str(p))
+    out["proyectos"] = [{"id": i, "nombre": nombres[i]} for i in sorted(usos.get(yo, ())) if i in nombres]
+    out["dentro_de"], out["contiene"] = [], []
+    for rc, ids in usos.items():
+        if rc == yo:
+            continue
+        if yo.startswith(rc.rstrip("\\/") + os.sep):
+            out["dentro_de"].append({"ruta": rc, "proyectos": [nombres.get(i, i) for i in sorted(ids)], "ids": sorted(ids)})
+        elif rc.startswith(yo.rstrip("\\/") + os.sep):
+            out["contiene"].append({"ruta": rc, "proyectos": [nombres.get(i, i) for i in sorted(ids)], "ids": sorted(ids)})
+    out["contiene"] = out["contiene"][:20]
+    return out
+
+
+def sugerencias(nombre, excluir=(), limite=40):
+    """Carpetas con nombre parecido a `nombre`, al instante, de los nombres que guardó el último recorrido de discos
+    (carpetas.db). No se recorre nada: si ningún disco se recorrió, se dice. Nada que cuelgue de `excluir`."""
+    clave = normalizar(nombre or "")
+    discos_info = [{"letra": d.get("letra", ""), "visto": d.get("visto", "")} for d in config_discos().values() if d.get("activo")]
+    base = {"carpetas": [], "discos": discos_info, "clave": clave}
+    if len(clave) < 4 or clave in GENERICAS:
+        return {**base, "aviso": "Escribe un nombre de 4 letras o más (no genérico) para ver carpetas parecidas"}
+    ex = [os.path.abspath(corta(x)) for x in excluir if x]
+    try:
+        con = db()
+        e = clave.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        filas = con.execute("SELECT ruta, nombre, marca FROM carpetas WHERE clave LIKE ? ESCAPE '\\' ORDER BY length(ruta) LIMIT 400",
+                            (f"%{e}%",)).fetchall()
+        con.close()
+    except sqlite3.Error:
+        filas = []
+    usos, nombres = _usos_por_ruta()
+    tomadas, out = list(ex), []
+    for ruta, nom, marca in filas:
+        if any(os.path.normcase(ruta) == os.path.normcase(t) for t in tomadas) or _dentro(ruta, tomadas):
+            continue
+        if not os.path.isdir(larga(ruta)):  # el recorrido es de otro día: ya no está
+            continue
+        tomadas.append(ruta)
+        try:
+            fecha = datetime.fromtimestamp(os.stat(larga(ruta)).st_mtime).isoformat(timespec="minutes")
+        except OSError:
+            fecha = ""
+        ids = sorted(usos.get(os.path.normcase(ruta), ()))
+        out.append({"ruta": ruta, "nombre": nom, "tipo": tipo_sugerido(ruta, marca in ("git", "codigo")),
+                    "etapa": etapa_sugerida(nom), "git": marca == "git", "fecha": fecha,
+                    "proyectos": [{"id": i, "nombre": nombres.get(i, i)} for i in ids]})
+        if len(out) >= limite:
+            break
+    return {**base, "carpetas": out,
+            "aviso": "" if any(d["visto"] for d in discos_info) else "Aún no se recorrió ningún disco: usa 🔍 Buscar en discos para tener sugerencias"}
+
+
+def anadir_carpetas(proyecto_id, carpetas, principal_ruta="", movidas=None):
+    """＋ Añadir carpetas a un proyecto existente: cada una {ruta | archivo:{ruta} | remota, tipo, etapa} va a la primera
+    parte de su tipo (se crea si no hay). Pone las anclas. Devuelve (ficha, avisos)."""
+    with _fichas_lock:
+        p = _ficha_path(proyecto_id)
+        f = leer_json(p, None)
+        if not f:
+            raise ValueError("No existe ese proyecto")
+        avisos, partes = [], f.setdefault("partes", [])
+        for c in carpetas or []:
+            tipo = c.get("tipo") if c.get("tipo") in TIPOS else "otro"
+            nuevas = _partes([{"tipo": tipo, "carpetas": [c]}], avisos)[0]["carpetas"]
+            if not nuevas:
+                continue
+            n = nuevas[0]
+            if any(x["ancla"] == n["ancla"] for q in partes for x in q.get("carpetas", [])):
+                avisos.append(f"Ya estaba en el proyecto: {c.get('ruta') or n['ancla']}")
+                continue
+            dest = next((q for q in partes if q.get("tipo") == tipo), None)
+            if not dest:
+                dest = {"nombre": c.get("parte") or NOMBRE_TIPO.get(tipo, tipo.capitalize()), "tipo": tipo, "carpetas": []}
+                partes.append(dest)
+            dest["carpetas"].append(n)
+            if tipo == "entornos":
+                dest["carpetas"].sort(key=lambda x: ORDEN_ETAPA.get(x.get("etapa", ""), 9))
+            actividad("ficha", f"Añadida a {f.get('nombre', proyecto_id)}", c.get("ruta") or (c.get("archivo") or {}).get("ruta", ""))
+        if principal_ruta:
+            a = _ancla_de_ruta(f, principal_ruta)
+            if a:
+                f["principal"] = a
+        f["actualizado"] = datetime.now().date().isoformat()
+        escribir_json(p, f)
+    _quitar_de_otros(movidas or {}, {**f, "id": proyecto_id})
+    guardar_version(proyecto_id)
+    mapa_luego()
+    return leer_json(p, f), avisos
+
+
 # ---------- notas en nodos y conectores (Markdown, una por archivo en notas/) ----------
 # Cabecera mínima y luego el texto. destino: proyecto · nodo:<ancla> · parte:<n> · conector:<id> · caja:<id>
 
-DESTINO_RE = re.compile(r"(proyecto|nodo:(remota:)?[0-9a-f]{6,32}|parte:\d{1,3}|conector:[\w:>-]{1,120}|caja:[\w-]{1,40})")
+DESTINO_RE = re.compile(r"(proyecto|nodo:((remota|archivo):)?[0-9a-f]{6,32}|parte:\d{1,3}|conector:[\w:>-]{1,120}|caja:[\w-]{1,40})")
 
 
 def _nota_leer(p):
@@ -1390,6 +1565,8 @@ def _instantanea(i):
     reg = registro()
     ids = {c["ancla"] for p in f.get("partes", []) for c in p.get("carpetas", [])}
     remotas = {c["ancla"]: c["remota"] for p in f.get("partes", []) for c in p.get("carpetas", []) if c.get("remota")}
+    remotas |= {c["ancla"]: {"url": c["archivo"]["ruta"], "nombre": Path(c["archivo"]["ruta"]).name}
+                for p in f.get("partes", []) for c in p.get("carpetas", []) if c.get("archivo")}
     return {"ficha": f, "notas": notas(i), "anclas": {a: ({"ruta": remotas[a].get("url", ""), "nombre": remotas[a]["nombre"]} if a in remotas else
                                                           {"ruta": reg.get(a, {}).get("ruta", ""), "nombre": Path(reg.get(a, {}).get("ruta", "?")).name})
                                                      for a in ids}}
@@ -1494,8 +1671,9 @@ def restaurar_version(i, v):
                   | {"partes": [{"nombre": p["nombre"], "tipo": p["tipo"], "carpetas": [{"ancla": c["ancla"], "activa": c.get("activa", True),
                                                                                           **({"icono": c["icono"]} if c.get("icono") else {}),
                                                                                           **({"remota": c["remota"]} if c.get("remota") else {}),
+                                                                                          **({"archivo": c["archivo"]} if c.get("archivo") else {}),
                                                                                           **({"etapa": c["etapa"]} if c.get("etapa") else {})}
-                                                                         for c in p["carpetas"] if c.get("remota") or c["ancla"] in registro()]}
+                                                                         for c in p["carpetas"] if c.get("remota") or c.get("archivo") or c["ancla"] in registro()]}
                                 for p in f.get("partes", [])]})
     for n in notas(i):  # las notas, como estaban
         (DATA / "notas" / f"{n['id']}.md").unlink(missing_ok=True)
@@ -1711,6 +1889,13 @@ def get(ruta, q, proyectos_desklens=()):
         return 200, {"recorrido": estado_recorrido()}
     if r == "relaciones":
         return 200, {"proyectos": relaciones(proyectos_desklens)}
+    if r in ("analizar", "sugerencias"):  # ＋ Nuevo proyecto / ＋ Añadir carpetas
+        try:
+            if r == "analizar":
+                return 200, analizar_ruta(q.get("ruta", ""))
+            return 200, sugerencias(q.get("nombre", ""), [x for x in q.get("excluir", "").split("|") if x])
+        except (ValueError, OSError) as e:
+            return 400, {"error": str(e)}
     if r == "actividad":
         return 200, leer_actividad()
     try:
@@ -1741,6 +1926,9 @@ def post(ruta, datos):
             return 200, {"ficha": f, "avisos": av}
         if r == "ficha/guardar":
             f, av = guardar_ficha(datos.get("id", ""), datos)
+            return 200, {"ficha": f, "avisos": av}
+        if r == "ficha/anadir":
+            f, av = anadir_carpetas(datos.get("id", ""), datos.get("carpetas", []), datos.get("principal_ruta", ""), datos.get("carpetas_movidas"))
             return 200, {"ficha": f, "avisos": av}
         if r == "ficha/quitar_carpeta":
             return 200, {"ficha": quitar_carpeta(datos.get("id", ""), datos.get("ancla", ""))}
