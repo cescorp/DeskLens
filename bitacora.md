@@ -1,6 +1,9 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: filtro siempre visible y pizarra más fluida
+`organizador.js`: `filtroPizarra` crea el cuadro una vez (`.ofcab`) y `pintar()` solo rehace los tipos (antes rehacía todo y había que devolver el foco); los tipos se ven con `:focus-within` o `.fijo` (▾); `tabIndex -1` en la caja para que un clic dentro no los cierre. `aplicarFiltro` usa `cacheDir` (lo leído) y `desplegarEnLote` (marca `lote`: `desplegar` no ordena ni repinta; al final un `ordenarRama` por rama); también al volver al proyecto. Filtro de nombre: no esconde carpetas abiertas (ni en el explorador). Rueda: deltas acumulados y aplicados en `requestAnimationFrame`. Medido: filtrar 9–20 ms tras la pausa de 160 ms (antes, una lectura de disco y un reordenado por carpeta).
+
 ## 2026-11-22 · Organizador: lo desplegado sin montarse
 `organizador.js`: `ordenarRama(cy, n, flujo, animar)` recoloca todo lo desplegado de la carpeta del proyecto de la que cuelga (`anclaDe`): Red en abanico con un hueco por carpeta proporcional a lo que tiene abierto (`desc`), Flujo en filas de 4 con el ancho de cada rama (`medir`/`colocar`). Luego `separar()` (cajas con su nombre; solo mueve `.sub`/`.mas`, en Flujo solo de lado) y otra pasada tras `ladosRed` porque los nombres cambian de lado. Anima desde donde estaban. Se llama al desplegar y al plegar. Red: `min-zoomed-font-size` en lo desplegado. Probado con 3 carpetas de 14 archivos + 6 documentos: 0 solapes en Red y en Flujo (antes, decenas).
 

@@ -1904,10 +1904,7 @@
     notasCapa(f, cy, lienzos.querySelector('#cyA'), B.querySelector('#pN'), null);
     filtroPizarra(f, cy);
     B.querySelector('#pI1').onclick = () => infoAlternar(f, panel, B);
-    for (const r of [...(O.adm.exp[vista] || [])].sort((a, b) => a.length - b.length)) { // lo que dejaste desplegado
-      const n = cy.nodes().filter(x => x.data('ruta') === r && (x.data('clase') === 'carpeta' || x.data('clase') === 'proyecto' || x.data('dir')));
-      if (n.length) await desplegar(f, cy, n[0], true);
-    }
+    await desplegarEnLote(f, cy, [...(O.adm.exp[vista] || [])].sort((a, b) => a.length - b.length), false); // lo que dejaste desplegado
     if (O.adm.info.abierto) O.adm.info.pest === 'exp' ? explorarEnPanel(f, panel) : infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
   }
   // dibuja un modelo en un lienzo; con «dif», marca los cambios y añade los quitados como fantasma
@@ -2028,10 +2025,17 @@
       cy.on('mouseout', 'node', () => { cont.title = ''; });
     }
     // rueda: desplaza (Shift: a los lados); Ctrl+rueda: zoom hacia el ratón
+    let rueda = null, rafR = 0;
     cont.addEventListener('wheel', ev => {
       ev.preventDefault();
-      if (ev.ctrlKey) { const r = cont.getBoundingClientRect(); cy.zoom({ level: Math.min(4, Math.max(.1, cy.zoom() * (ev.deltaY < 0 ? 1.12 : 1 / 1.12))), renderedPosition: { x: ev.clientX - r.left, y: ev.clientY - r.top } }); }
-      else cy.panBy(ev.shiftKey ? { x: -ev.deltaY, y: 0 } : { x: -ev.deltaX, y: -ev.deltaY });
+      rueda ||= { x: 0, y: 0, zoom: 1, en: null };
+      if (ev.ctrlKey) { const r = cont.getBoundingClientRect(); rueda.zoom *= ev.deltaY < 0 ? 1.12 : 1 / 1.12; rueda.en = { x: ev.clientX - r.left, y: ev.clientY - r.top }; }
+      else if (ev.shiftKey) rueda.x -= ev.deltaY; else { rueda.x -= ev.deltaX; rueda.y -= ev.deltaY; }
+      if (!rafR) rafR = requestAnimationFrame(() => { // todo lo que llegó en este cuadro, de una vez
+        rafR = 0; const m = rueda; rueda = null; if (!m || cy.destroyed()) return;
+        if (m.zoom !== 1) cy.zoom({ level: Math.min(4, Math.max(.1, cy.zoom() * m.zoom)), renderedPosition: m.en });
+        if (m.x || m.y) cy.panBy({ x: m.x, y: m.y });
+      });
     }, { passive: false });
     return cy;
   }
@@ -2051,12 +2055,13 @@
       cy.scratch('pintarFiltro')?.();
       O.adm.exp[vista] = exp.filter(r => !bajo(r, ruta)); return guardarVista();
     }
-    let items;
-    try { items = (await api('/api/dir?ruta=' + encodeURIComponent(ruta))).filter(i => i.nombre !== '.desklens-ancla'); }
+    let items = cy.scratch('cacheDir')?.[ruta];
+    if (!items) try { items = (await api('/api/dir?ruta=' + encodeURIComponent(ruta))).filter(i => i.nombre !== '.desklens-ancla'); }
     catch (e) { if (!restaurar) err(e); return; }
     if (cy.destroyed() || !n.inside()) return;
     todos[ruta] = items;
-    const vis = items.filter(i => pasaFiltro(i.nombre, i.dir)); // con filtro, el límite de 12 va después de filtrar
+    const abiertaBajo = r => (O.adm.exp[vista] || []).some(x => bajo(x, r)); // una carpeta abierta (o con algo abierto dentro) no se esconde: el filtro llega a lo de dentro
+    const vis = items.filter(i => pasaFiltro(i.nombre, i.dir) || (i.dir && abiertaBajo(i.ruta))); // con filtro, el límite de 12 va después de filtrar
     const ver = vis.slice(0, SUB_MAX), resto = vis.length - ver.length, tipo = n.data('tipo');
     const nuevos = ver.map(i => ({ id: 's:' + i.ruta, label: i.nombre, ruta: i.ruta, dir: !!i.dir, cls: i.dir ? 'sub subdir' : 'sub subarch', clase: 'sub', ico: i.dir ? 'carpeta' : 'documentos' }));
     if (resto > 0 || !vis.length) nuevos.push({ id: 'mas:' + ruta, label: vis.length ? `… ${resto} más` : items.length ? '(nada con el filtro)' : '(vacía)', ruta, cls: 'mas', clase: 'mas' });
@@ -2075,9 +2080,23 @@
     }));
     n.addClass('abierta');
     if (!flujo) ladosRed(cy);
-    ordenarRama(cy, n, flujo, !restaurar);
-    cy.scratch('pintarFiltro')?.();
+    if (!cy.scratch('lote')) { ordenarRama(cy, n, flujo, !restaurar); cy.scratch('pintarFiltro')?.(); } // en lote: se ordena una vez al final
     if (!restaurar && !exp.includes(ruta)) { exp.push(ruta); guardarVista(); }
+  }
+  // varias carpetas de una vez (al volver al proyecto o al filtrar): se despliegan todas y se ordena una vez cada rama
+  async function desplegarEnLote(f, cy, rutas, animar) {
+    if (!rutas.length) return;
+    cy.scratch('lote', true);
+    try {
+      for (const r of rutas) {
+        const n = cy.nodes().filter(x => x.data('ruta') === r && x.data('clase') !== 'mas' && (x.data('clase') === 'carpeta' || x.data('clase') === 'proyecto' || x.data('dir')))[0];
+        if (n) await desplegar(f, cy, n, true);
+      }
+    } finally { cy.scratch('lote', false); }
+    if (cy.destroyed()) return;
+    const flujo = O.adm.vista === 'flujo', hechas = new Set();
+    for (const n of cy.nodes('.abierta').toArray()) { const a = anclaDe(n); if (!hechas.has(a.id())) { hechas.add(a.id()); ordenarRama(cy, a, flujo, animar); } }
+    cy.scratch('pintarFiltro')?.();
   }
   // Lo desplegado, ordenado como un árbol (aprobado 2026-11-22): cada carpeta abierta tiene su sitio y sus cosas no se mezclan
   // con las de la vecina. Red: abanico desde su carpeta, con un hueco para cada una según lo que tiene abierto. Flujo: filas
@@ -2228,32 +2247,34 @@
   const filtroActivo = () => !!(O.adm?.filtro && (O.adm.filtro.ocultos.length || O.adm.filtro.q.trim()));
   function filtroPizarra(f, cy) {
     const cont = cy.container(), F = O.adm.filtro;
-    const w = Object.assign(document.createElement('div'), { className: 'ofiltro' }); cont.append(w);
+    const w = Object.assign(document.createElement('div'), { className: 'ofiltro', tabIndex: -1 }); cont.append(w); // tabIndex: un clic dentro no cierra los tipos
+    w.innerHTML = `<div class="ofcab"><input type="search" placeholder="🔍 Filtrar lo desplegado…" value="${esc(F.q)}" spellcheck="false" autocomplete="off" title="Escribe parte de un nombre · al entrar aquí salen los tipos · Esc borra">
+      <button class="ofbtn" type="button"></button></div><div class="ofcuerpo"></div>`;
+    const q = w.querySelector('input'), btn = w.querySelector('.ofbtn'), cuerpo = w.querySelector('.ofcuerpo');
     let tq;
-    const pintar = () => {
+    const pintar = () => { // solo los tipos y sus números: el cuadro de texto no se vuelve a crear (no pierde el foco ni el cursor)
       const cuenta = {}; for (const items of Object.values(cy.scratch('todos') || {})) for (const i of items) { const c = catDe(i.nombre, i.dir); cuenta[c] = (cuenta[c] || 0) + 1; }
-      const activo = filtroActivo();
-      w.classList.toggle('cerrado', !F.abierto);
-      w.innerHTML = `<button class="ofbtn ${activo ? 'on' : ''}" title="Filtrar lo desplegado por tipo o por nombre">🔍 Filtro${activo ? ' •' : ''} ${F.abierto ? '▴' : '▾'}</button>
-        ${F.abierto ? `<div class="ofcuerpo"><input type="search" placeholder="Nombre…" value="${esc(F.q)}" spellcheck="false">
-        ${CATS.map(([k, ico, n]) => `<label class="${cuenta[k] ? '' : 'ogris'}"><input type="checkbox" data-cat="${k}" ${F.ocultos.includes(k) ? '' : 'checked'}> ${ico} ${n} <b>${cuenta[k] || 0}</b></label>`).join('')}
-        <div class="ofpie"><a data-todo>Todo</a> · <a data-nada>Nada</a><span class="osmall">${Object.keys(cy.scratch('todos') || {}).length ? '' : 'Doble clic en una carpeta para ver su contenido'}</span></div></div>` : ''}`;
-      w.querySelector('.ofbtn').onclick = () => { F.abierto = !F.abierto; guardarVista(); pintar(); };
-      const q = w.querySelector('input[type=search]');
-      if (q) q.oninput = () => { clearTimeout(tq); tq = setTimeout(() => { F.q = q.value; guardarVista(); aplicarFiltro(f, cy); }, 300); };
-      w.querySelectorAll('[data-cat]').forEach(c => c.onchange = () => { F.ocultos = c.checked ? F.ocultos.filter(x => x !== c.dataset.cat) : [...F.ocultos, c.dataset.cat]; guardarVista(); aplicarFiltro(f, cy); });
-      w.querySelector('[data-todo]')?.addEventListener('click', () => { F.ocultos = []; F.q = ''; guardarVista(); aplicarFiltro(f, cy); });
-      w.querySelector('[data-nada]')?.addEventListener('click', () => { F.ocultos = CATS.map(c => c[0]); guardarVista(); aplicarFiltro(f, cy); });
+      w.classList.toggle('fijo', !!F.abierto); w.classList.toggle('activo', filtroActivo());
+      btn.textContent = F.abierto ? '▴' : '▾'; btn.title = F.abierto ? 'Esconder los tipos (salen al entrar en el cuadro)' : 'Dejar los tipos siempre a la vista';
+      cuerpo.innerHTML = CATS.map(([k, ico, n]) => `<label class="${cuenta[k] ? '' : 'ogris'}"><input type="checkbox" data-cat="${k}" ${F.ocultos.includes(k) ? '' : 'checked'}> ${ico} ${n} <b>${cuenta[k] || 0}</b></label>`).join('')
+        + `<div class="ofpie"><a data-todo>Todo</a> · <a data-nada>Nada</a><span class="osmall">${Object.keys(cy.scratch('todos') || {}).length ? '' : 'Doble clic en una carpeta para ver su contenido'}</span></div>`;
+      cuerpo.querySelectorAll('[data-cat]').forEach(c => c.onchange = () => { F.ocultos = c.checked ? F.ocultos.filter(x => x !== c.dataset.cat) : [...F.ocultos, c.dataset.cat]; guardarVista(); aplicarFiltro(f, cy); });
+      cuerpo.querySelector('[data-todo]').onclick = () => { F.ocultos = []; F.q = ''; q.value = ''; guardarVista(); aplicarFiltro(f, cy); };
+      cuerpo.querySelector('[data-nada]').onclick = () => { F.ocultos = CATS.map(c => c[0]); guardarVista(); aplicarFiltro(f, cy); };
     };
+    q.oninput = () => { clearTimeout(tq); tq = setTimeout(() => { F.q = q.value; guardarVista(); aplicarFiltro(f, cy); }, 160); };
+    q.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (q.value) { q.value = ''; q.oninput(); } else q.blur(); } };
+    btn.onclick = () => { F.abierto = !F.abierto; guardarVista(); pintar(); };
     aislar(w);
-    cy.scratch('pintarFiltro', () => { const a = document.activeElement, pos = a?.selectionStart; const enQ = a && w.contains(a) && a.type === 'search'; pintar(); if (enQ) { const q = w.querySelector('input[type=search]'); q?.focus(); q?.setSelectionRange(pos, pos); } });
+    cy.scratch('pintarFiltro', pintar);
     pintar();
   }
   async function aplicarFiltro(f, cy) { // vuelve a abrir lo desplegado con el filtro (el límite de 12 va después de filtrar)
     const vista = O.adm.vista, rutas = [...(O.adm.exp[vista] || [])].sort((a, b) => a.length - b.length), foco = cy.scratch('foco');
+    cy.scratch('cacheDir', cy.scratch('todos') || {}); // lo que ya se leyó: al filtrar no se vuelve a leer el disco
     cy.remove('.sub, .mas'); cy.nodes('.abierta').removeClass('abierta'); cy.scratch('todos', {});
-    for (const r of rutas) { const n = cy.nodes().filter(x => x.data('ruta') === r && x.data('clase') !== 'mas')[0]; if (n) await desplegar(f, cy, n, true); }
-    cy.scratch('pintarFiltro')?.();
+    await desplegarEnLote(f, cy, rutas, true);
+    cy.scratch('cacheDir', null);
     if (foco) { const n = nodoDeRuta(cy, foco, true) || nodoDeRuta(cy, foco); n ? marcarFoco(f, cy, n) : quitarFoco(cy); }
     filtrarExplorador();
   }
@@ -2355,7 +2376,7 @@
   }
   function filtrarExplorador() { // el mismo filtro de la pizarra: en el explorador se ocultan los archivos y carpetas que no pasan
     const T = document.querySelector('#pI .oexp'); if (!T) return;
-    T.querySelectorAll('.ocont .onodo[data-ruta]').forEach(n => { const nom = n.querySelector('.onom')?.textContent || ''; n.closest('.orama').hidden = !pasaFiltro(nom, !!n.dataset.dir); });
+    T.querySelectorAll('.ocont .onodo[data-ruta]').forEach(n => { const nom = n.querySelector('.onom')?.textContent || ''; n.closest('.orama').hidden = !pasaFiltro(nom, !!n.dataset.dir) && !(n.dataset.dir && n.querySelector('.otw')?.textContent === '▾'); });
   }
   // barra de ruta: lo de encima de la carpeta del proyecto en gris; desde ella, cada tramo se puede pulsar
   function migas(f, ruta, ir, cuerpo) {
