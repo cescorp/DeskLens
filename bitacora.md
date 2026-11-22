@@ -1,6 +1,9 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: la terminal sin salir del proyecto
+`organizador.js`: `accion('terminal')`, «>_ Terminal aquí» del árbol y del panel ⓘ ya no llaman a `adminSalir(); cerrar()`: `#panel` está en `<main>` junto a `#org` (fila 1), así que la consola sale debajo de la vista del proyecto.
+
 ## 2026-11-22 · Organizador: el árbol del proyecto se entera de los renombrados
 `index.html`: `renameOnDisk` emite `desklens:renombrado` {de, a}. `organizador.js`: `refrescarArbol(de, a)` cambia en `O.adm.abiertas` y `O.adm.ultimo` las rutas renombradas y vuelve a leer las carpetas desplegadas (`abrirCarpeta(n, T, true)`), conservando el desplazamiento; si lo renombrado es una carpeta del proyecto, `cargar()` (el ancla dice dónde está). También al volver a la ventana (`focus`), para lo renombrado fuera de DeskLens. Sin comprobar en la copia aislada: renombrar desde dentro una carpeta raíz (DeskLens no deja renombrar fuera de lo añadido).
 

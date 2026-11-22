@@ -337,7 +337,7 @@
         [`🗑 Quitar del organizador…`, () => quitar(f), { danger: true }]]);
       if (!c) return flash('Ninguna carpeta del proyecto está disponible');
       if (a === 'carpeta') await api('/api/mostrar', { ruta: c.ruta });
-      else if (a === 'terminal') { cerrar(); openTerminal(c.ruta); }
+      else if (a === 'terminal') openTerminal(c.ruta); // la consola de DeskLens sale abajo, sin salir del tablero
       else if (a === 'web') { cerrar(); openTab('web:' + f.enlaces[0].url, true); }
       else { const r = await api('/api/org/lanzar', { programa: a, id: f.id }); flash(a === 'claude' ? `✦ Claude en ${r.carpeta}${r.otras.length ? ` + ${r.otras.length} carpeta(s)` : ''}` : `VS Code: ${r.carpeta}`); }
     } catch (e) { err(e); }
@@ -1381,7 +1381,7 @@
       openMenu({ x: e.clientX, y: e.clientY }, [
         ['ⓘ Información', () => infoMostrar(f, panelI, remota ? { tipo: 'remota', ancla: c.ancla } : { tipo: dir ? 'carpeta' : 'archivo', ruta }), { disabled: n.classList.contains('gris') && !remota }],
         ...(remota ? [{ head: c.nombre }] : [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err), { disabled: n.classList.contains('gris') }],
-        ...(dir ? [['>_ Terminal aquí', () => { adminSalir(); cerrar(); openTerminal(ruta); }, { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]])]),
+        ...(dir ? [['>_ Terminal aquí', () => openTerminal(ruta), { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]])]),
         ...(raiz && !remota && !n.classList.contains('oacceso') && c.ancla !== f.principal ? ['-', hacerPrincipalItem(f, c.ancla, c.nombre)] : []),
         ...(raiz ? menuMover(f, c.ancla, f.partes[+n.dataset.j].tipo) : []),
         ...(raiz ? ['-', ['Quitar del proyecto…', async () => {
@@ -2065,7 +2065,7 @@
   function accionesRuta(cuerpo, ruta) {
     cuerpo.querySelectorAll('[data-ac]').forEach(b => b.onclick = () => ({
       copiar: () => copyText(ruta, '✓ Ruta copiada'), explorador: () => api('/api/mostrar', { ruta }).catch(err),
-      terminal: () => { adminSalir(); cerrar(); openTerminal(ruta); }, abrir: () => abrirEnContenedor(ruta) }[b.dataset.ac]()));
+      terminal: () => openTerminal(ruta), abrir: () => abrirEnContenedor(ruta) }[b.dataset.ac]()));
   }
   const filas = l => `<dl class="oidl">${l.filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join('')}</dl>`;
   function textoPeso(p) {
