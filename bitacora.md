@@ -1,6 +1,9 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: ☑ Pendientes (punto 7, Fase 2)
+`organizador.py`: `pendientes` en la ficha (`_limpiar`: id, texto hasta 4000 con saltos de línea, hecho + `hecho_en`, ancla opcional; vacíos fuera; 500 como mucho), `restaurar_version` lo conserva, MAPA.md lista los que faltan. `organizador.js`: pestaña `adminPendientes` (textarea grande para añadir y para editar en su sitio, Ctrl+Enter; casilla; arrastre con el puntero por ⠿; Alt+↑ ↓; ⋯ unir a una carpeta con buscador, quitar unión, borrar con pregunta), número en la pestaña, línea en la tarjeta, columna ☐ en la lista, `pendCapa` en Flujo/Red (☐ n en la carpeta unida; clic → la pestaña). Lo nuevo va al final de lo que falta.
+
 ## 2026-11-22 · Organizador: 🚦 Ordenar entornos
 `organizador.js`: `ordenarEntornos(f)` sobre `abrirDlg`: lista de las carpetas de las partes Entornos (etapa vacía → `etapaSugerida` o Pruebas, marcada «sin etapa»), arrastre con el puntero (no con el arrastre del navegador: el de prueba no lo dispara y en WebView es irregular), ↑ ↓ / Alt+↑ ↓, ⋯ sacar a otro tipo o quitar, `↕ Ordenar por etapa` (estable). Guarda con `ficha/guardar` + partes completas: la primera parte Entornos con el orden, las demás Entornos vacías se quitan, lo sacado va a la primera parte de su tipo (o una nueva). `carpetaGuardar()` manda ancla, remota, `archivo.ruta` e icono propio. Arreglo: `editarFicha` no mandaba la ruta de los accesos ↗ (el servidor rechazaba la ficha).
 

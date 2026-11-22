@@ -457,6 +457,16 @@ try:
     assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
     assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
 
+    # ☑ pendientes: en la ficha, texto de varias líneas, hecho con su fecha, unido a una carpeta; vacíos fuera; en el MAPA
+    f, _ = org.guardar_ficha("nuevo-proy", {"pendientes": [{"texto": "Subir la web\nal VPS de calidad", "ancla": "abc"}, {"texto": "  "},
+                                                           {"id": "x1", "texto": "Hecho ya", "hecho": True}]})
+    pd = f["pendientes"]
+    assert len(pd) == 2 and pd[0]["texto"] == "Subir la web\nal VPS de calidad" and pd[0]["ancla"] == "abc" and pd[0]["id"], pd
+    assert pd[1]["hecho"] and pd[1]["hecho_en"] and pd[1]["id"] == "x1", pd
+    assert org.guardar_ficha("nuevo-proy", {"estado": "pausado"})[0]["pendientes"] == pd, "lo que no llega se conserva"
+    org.escribir_mapa()
+    assert "- [ ] Subir la web" in (tmp / "datos" / "MAPA.md").read_text(encoding="utf-8") and "Hecho ya" not in (tmp / "datos" / "MAPA.md").read_text(encoding="utf-8")
+
     # «Contenedor con nombre»: la raíz es el nombre; se puede crear sin carpetas; posiciones aparte por modo
     f, _ = org.crear_ficha({"nombre": "Solo nombre", "raiz_nombre": True, "partes": []})
     assert f["raiz_nombre"] and f["partes"] == [] and not f.get("nombre_sigue"), f

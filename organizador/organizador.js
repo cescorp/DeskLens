@@ -78,6 +78,8 @@
   KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
     ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
     ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'],
+    ['Ctrl+Enter (en ☑ Pendientes)', 'Añadir el pendiente escrito, o guardar el que cambias'], ['Espacio · Enter · Supr (en un pendiente)', 'Hecho / pendiente · cambiar el texto · borrar'],
+    ['Alt+↑ ↓ (en un pendiente)', 'Subirlo o bajarlo en la lista (también arrastrando ⠿)'],
     ['Clic derecho en Entornos o en una etapa', '🚦 Ordenar entornos: arrastrar para el orden, etapa de cada una, Guardar'], ['↑ ↓ · Alt+↑ ↓ · Ctrl+Enter (en 🚦 Ordenar entornos)', 'Elegir tarjeta · subirla o bajarla · Guardar'],
     ['Doble clic en Red o Flujo', '🎯 Enfocar: despliega hasta esa carpeta o archivo, lo demás opaco; 🗂 Explorador lo sigue'], ['Esc · clic en el fondo (con foco)', 'Quitar el foco'],
     ['Ctrl+F (en ＋ Nuevo proyecto)', '🔍 Buscar en el explorador (lo abre si está cerrado)'], ['Enter (en el 🔍 con «subcarpetas»)', 'Buscar también dentro de las subcarpetas'],
@@ -193,6 +195,7 @@
       ${f.tecnologia?.length ? `<div class="otec">${esc(f.tecnologia.join(' · '))}</div>` : ''}
       <div class="opartes">${Object.entries(cuenta).filter(([, n]) => n).map(([t, n]) => `<span title="${TIPO[t][1]}">${icoT(t)}${n}</span>`).join('')}${f.papelera ? `<span class="owarn" title="Carpetas enviadas a la papelera o eliminadas">🗑 ${f.papelera} en la papelera</span>` : ''}${f.avisos - f.papelera ? `<span class="owarn" title="Partes no encontradas">⚠ ${f.avisos - f.papelera}</span>` : ''}</div>
       ${fila}
+      ${(() => { const ab = (f.pendientes || []).filter(x => !x.hecho); return ab.length ? `<div class="ogit opend1" title="${esc(ab.map(x => '☐ ' + x.texto.split('\n')[0]).join('\n'))}">☐ <b>${ab.length}</b> pendiente${ab.length > 1 ? 's' : ''} · ${esc(ab[0].texto.split('\n')[0])}</div>` : ''; })()}
       ${git ? `<div class="ogit">${git}</div>` : ''}
       <div class="ogit">${esc(f.actualizado || '')}</div>
       <div class="oact"><button data-a="carpeta" title="Abrir la carpeta de código en el Explorador">📂</button><button data-a="vscode" title="Abrir en VS Code">VS</button>
@@ -217,10 +220,10 @@
       <button class="obtn odanger" id="oMq" title="Quitar del organizador (Supr). No se borra nada del disco">🗑 Quitar…</button>
       <button class="obtn oico" id="oMx" title="Desmarcar todo (Esc)">✕</button></div>` : '';
     const cuerpo = !fs.length ? '<p class="oempty">Ningún proyecto con este filtro.</p>' : O.vista === 'lista'
-      ? `<table class="olist"><thead><tr><th class="ock"><input type="checkbox" id="oCkT" title="Marcar todos los que están a la vista (Ctrl+A)" ${todos ? 'checked' : ''}></th>${acciones ? `<th colspan="7" class="oselth">${acciones}</th>` : '<th>Proyecto</th><th>Estado</th><th>Avance</th><th>Partes</th><th>Git</th><th>Actualizado</th><th></th>'}</tr></thead><tbody>${fs.map(f => {
+      ? `<table class="olist"><thead><tr><th class="ock"><input type="checkbox" id="oCkT" title="Marcar todos los que están a la vista (Ctrl+A)" ${todos ? 'checked' : ''}></th>${acciones ? `<th colspan="8" class="oselth">${acciones}</th>` : '<th>Proyecto</th><th>Estado</th><th>Avance</th><th>Partes</th><th title="Pendientes por hacer">☐</th><th>Git</th><th>Actualizado</th><th></th>'}</tr></thead><tbody>${fs.map(f => {
         const c = codigoDe(f), g = c && O.git[c.ruta];
         return `<tr data-id="${f.id}" tabindex="0" class="${O.marca.has(f.id) ? 'omarc' : ''}"><td class="ock"><input type="checkbox" data-ck ${O.marca.has(f.id) ? 'checked' : ''} title="Marcar (Mayús+clic: desde la última marcada)"></td><td>${f.fijado ? '⭐ ' : ''}<b>${esc(f.nombre)}</b></td><td>${ESTADO[f.estado].join(' ')}</td><td>${f.avance}%</td>
-          <td>${f.partes.map(p => icoT(p.tipo)).join(' ')}${f.papelera ? ` <span class="owarn">🗑 ${f.papelera}</span>` : ''}${f.avisos - f.papelera ? ` <span class="owarn">⚠ ${f.avisos - f.papelera}</span>` : ''}</td><td>${g?.rama ? `⎇ ${esc(g.rama)}${g.cambios ? ` · ${g.cambios}` : ''}` : ''}</td><td>${esc(f.actualizado || '')}</td>
+          <td>${f.partes.map(p => icoT(p.tipo)).join(' ')}${f.papelera ? ` <span class="owarn">🗑 ${f.papelera}</span>` : ''}${f.avisos - f.papelera ? ` <span class="owarn">⚠ ${f.avisos - f.papelera}</span>` : ''}</td><td>${(f.pendientes || []).filter(x => !x.hecho).length || ''}</td><td>${g?.rama ? `⎇ ${esc(g.rama)}${g.cambios ? ` · ${g.cambios}` : ''}` : ''}</td><td>${esc(f.actualizado || '')}</td>
           <td class="omas"><button class="obtn oico" data-a="menu" title="Acciones de este proyecto">⋯</button></td></tr>`; }).join('')}</tbody></table>`
       : `<div class="ocards">${fs.map(tarjeta).join('')}</div>`;
     root.innerHTML = barra() + `<div class="obody">${banner}${cuerpo}</div>`;
@@ -1317,7 +1320,7 @@
   // Estado · Historial · Notas. En Archivos, el árbol une todas las carpetas del proyecto (G:, H:, htdocs…) por partes y a
   // la derecha va el visor/editor de DeskLens de siempre (#panes se presta aquí y se devuelve al salir).
   let panesHome = null;
-  const TABS = [['archivos', 'Archivos'], ['ficha', 'Ficha'], ['git', 'Git'], ['estado', 'Estado'], ['historial', 'Historial'], ['notas', 'Notas']];
+  const TABS = [['archivos', 'Archivos'], ['ficha', 'Ficha'], ['pendientes', '☑ Pendientes'], ['git', 'Git'], ['estado', 'Estado'], ['historial', 'Historial'], ['notas', 'Notas']];
   function adminAbrir(f) {
     // cada proyecto recuerda su vista: pestaña, búsqueda, ancho del árbol, carpetas abiertas, desplazamiento y último archivo
     let v = {};
@@ -1354,7 +1357,8 @@
         <span class="oact"><button data-a="carpeta" title="Abrir la carpeta de código en el Explorador">📂</button><button data-a="vscode" title="Abrir en VS Code">VS</button>
           <button data-a="claude" title="Claude con todas las partes del proyecto">✦</button><button data-a="terminal" title="Terminal en la carpeta de código">&gt;_</button>
           ${web ? `<button data-a="web" title="${esc(web.nombre)}: ${esc(web.url)}">🌐 ${esc(web.url.replace(/^https?:\/\//, ''))}</button>` : ''}</span></div>
-      <nav class="otabs">${TABS.map(([k, t]) => `<button data-t="${k}" class="${O.adm.tab === k ? 'on' : ''}">${t}</button>`).join('')}</nav>
+      <nav class="otabs">${TABS.map(([k, t]) => { const n = k === 'pendientes' ? (f.pendientes || []).filter(x => !x.hecho).length : 0;
+        return `<button data-t="${k}" class="${O.adm.tab === k ? 'on' : ''}">${t}${n ? ` <b class="ocnt">${n}</b>` : ''}</button>`; }).join('')}</nav>
       <div class="oadmbody" id="aB"></div>`;
     root.querySelector('#aT').onclick = adminSalir;
     root.querySelector('#aE').onchange = e => guardar(f.id, { estado: e.target.value });
@@ -1362,7 +1366,7 @@
     root.querySelectorAll('.oadmbar .oact button').forEach(b => b.onclick = () => accion(b.dataset.a, f, b));
     root.querySelectorAll('.otabs button').forEach(b => b.onclick = () => { O.adm.tab = b.dataset.t; guardarVista(); admin(); });
     const archivos = O.adm.vista === 'contenedor' ? adminArchivos : adminPizarra;
-    ({ archivos, ficha: adminFicha, git: adminGit, estado: adminEstado, historial: adminHistorial }[O.adm.tab] || adminLuego)(f, root.querySelector('#aB'));
+    ({ archivos, ficha: adminFicha, pendientes: adminPendientes, git: adminGit, estado: adminEstado, historial: adminHistorial }[O.adm.tab] || adminLuego)(f, root.querySelector('#aB'));
   }
 
   // Archivos: árbol unido por partes (carpetas que se abren al pulsar) + visor de DeskLens a la derecha
@@ -1585,6 +1589,80 @@
     } catch (e) { T.innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p>`; }
   }
 
+  // ☑ Pendientes (aprobado 2026-11-22): una lista sencilla dentro de la ficha (sin fechas ni responsables). Cuadros de texto
+  // grandes, de varias líneas: Ctrl+Enter añade o guarda. ☐ lo da por hecho (baja a «Hechos» con su fecha). ⠿ arrastra el
+  // orden (o Alt+↑ ↓). 📁 lo une a una carpeta del proyecto (un clic lleva a ella; en Flujo y Red sale ☐ en esa carpeta).
+  const hoyISO = () => new Date().toISOString().slice(0, 10);
+  function adminPendientes(f, B) {
+    const P = (f.pendientes || []).map(x => ({ ...x })), abiertos = P.filter(x => !x.hecho), hechos = P.filter(x => x.hecho);
+    const carpeta = a => f.partes.flatMap(p => p.carpetas).find(c => c.ancla === a);
+    const guardarP = async (msg, enfocar = false) => { O.adm.focoPend = enfocar; if (await guardar(f.id, { pendientes: P })) msg && flash(msg); };
+    const tarjeta = x => { const c = x.ancla && carpeta(x.ancla);
+      return `<div class="opcard ${x.hecho ? 'hecho' : ''}" data-id="${esc(x.id)}" tabindex="0">
+        ${x.hecho ? '<span class="oeasa ogris">·</span>' : '<span class="oeasa" title="Arrastra para cambiar el orden (o Alt+↑ ↓)">⠿</span>'}
+        <input type="checkbox" ${x.hecho ? 'checked' : ''} title="${x.hecho ? 'Volver a pendiente' : 'Hecho (Espacio)'}">
+        <div class="optexto" title="Clic para cambiarlo (o Enter)">${esc(x.texto)}</div>
+        <div class="opder">${c ? `<button class="obtn opcarp" data-ir title="Ir a la carpeta: ${esc(c.ruta || '')}">${svgI('carpeta')} ${esc(c.nombre)}</button>` : x.ancla ? '<span class="owarn osmall">⚠ carpeta ya no está en el proyecto</span>' : ''}
+          ${x.hecho ? `<small class="osmall">hecho ${esc(x.hecho_en || '')}</small>` : ''}<button class="obtn oico" data-mas title="Más">⋯</button></div></div>`; };
+    B.innerHTML = `<div class="opage opend">
+      <div class="opnueva"><textarea id="pN" rows="4" placeholder="Escribe un pendiente… (puede tener varias líneas · Ctrl+Enter lo añade)"></textarea>
+        <div class="opnpie"><span class="osmall">Ctrl+Enter: añadir · se guarda en la ficha, nada se escribe en tus carpetas</span><span class="sp"></span><button class="obtn primary" id="pA">＋ Añadir</button></div></div>
+      <div class="oplist">${abiertos.map(tarjeta).join('') || '<p class="oempty">Nada pendiente. Escribe arriba lo próximo que toca hacer.</p>'}</div>
+      ${hechos.length ? `<details class="ophechos" ${O.adm.pendHechos ? 'open' : ''}><summary>Hechos (${hechos.length})</summary>${hechos.map(tarjeta).join('')}</details>` : ''}</div>`;
+    const nuevo = B.querySelector('#pN');
+    const anadir = () => { const t = nuevo.value.trim(); if (!t) return nuevo.focus(); P.splice(P.filter(y => !y.hecho).length, 0, { id: Math.random().toString(36).slice(2, 12), texto: t, hecho: false }); /* al final de lo que falta: el orden lo pones tú */ guardarP('☑ Pendiente añadido', true); };
+    B.querySelector('#pA').onclick = anadir;
+    nuevo.onkeydown = e => { if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); anadir(); } };
+    B.querySelector('.ophechos')?.addEventListener('toggle', e => { O.adm.pendHechos = e.target.open; });
+    const de = el => P.find(x => x.id === el.closest('.opcard').dataset.id);
+    const editar = card => { // un cuadro grande en su sitio: Ctrl+Enter guarda, Esc cancela
+      const x = de(card), t = card.querySelector('.optexto'); if (!t || card.querySelector('textarea')) return;
+      t.outerHTML = `<div class="opedit"><textarea>${esc(x.texto)}</textarea><div class="opnpie"><span class="osmall">Ctrl+Enter: guardar · Esc: cancelar</span><span class="sp"></span><button class="obtn" data-x>Cancelar</button><button class="obtn primary" data-g>Guardar</button></div></div>`;
+      const ta = card.querySelector('textarea'), ajusta = () => { ta.style.height = 'auto'; ta.style.height = Math.max(110, ta.scrollHeight + 4) + 'px'; };
+      ajusta(); ta.oninput = ajusta; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+      const ok = () => { const v = ta.value.trim(); if (!v) return ta.focus(); x.texto = v; guardarP('✓ Pendiente guardado'); };
+      card.querySelector('[data-g]').onclick = ok; card.querySelector('[data-x]').onclick = () => admin();
+      ta.onkeydown = e => { e.stopPropagation(); if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); ok(); } else if (e.key === 'Escape') { e.preventDefault(); admin(); } };
+    };
+    const hecho = (x, v) => { x.hecho = v; if (v) x.hecho_en = hoyISO(); else delete x.hecho_en; const i = P.indexOf(x); P.splice(i, 1); v ? P.push(x) : P.splice(P.filter(y => !y.hecho).length, 0, x); guardarP(v ? '☑ Hecho' : '☐ Vuelve a pendientes'); };
+    const mover = (x, d) => { const lista = P.filter(y => !y.hecho), i = lista.indexOf(x), j = i + d; if (i < 0 || j < 0 || j >= lista.length) return;
+      [lista[i], lista[j]] = [lista[j], lista[i]]; P.splice(0, P.length, ...lista, ...P.filter(y => y.hecho)); O.adm.pendSel = x.id; guardarP(); };
+    const borrar = async x => { if (await ask('Borrar pendiente', `«${x.texto.split('\n')[0].slice(0, 80)}» se borra de la lista (queda en el Historial del proyecto).`, ['Borrar', 'Cancelar'], { danger: true }) !== 'Borrar') return; P.splice(P.indexOf(x), 1); guardarP('🗑 Pendiente borrado'); };
+    B.querySelectorAll('.opcard').forEach(card => {
+      const x = de(card);
+      card.querySelector('input[type=checkbox]').onchange = e => hecho(x, e.target.checked);
+      card.querySelector('.optexto').onclick = () => editar(card);
+      card.querySelector('[data-ir]')?.addEventListener('click', () => { const c = carpeta(x.ancla); if (!c) return; O.adm.tab = 'archivos'; O.adm.vista = 'contenedor'; if (c.ruta) O.adm.abiertas.add(c.ruta); guardarVista(); admin(); });
+      card.querySelector('[data-mas]').onclick = e => openMenu(e.currentTarget, [{ head: 'Pendiente' }, ['✎ Cambiar el texto (Enter)', () => editar(card)],
+        ['📁 Unir a una carpeta…', () => openMenu(card.querySelector('[data-mas]'), [{ head: 'Unir a' }, ...f.partes.flatMap(p => p.carpetas.filter(c => c.estado !== 'remota').map(c => [c.nombre, () => { x.ancla = c.ancla; guardarP(`📁 Unido a «${c.nombre}»`); }, { html: `${svgI(p.tipo, COLT[p.tipo])} ${esc(c.nombre)} <small style="opacity:.6">${esc(p.nombre)}</small>` }]))], { search: 'Buscar carpeta…' })],
+        ...(x.ancla ? [['Quitar la unión con la carpeta', () => { delete x.ancla; guardarP(); }]] : []),
+        '-', ['🗑 Borrar… (Supr)', () => borrar(x), { danger: true }]]);
+      card.onkeydown = e => {
+        if (e.target !== card) return;
+        if (e.key === ' ') { e.preventDefault(); hecho(x, !x.hecho); }
+        else if (e.key === 'Enter') { e.preventDefault(); editar(card); }
+        else if (e.key === 'Delete') { e.preventDefault(); borrar(x); }
+        else if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown') && !x.hecho) { e.preventDefault(); mover(x, e.key === 'ArrowUp' ? -1 : 1); }
+        else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); const cs = [...B.querySelectorAll('.opcard')], i = cs.indexOf(card); cs[i + (e.key === 'ArrowUp' ? -1 : 1)]?.focus(); }
+      };
+      // arrastrar por ⠿ (solo los que faltan): una línea marca dónde caerá
+      const asa = card.querySelector('.oeasa'); if (x.hecho || !asa) return;
+      asa.onpointerdown = e => {
+        if (e.button) return; e.preventDefault(); card.classList.add('drag'); asa.setPointerCapture(e.pointerId);
+        let dest = null; const limpiar = () => B.querySelectorAll('.opcard').forEach(k => k.classList.remove('antes', 'despues'));
+        asa.onpointermove = ev => { const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.oplist .opcard'); limpiar(); dest = null; if (!t) return;
+          const r = t.getBoundingClientRect(), arriba = ev.clientY < r.top + r.height / 2; t.classList.add(arriba ? 'antes' : 'despues'); dest = { id: t.dataset.id, arriba }; };
+        asa.onpointerup = asa.onpointercancel = () => {
+          asa.onpointermove = asa.onpointerup = asa.onpointercancel = null; card.classList.remove('drag'); limpiar();
+          if (!dest || dest.id === x.id) return;
+          const lista = P.filter(y => !y.hecho && y !== x); let j = lista.findIndex(y => y.id === dest.id) + (dest.arriba ? 0 : 1);
+          lista.splice(j, 0, x); P.splice(0, P.length, ...lista, ...P.filter(y => y.hecho)); O.adm.pendSel = x.id; guardarP();
+        };
+      };
+    });
+    if (O.adm.focoPend) { O.adm.focoPend = false; nuevo.focus(); }
+    else if (O.adm.pendSel) { B.querySelector(`.opcard[data-id="${CSS.escape(O.adm.pendSel)}"]`)?.focus(); O.adm.pendSel = ''; }
+  }
   // Ficha: el mismo formulario que la ventana «Ficha», aquí en su pestaña
   function adminFicha(f, B) {
     B.innerHTML = `<div class="opage">${fichaCampos(f)}<div class="ofoot"><button class="obtn" id="fJer">🧩 Editar jerarquía…</button><span class="sp"></span><span class="osmall" id="fM"></span><button class="obtn primary" id="fOk">Guardar</button></div></div>`;
@@ -2001,6 +2079,7 @@
       e.preventDefault();
     };
     notasCapa(f, cy, lienzos.querySelector('#cyA'), B.querySelector('#pN'), null);
+    pendCapa(f, cy, lienzos.querySelector('#cyA'));
     filtroPizarra(f, cy);
     B.querySelector('#pI1').onclick = () => infoAlternar(f, panel, B);
     await desplegarEnLote(f, cy, [...(O.adm.exp[vista] || [])].sort((a, b) => a.length - b.length), false); // lo que dejaste desplegado
@@ -2792,6 +2871,22 @@
     };
     let raf; if (botones.length) cy.on('viewport position', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(colocar); }); colocar();
     if (O.adm.notaAbierta) panelNotas(f, O.adm.notaAbierta, panel);
+  }
+  // ☐ en Flujo y Red: los pendientes unidos a una carpeta, con su número (clic: a la pestaña ☑ Pendientes)
+  function pendCapa(f, cy, cont) {
+    const por = new Map();
+    for (const x of (f.pendientes || []).filter(x => !x.hecho && x.ancla)) { const id = idDeDestino('nodo:' + x.ancla); (por.get(id) || por.set(id, []).get(id)).push(x); }
+    if (!por.size) return;
+    const capa = Object.assign(document.createElement('div'), { className: 'onotacapa' }); cont.append(capa);
+    const bs = [];
+    for (const [id, xs] of por) {
+      const el = cy.getElementById(id); if (!el.length) continue;
+      const b = Object.assign(document.createElement('button'), { className: 'onotab opendb', textContent: `☐ ${xs.length}`, title: xs.map(x => '☐ ' + x.texto.split('\n')[0]).join('\n') + '\n(clic: ver los pendientes)' });
+      b.onclick = () => { O.adm.tab = 'pendientes'; guardarVista(); admin(); };
+      capa.append(b); bs.push([el, b]);
+    }
+    const colocar = () => { for (const [el, b] of bs) { const bb = el.renderedBoundingBox(); b.style.transform = `translate(${bb.x1}px, ${bb.y1}px) translate(-70%, -60%)`; b.hidden = el.style('display') === 'none'; } };
+    let raf; cy.on('viewport position', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(colocar); }); colocar();
   }
   function flotante(b, ns, f, id) {
     document.querySelector('.onotaflo')?.remove();

@@ -835,6 +835,10 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ ☑ Pendientes simples · punto 7 de la Fase 2 (ok y hecho 2026-11-22)
+- En la ficha (`pendientes`), sin fechas ni responsables. Pestaña ☑ Pendientes con su número; cuadros de texto grandes de varias líneas (también al editar); hechos plegados con su fecha; orden arrastrando; unir a una carpeta (📁 y ☐ en Flujo/Red).
+- Tarjeta: «☐ N pendientes · el primero»; Lista: columna ☐; MAPA.md: los que faltan. Cuadros de notas más grandes.
+
 ### ✅ 🚦 Ordenar entornos (ok y hecho 2026-11-22)
 - Clic derecho en el bloque/parte Entornos o en una etapa (Contenedor, Flujo, Red) › 🚦 Ordenar entornos….
 - Tarjetas arrastrables por ⠿ (línea donde caerá), ↑ ↓, etapa por tarjeta (Pruebas, Calidad, Producción, Otra…), aviso «sin etapa», ⋯ Sacar de Entornos ▸ / Quitar del proyecto, «Así queda» en vivo, ↕ Ordenar por etapa, Cancelar / Guardar (Ctrl+Enter). Teclas ↑ ↓ y Alt+↑ ↓.

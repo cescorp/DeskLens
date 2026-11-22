@@ -960,6 +960,12 @@ def _limpiar(datos, previa=None):
     f["posiciones"] = {v: {str(k)[:80]: {"x": round(float(p.get("x", 0)), 1), "y": round(float(p.get("y", 0)), 1)}
                            for k, p in list((pos.get(v) or {}).items())[:2000] if isinstance(p, dict)}
                        for v in ("flujo", "red", "flujo:nombre", "red:nombre") if isinstance(pos, dict) and (":" not in v or v in pos)}  # :nombre = con «Contenedor con nombre»
+    # ☑ pendientes: lista sencilla (sin fechas ni responsables); texto de varias líneas; opcionalmente unido a una carpeta
+    pend = datos.get("pendientes", f.get("pendientes")) or []
+    f["pendientes"] = [{"id": str(x.get("id") or uuid.uuid4().hex[:10])[:20], "texto": str(x.get("texto", "")).strip()[:4000], "hecho": bool(x.get("hecho")),
+                        **({"hecho_en": str(x.get("hecho_en") or hoy)[:10]} if x.get("hecho") else {}),
+                        **({"ancla": str(x["ancla"])[:80]} if x.get("ancla") else {})}
+                       for x in pend if isinstance(x, dict) and str(x.get("texto", "")).strip()][:500]
     f.setdefault("creado", hoy)
     f["actualizado"] = hoy
     return f
@@ -1835,7 +1841,7 @@ def restaurar_version(i, v):
     guardar_version(i, f"antes de restaurar {v[:8]}")
     f = s["ficha"]
     guardar_ficha(i, {k: f[k] for k in ("nombre", "estado", "avance", "descripcion", "nota", "color", "tecnologia", "enlaces",
-                                        "historial", "conexiones", "cajas", "posiciones", "nombre_sigue", "raiz_nombre") if k in f}
+                                        "historial", "conexiones", "cajas", "posiciones", "nombre_sigue", "raiz_nombre", "pendientes") if k in f}
                   | {"principal": f.get("principal", "")}
                   | {"partes": [{"nombre": p["nombre"], "tipo": p["tipo"], "carpetas": [{"ancla": c["ancla"], "activa": c.get("activa", True),
                                                                                           **({"icono": c["icono"]} if c.get("icono") else {}),
@@ -1886,6 +1892,10 @@ def escribir_mapa():
             ln.append(f"Nota del vault: [[{f['nota']}]]")
         for e in f.get("enlaces", []):
             ln.append(f"Enlace: {e['nombre']} → {e['url']}")
+        abiertos = [x for x in f.get("pendientes", []) if not x.get("hecho")]
+        if abiertos:
+            ln.append(f"Pendientes ({len(abiertos)}):")
+            ln += [f"- [ ] {x['texto'].splitlines()[0]}" for x in abiertos]
         ln += ["", "| Parte | Ruta actual | Estado |", "|---|---|---|"]
         for p in f["partes"]:
             for c in p["carpetas"]:
