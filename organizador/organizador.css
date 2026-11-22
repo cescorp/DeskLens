@@ -296,6 +296,11 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .oarbol.olado{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto minmax(0,1fr) auto}
 .oarbol.olado>.oaq,.oarbol.olado>.obtn{grid-column:1/-1}
 .oantes{border-right:1px solid var(--line)}
+/* iconos monocromos (dibujos de línea): toman el color del texto; el tipo de parte les pone su color con style="color" */
+.oi{width:15px;height:15px;flex:none;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;vertical-align:-3px}
+.ofila{display:flex;align-items:center;gap:4px;min-width:0;overflow:hidden;white-space:nowrap}.ofila>span,.ofila>b{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.oenl{color:var(--accent);cursor:pointer}.oenl:hover{text-decoration:underline}
+.ofila b{font-weight:600}.ofila .oflecha{color:#2a9d8f;flex:none}
 /* barra única de la vista del proyecto: pestañas de vista · dibujar · historial · ver */
 .obarra{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;padding:6px 12px;border-bottom:1px solid var(--line);min-width:0}
 .obarra .sp{flex:1}
@@ -317,3 +322,21 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .opart [data-rem]{margin-top:6px;font-size:12px}
 .oetq2{font-size:11px;padding:0 5px;border-radius:8px;background:color-mix(in srgb,#2a9d8f 18%,transparent);color:var(--ink);white-space:nowrap}
 .onodo.oremota{cursor:pointer}.onodo.oremota small{margin-left:6px}
+/* árbol del Contenedor con líneas de jerarquía: │ ├─ └─ grises; las etapas, línea gruesa del color de Entornos;
+   al pasar el ratón, el camino hasta la principal en el color del tema */
+.otl{padding:6px 4px 10px 6px}
+.otl .onodo.raiz,.otl .onodo{padding-left:4px}
+.otl .ohijos{margin-left:11px}
+.otl .ohijos>.orama,.otl .ohijos>.ocont>.orama{position:relative;padding-left:15px}
+.otl{--olinea:color-mix(in srgb,var(--muted) 60%,transparent)}
+.otl .ohijos>.orama::before,.otl .ohijos>.ocont>.orama::before{content:'';position:absolute;left:0;top:0;bottom:0;border-left:1px solid var(--olinea)}
+.otl .ohijos>.orama::after,.otl .ohijos>.ocont>.orama::after{content:'';position:absolute;left:0;top:11px;width:12px;border-top:1px solid var(--olinea)}
+.otl .orama.oult::before{bottom:auto;height:11px}
+.otl .orama.oetapa::before,.otl .orama.oetapa::after{border-color:#2a9d8f;border-width:2.5px}
+.otl .orama.oetapa::after{width:10px}
+.otl .orama.oetapa>.onodo::before{content:'▶';color:#2a9d8f;font-size:8px;margin:0 2px 0 -3px}
+.otl .orama.ocamino::before,.otl .orama.ocamino::after{border-color:var(--accent)}
+.otl .onodo.oprincipal{font-weight:600}
+.otl .onodo.oparten{cursor:default;font-weight:600;color:var(--ink)}.otl .onodo.oparten:hover{background:none}
+.otl .ovacia{padding:2px 4px}
+.otl .onodo .oi{margin-right:1px}

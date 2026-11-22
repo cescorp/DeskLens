@@ -886,10 +886,44 @@ def fichas_crudas():
     return out
 
 
+def principal_de(f, ruta_de):
+    """La carpeta principal del proyecto (su raíz en el dibujo): la elegida a mano (★ Hacer principal) si sigue en la
+    ficha; si no, la que usa git (primero la de Código), luego la primera de Código y si no, la primera carpeta.
+    Las etapas remotas no pueden serlo. ruta_de(ancla) → ruta actual o ''."""
+    cs = [(p.get("tipo"), c["ancla"]) for p in f.get("partes", []) for c in p.get("carpetas", []) if not str(c["ancla"]).startswith("remota:")]
+    if f.get("principal") in {a for _, a in cs}:
+        return f["principal"]
+
+    def git(a):
+        r = ruta_de(a)
+        return bool(r) and os.path.isdir(os.path.join(larga(r), ".git"))
+    for vale in (lambda t, a: t == "codigo" and git(a), lambda t, a: git(a), lambda t, a: t == "codigo"):
+        for t, a in cs:
+            if vale(t, a):
+                return a
+    return cs[0][1] if cs else ""
+
+
+def nombre_principal(f):
+    """Nombre de la carpeta principal tal como está hoy en el disco ('' si no hay)."""
+    reg = registro()
+    r = reg.get(principal_de(f, lambda a: reg.get(a, {}).get("ruta", "")), {}).get("ruta", "")
+    return Path(r).name if r else ""
+
+
 def _limpiar(datos, previa=None):
     """Valida y completa una ficha (los campos calculados no se guardan)."""
     f = dict(previa or {})
     hoy = datetime.now().date().isoformat()
+    if "nombre" in datos and previa and "nombre_sigue" not in datos and \
+            str(datos["nombre"]).strip() not in (previa.get("nombre"), nombre_principal(previa)):
+        f["nombre_sigue"] = False  # le pusiste nombre a mano: ya no sigue al de la carpeta principal
+    if "nombre_sigue" in datos:
+        f["nombre_sigue"] = bool(datos["nombre_sigue"])
+    if "principal" in datos:
+        if previa and "nombre_sigue" not in datos and previa.get("nombre") == nombre_principal(previa):
+            f["nombre_sigue"] = True  # se llamaba como la principal de antes: pasa a llamarse como la nueva
+        f["principal"] = str(datos.get("principal") or "")[:40]
     f["nombre"] = str(datos.get("nombre", f.get("nombre", ""))).strip()[:120] or "Sin nombre"
     f["estado"] = datos.get("estado", f.get("estado", "activo"))
     if f["estado"] not in ESTADOS:
@@ -978,6 +1012,8 @@ def crear_ficha(datos):
         while _ficha_path(i).exists():
             i, n = f"{base}-{n}", n + 1
         f = {"id": i, **f, "partes": _partes(datos.get("partes"), avisos)}
+        if "nombre_sigue" not in datos and f["nombre"] == nombre_principal(f):
+            f["nombre_sigue"] = True  # se llama como su carpeta principal: la sigue si la renombras
         escribir_json(_ficha_path(i), f)
         actividad("ficha", f"Ficha creada: {f['nombre']}", str(_ficha_path(i)))
         guardar_version(i)
@@ -1045,6 +1081,12 @@ def fichas(ubicar_anclas=True):
                 c["proyectos"] = sorted(usos.get(i, ()))
                 c["git"] = est in ("ok", "movida") and (Path(ruta) / ".git").exists()
                 c["eliminada"] = registro().get(i, {}).get("eliminada", "") if est in ("papelera", "eliminada") else ""  # recién apuntado por ubicar()
+        rutas = {c["ancla"]: c["ruta"] for p in f.get("partes", []) for c in p.get("carpetas", []) if c["estado"] in ("ok", "movida")}
+        elegida = f.get("principal")
+        f["principal"] = principal_de(f, lambda a: rutas.get(a, ""))
+        f["principal_elegida"] = bool(elegida) and elegida == f["principal"]
+        if f.get("nombre_sigue") and rutas.get(f["principal"]):
+            f["nombre"] = Path(rutas[f["principal"]]).name  # el proyecto se llama como su carpeta principal
         f["avisos"] = sum(1 for p in f.get("partes", []) for c in p.get("carpetas", []) if c["estado"] in NO_ESTAN)
         f["papelera"] = sum(1 for p in f.get("partes", []) for c in p.get("carpetas", []) if c["estado"] in ("papelera", "eliminada"))
     return todas
@@ -1385,6 +1427,8 @@ def guardar_version(i, nombre=""):
         juntar = (not nombre and ultimo and ultimo.get("auto")
                   and ahora - datetime.fromisoformat(ultimo["fecha"]) < timedelta(minutes=5))
         v = ultimo["v"] if juntar else ahora.strftime("%Y%m%dT%H%M%S%f")[:18]
+        while not juntar and any(x["v"] == v for x in idx):  # dos en el mismo milisegundo: no se pisan
+            v = v[:15] + f"{int(v[15:18]) + 1:03d}" if int(v[15:18]) < 999 else v + "1"
         n_carp = sum(len(p.get("carpetas", [])) for p in s["ficha"].get("partes", []))
         entrada = {"v": v, "fecha": ahora.isoformat(timespec="seconds"), "nombre": str(nombre)[:80], "auto": not nombre,
                    "archivo": f"{v}.json.gz", "resumen": f"{len(s['ficha'].get('partes', []))} partes · {n_carp} carpetas · "
@@ -1401,11 +1445,14 @@ def guardar_version(i, nombre=""):
         return entrada
 
 
-def leer_version(i, v):
+def leer_version(i, v, calcular=True):
     e = next((x for x in versiones(i) if x["v"] == v), None)
     if not e:
         raise ValueError("No existe esa versión")
-    return json.loads(gzip.decompress((_vdir(i) / e["archivo"]).read_bytes()))
+    s = json.loads(gzip.decompress((_vdir(i) / e["archivo"]).read_bytes()))
+    if calcular:
+        s["ficha"]["principal"] = principal_de(s["ficha"], lambda a: s.get("anclas", {}).get(a, {}).get("ruta", ""))  # la de entonces
+    return s
 
 
 def commits_proyecto(i, n=40):
@@ -1438,11 +1485,12 @@ def commits_proyecto(i, n=40):
 
 def restaurar_version(i, v):
     """Vuelve a una versión: crea un punto nuevo (la actual no se pierde, queda en el historial)."""
-    s = leer_version(i, v)
+    s = leer_version(i, v, calcular=False)  # la principal tal como se guardó (elegida a mano o ninguna)
     guardar_version(i, f"antes de restaurar {v[:8]}")
     f = s["ficha"]
     guardar_ficha(i, {k: f[k] for k in ("nombre", "estado", "avance", "descripcion", "nota", "color", "tecnologia", "enlaces",
-                                        "historial", "conexiones", "cajas", "posiciones") if k in f}
+                                        "historial", "conexiones", "cajas", "posiciones", "nombre_sigue") if k in f}
+                  | {"principal": f.get("principal", "")}
                   | {"partes": [{"nombre": p["nombre"], "tipo": p["tipo"], "carpetas": [{"ancla": c["ancla"], "activa": c.get("activa", True),
                                                                                           **({"icono": c["icono"]} if c.get("icono") else {}),
                                                                                           **({"remota": c["remota"]} if c.get("remota") else {}),

@@ -318,6 +318,27 @@ try:
     assert org.get("/api/org/peso", {"ruta": str(cal.parent)})[0] == 403
     org.quitar_ficha("despliegue")
 
+    # ★ carpeta principal: por defecto la de Código con git, luego cualquiera con git, luego la de Código; elegible a mano.
+    # El proyecto se llama como ella mientras no le pongas otro nombre.
+    pa, pb, pc = carpeta("pp_material"), carpeta("pp_codigo"), carpeta("pp_pruebas")
+    fp, _ = org.crear_ficha({"nombre": "pp_codigo", "partes": [{"tipo": "material", "carpetas": [{"ruta": str(pa)}]},
+                                                               {"tipo": "codigo", "carpetas": [{"ruta": str(pb)}]},
+                                                               {"tipo": "entornos", "carpetas": [{"ruta": str(pc)}]}]})
+    anc = {Path(org.registro()[c["ancla"]]["ruta"]).name: c["ancla"] for p in fp["partes"] for c in p["carpetas"]}
+    ver = lambda: next(f for f in org.fichas() if f["id"] == fp["id"])
+    assert fp.get("nombre_sigue") and ver()["principal"] == anc["pp_codigo"] and not ver()["principal_elegida"]
+    (pc / ".git").mkdir()
+    assert ver()["principal"] == anc["pp_pruebas"], "sin git en Código: la que tiene git"
+    org.guardar_ficha(fp["id"], {"principal": anc["pp_material"]})
+    assert ver()["principal"] == anc["pp_material"] and ver()["principal_elegida"] and ver()["nombre"] == "pp_material"
+    org.guardar_ficha(fp["id"], {"nombre": "Mi proyecto"})
+    assert ver()["nombre"] == "Mi proyecto" and not org.leer_json(org._ficha_path(fp["id"]), {}).get("nombre_sigue")
+    org.quitar_carpeta(fp["id"], anc["pp_material"])
+    assert ver()["principal"] == anc["pp_pruebas"], "si la elegida ya no está, vuelve a la de por defecto"
+    v = org.versiones(fp["id"])[-1]["v"]
+    assert org.leer_version(fp["id"], v)["ficha"]["principal"] == anc["pp_pruebas"]
+    org.quitar_ficha(fp["id"])
+
     # Fase 1b · conectores, cajas y posiciones: se validan y se guardan en la ficha
     g, _ = org.guardar_ficha("homeshape", {"conexiones": [{"id": "c1", "de": k, "a": "parte:2", "etiqueta": "se publica en", "dir": "xx"}, {"de": ""}],
                                            "cajas": [{"id": "b1", "texto": "Grabar → Editar → Subir"}], "posiciones": {"flujo": {"p": {"x": 1.234, "y": "5"}}, "raro": {}}})

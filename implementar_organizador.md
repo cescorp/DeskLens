@@ -821,6 +821,12 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - **2026-11-21 · Fase 1b (v1.169):** Flujo y Red con Cytoscape 3.30.2 (se carga al abrirlas), posiciones por vista en la ficha, zoom/posición por proyecto, minimapa propio, conectores (modo Conectar: clic origen → clic destino, en vez de arrastrar desde el borde), cajas, notas en nodos y conectores (Markdown en `notas/`, 💬 + cuadro flotante + panel), historial de estructura (`versiones/<id>/`, 5 min, con nombre, commits como marcas, restaurar) y comparativo en las 3 vistas (encima, lado a lado, solo cambios, ↑↓). **Fase 1b completa.**
 - Pendiente aparte: el historial de versiones **de archivos** por ancla + ruta relativa (que no se pierda al mover) con la cuota por proyecto; hoy sigue el de DeskLens por ruta.
 
+### ✅ Carpeta principal, entornos como iguales, iconos monocromos y líneas en el árbol (ok y hecho 2026-11-22)
+- La principal ★ es la raíz (por defecto git o Código; ★ Hacer principal en los menús). El proyecto se llama como ella salvo nombre puesto a mano.
+- Entornos: en cadena desde la principal («pasa a», línea gruesa); las demás partes salen de ella («contiene», línea gris fina). Flujo: fila a la derecha; Red: línea recta desde el centro; tarjeta: «★ principal → etapas».
+- Iconos de línea propios (SVG), un color con el del tipo en el trazo: árbol, tarjetas, panel ⓘ, menús y dentro de los nodos.
+- Contenedor: líneas │ ├─ └─ grises, cadena de etapas gruesa y verde, camino resaltado al pasar el ratón.
+
 ### ✅ Barra única y ⇆ Comparar en ventana (ok y hecho 2026-11-22)
 - Una barra: pestañas de vista (Contenedor · Flujo · Red) · ⟶ Unir · ▭ Nota libre · ▴ Plegar todo · ↺ Ordenar · ⇆ Comparar… · 🏷 Guardar versión · ⓘ 🗺 ⤢ zoom. Estrecha: solo iconos. «Conector» → unión, «caja» → nota libre (en menús, preguntas y teclas).
 - ⇆ Comparar…: ventana con versiones (con nombre, commits, automáticas), Antes | Ahora en Flujo, Red o Árbol (zoom a la par), Solo cambios, lista de cambios en frases (clic o ↑↓ los señala en los dos lados) y ↶ Restaurar. Historial › ⇆ Comparar abre la misma. Ya no hay comparativo dentro de la pizarra ni del árbol.
