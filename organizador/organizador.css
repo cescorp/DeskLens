@@ -351,13 +351,14 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 @media (max-width:900px){.obar.otab .osel span{display:none}.obar.otab input[type=search]{flex-basis:90px}}
 dialog#orgDlg[data-tipo="nuevo"]{height:calc(100vh - 48px)}
 dialog#orgDlg[data-tipo="nuevo"]>.odb{flex:1;padding:0;overflow:hidden;display:flex}
-.onv{flex:1;display:grid;grid-template-columns:minmax(380px,1.15fr) minmax(320px,1fr);grid-template-rows:auto 1fr;min-height:0;min-width:0}
+.onv{flex:1;display:grid;grid-template-columns:var(--nvw,minmax(380px,1.15fr)) 7px minmax(300px,1fr);grid-template-rows:auto 1fr;min-height:0;min-width:0}
+.onv:not(:has(>.onvtop)){grid-template-rows:1fr}
 .onvtop{grid-column:1/-1;display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--line)}
 .onvtop label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
 .onvtop input,.onvtop select{font:inherit;font-size:13.5px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
 .onvtop #nvN{width:300px;font-weight:600}
 .onvtop .sp{flex:1}
-.onvizq{overflow:auto;padding:4px 16px 14px;border-right:1px solid var(--line);min-width:0}
+.onvizq{overflow:auto;padding:4px 12px 14px 16px;min-width:0}
 .onvizq h5{display:flex;align-items:center;gap:6px;margin:14px 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 .onvizq h5 small{text-transform:none;letter-spacing:0}
 .onvizq h5 .sp{flex:1}
@@ -393,10 +394,15 @@ dialog#orgDlg[data-tipo="nuevo"]>.odb{flex:1;padding:0;overflow:hidden;display:f
 .onvexp{border:1px solid var(--line);border-radius:8px;margin-top:8px;background:var(--bg);overflow:hidden}
 .onvexb{display:flex;align-items:center;gap:6px;padding:5px 8px;border-bottom:1px solid var(--line);background:var(--side)}
 .onvexr{font-size:12.5px;font-weight:600;direction:rtl;text-align:left;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
-.onvexb .sp{display:none}
-.onvexb small{white-space:nowrap}
-.onvexc{display:grid;grid-template-columns:150px 1fr;height:250px}
-.onvexs{overflow:auto;border-right:1px solid var(--line);padding:4px;font-size:12.5px;display:flex;flex-direction:column}
+.onvexq{flex:0 1 200px;min-width:90px;font:inherit;font-size:12.5px;padding:3px 7px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.onvexq:focus{outline:2px solid color-mix(in srgb,var(--accent) 50%,transparent);border-color:var(--accent)}
+.onvexsub{display:flex;align-items:center;gap:3px;font-size:12px;color:var(--muted);white-space:nowrap;cursor:pointer}
+.onvexn mark{background:color-mix(in srgb,var(--accent) 35%,transparent);color:inherit;border-radius:2px;padding:0 1px}
+.onvexn .onvpadre{display:block;font-size:11px;color:var(--muted)}
+.onvexst{margin:6px 4px 2px;font-size:11.5px;color:var(--muted)}
+.onvexi:focus{outline:2px solid var(--accent);outline-offset:-2px}
+.onvexc{display:grid;grid-template-columns:var(--nvexs,150px) 7px minmax(0,1fr);height:var(--nvexh,250px)}
+.onvexs{overflow:auto;padding:4px;font-size:12.5px;display:flex;flex-direction:column}
 .onvexs a{flex:none;padding:3px 6px;border-radius:5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .onvexs a:hover,.onvexi:hover{background:var(--hover)}
 .onvexs h6{margin:8px 6px 2px;font-size:11px;color:var(--muted);font-weight:500}
@@ -408,7 +414,7 @@ dialog#orgDlg[data-tipo="nuevo"]>.odb{flex:1;padding:0;overflow:hidden;display:f
 .onvexf{display:flex;align-items:center;gap:6px;padding:6px 8px;border-top:1px solid var(--line)}
 .onvexf .sp{flex:1}
 .otl .onodo.oacceso .onom{font-style:italic}
-@media (max-width:980px){.onv{grid-template-columns:1fr;grid-template-rows:auto auto minmax(260px,1fr)}.onvizq{border-right:0;border-bottom:1px solid var(--line);overflow:visible}dialog#orgDlg[data-tipo="nuevo"]>.odb{overflow:auto}}
+@media (max-width:980px){.onv,.onv:not(:has(>.onvtop)){grid-template-columns:1fr;grid-template-rows:none}.onvder{height:var(--nvdh,420px)}.onvsep[data-sep="w"]{cursor:row-resize;height:7px;width:auto;background:linear-gradient(var(--line),var(--line)) center/100% 1px no-repeat}.onvizq{overflow:visible}dialog#orgDlg[data-tipo="nuevo"]>.odb{overflow:auto}}
 
 /* ---------- vista ☰ Lista: casillas, barra de acciones, ⋯, quitar y ↶ quitados (aprobado 2026-11-22) ---------- */
 .olist .ock{width:28px;padding-right:0;text-align:center}
@@ -432,3 +438,14 @@ dialog#orgDlg[data-tipo="nuevo"]>.odb{flex:1;padding:0;overflow:hidden;display:f
 .oqrutas{max-height:180px;overflow:auto;margin:0 0 10px;padding:6px 6px 6px 22px;border:1px solid var(--line);border-radius:6px;font-size:12px}
 .oqt td{cursor:default}
 .otoast{position:fixed;left:50%;bottom:34px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:10px;padding:8px 10px 8px 14px;border:1px solid var(--line);border-radius:10px;background:var(--side);box-shadow:0 6px 24px rgba(0,0,0,.18);font-size:13px;max-width:calc(100vw - 32px)}
+/* ---------- separadores que se arrastran y ventana ＋ Nuevo proyecto redimensionable (2026-11-22) ---------- */
+.onvsep{flex:none;cursor:col-resize;width:7px;background:linear-gradient(var(--line),var(--line)) center/1px 100% no-repeat;touch-action:none;outline:0;transition:background-color .12s}
+.onvsep[data-eje="y"]{cursor:row-resize;width:auto;height:7px;background:linear-gradient(var(--line),var(--line)) center/100% 1px no-repeat}
+.onvsep:hover,.onvsep.on,.onvsep:focus-visible{background-color:color-mix(in srgb,var(--accent) 45%,transparent)}
+#nvL{height:var(--nvlh,auto);overflow:auto}
+#nvL>*{flex:none}
+#nvL+.onvsep{margin:4px 0 0}
+body.onvarrx,body.onvarrx *{cursor:col-resize!important;user-select:none}
+body.onvarry,body.onvarry *{cursor:row-resize!important;user-select:none}
+dialog#orgDlg[data-tipo="nuevo"]{resize:both;overflow:hidden;min-width:620px;min-height:420px;max-width:calc(100vw - 16px);max-height:calc(100vh - 16px)}
+.onvpadre::before,.onvpadre::after,.onvexr::before,.onvexr::after{content:"\200E"}

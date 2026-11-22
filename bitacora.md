@@ -1,6 +1,10 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: 🔍 en Examinar y bloques que se arrastran en ＋ Nuevo proyecto
+`organizador.py`: `buscar_carpetas(en, q, archivos)` por niveles con `os.scandir`, clave `normalizar` (sin acentos ni separadores), salta `SALTAR_BUSCAR` y ocultas, para en 200 / 6 niveles / 4 s y lo dice en `motivo`; GET `buscar_carpetas`.
+`organizador.js`: el explorador pinta la lista aparte (`lista()`) para filtrar sin perder el foco; `[data-esc]` hace que el Esc general de las ventanas (en captura) deje pasar el del buscador. Separadores `.onvsep` con un solo manejador delegado (AbortController al cerrar), tamaños en variables CSS (`--nvw` va con `min(…, 100% - 307px)`), ventana con `resize:both` y ResizeObserver. Al probar: el `close` de la ventana anterior llegaba tarde y borraba los tamaños de la nueva (ahora `if (d.open) return`); el LRM de las rutas recortadas en CSS (`content:"\200E"`) evita que `direction:rtl` dé la vuelta a «G:\».
+
 ## 2026-11-22 · Organizador: casillas en la vista Lista, quitar varios y ↶ Proyectos quitados
 `organizador.py`: `quitar_ficha` guarda en la copia `_anclas` ({id: ruta}) y `_quitado`, y devuelve la ruta; `quitar_fichas(ids, borrar_anclas)` borra `.desklens-ancla` solo si el ancla está donde dice el registro y no la usa un proyecto que se queda; `quitados()`, `recuperar_quitados()` (vuelve a escribir el ancla con el mismo id si falta; no pisa una ficha que ya existe), `vaciar_quitados()`. Rutas GET `quitados`, POST `fichas/quitar`, `quitados/recuperar`, `quitados/vaciar`; `estado` y `ajustes` cuentan los quitados.
 `organizador.js`: `O.marca` (no se guarda; se recorta a lo visible), `marcar()` con Mayús, `estadoVarios`, `quitarVarios` (sustituye al `ask` de un solo proyecto), `aviso()` con ↶ Deshacer, `quitadosDlg`. Al probar: la barra encima de la tabla empujaba las filas y el Mayús+clic caía en otra; ahora ocupa la cabecera de la tabla.

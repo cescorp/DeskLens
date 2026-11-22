@@ -77,6 +77,8 @@
   KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
     ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
     ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'],
+    ['Ctrl+F (en ＋ Nuevo proyecto)', '🔍 Buscar en el explorador (lo abre si está cerrado)'], ['Enter (en el 🔍 con «subcarpetas»)', 'Buscar también dentro de las subcarpetas'],
+    ['↑ ↓ · Espacio · Enter (en el explorador)', 'Moverse por la lista · marcar · entrar en la carpeta'], ['Flechas (en un separador)', 'Agrandar o achicar el bloque (Mayús: más rápido); doble clic: tamaño de antes'],
     ['Espacio (vista ☰ Lista)', 'Marcar o desmarcar la fila con el foco'], ['Mayús+clic en una casilla (vista ☰ Lista)', 'Marcar desde la última marcada hasta esta'],
     ['Ctrl+A (vista ☰ Lista)', 'Marcar todos los proyectos a la vista'], ['Supr (vista ☰ Lista)', '🗑 Quitar los marcados…'], ['Esc (con proyectos marcados)', 'Desmarcar todo'], ['Esc', 'Salir del tablero de proyectos (o volver al tablero desde un proyecto o desde el editor de jerarquía)']]]);
   addEventListener('keydown', e => {
@@ -359,6 +361,8 @@
   const ORD_ETAPA = { Pruebas: 0, Calidad: 1, 'Producción': 2 };
   const padreDe = r => String(r || '').replace(/[\\/]+$/, '').replace(/[\\/][^\\/]*$/, '') + '\\'; // la carpeta de arriba (la ruta entera, al pasar el ratón)
   const normRuta = r => String(r || '').replace(/[\\/]+$/, '').toLowerCase();
+  // Separador que se arrastra (↔ o ↕). Doble clic: su tamaño de antes. Teclado: Tab y flechas (Mayús: más).
+  const sep = (k, eje, t) => `<div class="onvsep" data-sep="${k}" data-eje="${eje}" tabindex="0" role="separator" aria-orientation="${eje === 'x' ? 'vertical' : 'horizontal'}" title="${t}: arrastra · doble clic: tamaño de antes"></div>`;
   function nuevoProyecto(f = null, tipoInicial = '') {
     if (f) f = O.st.fichas.find(x => x.id === f.id) || f;
     const N = { nombre: '', tocado: false, estado: 'activo', items: [], principal: '', vista: LS('desklens.org.nuevo.vista') || 'arbol', nuevo: '', propuesta: '', exp: null, sug: null };
@@ -374,11 +378,11 @@
           <button class="obtn" id="nvRem" title="Una etapa que no es una carpeta de este PC (p. ej. el VPS)">☁ Etapa remota…</button></div>
         <div id="nvExp" hidden></div>
         <h5>En el proyecto <span id="nvC" class="osmall"></span></h5>
-        <div id="nvL" class="onvl"></div>
+        <div id="nvL" class="onvl"></div>${sep('lh', 'y', 'Alto de la lista «En el proyecto»')}
         <h5>Sugerencias <small id="nvSi" class="osmall"></small><span class="sp"></span><button class="obtn" id="nvSt" hidden>＋ Añadir todas</button></h5>
         <div id="nvS" class="onvl"></div>
       </div>
-      <div class="onvder">
+      ${sep('w', 'x', 'Ancho de «Añadir» y «Así queda»')}<div class="onvder">
         <div class="onvdh"><b>Así queda</b><span class="sp"></span><span class="oseg">${[['arbol', '🗂 Árbol'], ['flujo', '⇢ Flujo'], ['red', '◉ Red']].map(([v, t]) => `<button data-nv="${v}">${t}</button>`).join('')}</span></div>
         <div id="nvV" class="onvv"></div>
         <div id="nvRes" class="osmall"></div>
@@ -386,8 +390,54 @@
       pie: `<span id="nvPie" class="osmall"></span><span class="sp"></span><button class="obtn" id="nvCan">Cancelar</button>
         ${f ? '<button class="obtn primary" id="nvOk" title="Ctrl+Enter">Añadir al proyecto</button>' : '<button class="obtn" id="nvOtro">Crear y seguir con otro</button><button class="obtn primary" id="nvOk" title="Ctrl+Enter">Crear y abrir</button>'}` });
     d.dataset.tipo = 'nuevo'; d.oninput = null; // solo pregunta al cerrar si añadiste algo
-    d.onclose = () => { pararPoll(); limpiarCy(); delete d.dataset.tipo; d.onkeydown = null; };
     const $n = q => d.querySelector(q);
+    // ---- separadores y tamaño de la ventana (aprobado 2026-11-22): se guardan y valen para todos los proyectos ----
+    const TAM_K = 'desklens.org.nuevo.tam', VARS = ['--nvw', '--nvdh', '--nvexh', '--nvlh', '--nvexs'], ac = new AbortController();
+    let tam = {}; try { tam = JSON.parse(LS(TAM_K) || '{}') || {}; } catch {}
+    const guardarTam = () => LS(TAM_K, JSON.stringify(tam));
+    const estrecha = () => matchMedia('(max-width:980px)').matches;
+    const SEP = {
+      w: () => estrecha() ? { v: '--nvdh', el: '.onvder', eje: 'y', signo: -1, min: 220, max: innerHeight - 120 }
+        : { v: '--nvw', el: '.onvizq', eje: 'x', signo: 1, min: 340, max: Math.max(340, $n('.onv').clientWidth - 300) },
+      exh: () => ({ v: '--nvexh', el: '.onvexc', eje: 'y', signo: 1, min: 110, max: 900 }),
+      lh: () => ({ v: '--nvlh', el: '#nvL', eje: 'y', signo: 1, min: 46, max: 1400 }),
+      exs: () => ({ v: '--nvexs', el: '.onvexs', eje: 'x', signo: 1, min: 80, max: 420 }),
+    };
+    const ajustarCy = () => cys.forEach(c => { try { c.resize(); } catch {} });
+    const valor = (v, px) => v === '--nvw' ? `min(${px}px, calc(100% - 307px))` : px + 'px'; // «Así queda» nunca baja de 300 px aunque achiques la ventana
+    const fijar = (c, px) => { px = Math.round(Math.max(c.min, Math.min(c.max, px))); tam[c.v] = px; d.style.setProperty(c.v, valor(c.v, px)); ajustarCy(); };
+    for (const v of VARS) if (tam[v]) d.style.setProperty(v, valor(v, tam[v]));
+    if (/^\d+(\.\d+)?px$/.test(tam.ventW || '')) d.style.width = `min(${tam.ventW}, calc(100vw - 32px))`;
+    if (/^\d+(\.\d+)?px$/.test(tam.ventH || '')) d.style.height = `min(${tam.ventH}, calc(100vh - 24px))`;
+    d.addEventListener('pointerdown', e => {
+      const s = e.target.closest('.onvsep'); if (!s || e.button) return;
+      const c = SEP[s.dataset.sep](), el = $n(c.el); if (!el) return;
+      e.preventDefault();
+      const ini = c.eje === 'x' ? el.offsetWidth : el.offsetHeight, p0 = c.eje === 'x' ? e.clientX : e.clientY;
+      s.setPointerCapture(e.pointerId); s.classList.add('on'); document.body.classList.add(c.eje === 'x' ? 'onvarrx' : 'onvarry');
+      const mover = ev => fijar(c, ini + c.signo * ((c.eje === 'x' ? ev.clientX : ev.clientY) - p0));
+      const soltar = () => { s.removeEventListener('pointermove', mover); s.classList.remove('on'); document.body.classList.remove('onvarrx', 'onvarry'); guardarTam(); };
+      s.addEventListener('pointermove', mover); s.addEventListener('lostpointercapture', soltar, { once: true });
+    }, { signal: ac.signal });
+    d.addEventListener('dblclick', e => {
+      const s = e.target.closest('.onvsep'); if (!s) return;
+      const c = SEP[s.dataset.sep](); delete tam[c.v]; d.style.removeProperty(c.v); guardarTam(); ajustarCy(); flash('Tamaño de antes');
+    }, { signal: ac.signal });
+    d.addEventListener('keydown', e => {
+      const s = e.target.closest?.('.onvsep'); if (!s) return;
+      const c = SEP[s.dataset.sep](), el = $n(c.el), paso = e.shiftKey ? 64 : 16;
+      const dir = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -1, ArrowDown: 1 }[e.key];
+      if (!el || !dir || (c.eje === 'x') !== (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
+      e.preventDefault(); e.stopPropagation();
+      fijar(c, (c.eje === 'x' ? el.offsetWidth : el.offsetHeight) + c.signo * dir * paso); guardarTam();
+    }, { signal: ac.signal });
+    const ro = new ResizeObserver(() => { // el borde de la ventana: si lo arrastraste, se recuerda su tamaño
+      if (/^\d+(\.\d+)?px$/.test(d.style.width) && /^\d+(\.\d+)?px$/.test(d.style.height)) { tam.ventW = d.style.width; tam.ventH = d.style.height; guardarTam(); }
+      ajustarCy();
+    });
+    ro.observe(d);
+    d.onclose = () => { if (d.open) return; // el «close» de la ventana anterior llega tarde, con esta ya abierta: no es para ella
+      pararPoll(); limpiarCy(); delete d.dataset.tipo; d.onkeydown = null; ac.abort(); ro.disconnect(); VARS.forEach(v => d.style.removeProperty(v)); d.style.height = ''; };
     const existentes = () => f ? f.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))) : [];
     const yaEsta = ruta => N.items.find(it => normRuta(it.ruta) === normRuta(ruta)) || existentes().find(x => normRuta(x.c.ruta) === normRuta(ruta));
     const principalIt = () => N.items.find(it => normRuta(it.ruta) === normRuta(N.principal));
@@ -551,37 +601,96 @@
       }, 250);
     }
     // ---- 📁 Examinar (explorador dentro de la ventana; el mismo /api/explorar de DeskLens) ----
+    // 🔍 al escribir filtra la carpeta abierta (sin mayúsculas ni acentos); con «subcarpetas» y Enter busca en vivo debajo
+    // (hasta 6 niveles, 200 resultados, 4 s; sin node_modules, .git ni carpetas de sistema). Aprobado 2026-11-22.
+    const sinAc = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    const claveN = t => sinAc(t).replace(/[^a-z0-9]/g, '');
+    const resaltar = (n, q) => { // la parte que coincide, en <mark> (si coincide tal cual, sin contar acentos)
+      const k = sinAc(q.trim()); if (!k || [...n].length !== n.length) return esc(n);
+      const a = [...n].map(sinAc); if (a.some(c => c.length !== 1)) return esc(n);
+      const i = a.join('').indexOf(k); return i < 0 ? esc(n) : `${esc(n.slice(0, i))}<mark>${esc(n.slice(i, i + k.length))}</mark>${esc(n.slice(i + k.length))}`;
+    };
     async function explorar(modo, ruta) {
       const X = $n('#nvExp');
       if (modo === false) { X.hidden = true; N.exp = null; return; }
-      N.exp = { modo, marcadas: new Set(N.exp?.modo === modo ? N.exp.marcadas : []) };
+      const E = N.exp = { modo, marcadas: new Set(N.exp?.modo === modo ? N.exp.marcadas : []), q: '', res: null, buscando: false, tok: 0, sub: LS('desklens.org.nuevo.sub') === '1' };
       let ex;
       try { ex = await api('/api/explorar?ruta=' + encodeURIComponent(ruta ?? LS('desklens.org.nuevo.ruta') ?? '')); } catch (e) { try { ex = await api('/api/explorar?ruta='); } catch { return flash('⚠ ' + e.message); } }
+      if (N.exp !== E) return;
       if (ex.ruta) LS('desklens.org.nuevo.ruta', ex.ruta);
       const items = ex.items.filter(i => i.dir || modo === 'archivo');
       const link = (ico, r, n) => `<a data-go="${esc(r)}" title="${esc(r)}">${ico} ${esc(n)}</a>`;
+      const marc = modo === 'archivo' ? 'os' : 'as';
       X.hidden = false;
       X.innerHTML = `<div class="onvexp"><div class="onvexb"><button class="obtn" data-up ${ex.padre === null ? 'disabled' : ''} title="Subir">↑</button><span class="onvexr" title="${esc(ex.ruta || '')}">${esc(ex.ruta || 'Este equipo')}</span>
-          <span class="sp"></span><small class="osmall">${modo === 'archivo' ? 'Archivos: márcalos · doble clic: entrar' : 'Márcalas · clic en el nombre: entrar'}</small><button class="ic" data-cerrar title="Cerrar el explorador">✕</button></div>
+          <input type="search" class="onvexq" placeholder="🔍 Buscar… (Ctrl+F)" spellcheck="false" autocomplete="off" ${ex.ruta ? '' : 'disabled'} title="Al escribir filtra esta carpeta · ↓ baja a la lista · Esc borra">
+          <label class="onvexsub" title="Con esto marcado, Enter busca también dentro de las subcarpetas (hasta 6 niveles)"><input type="checkbox" data-sub ${E.sub ? 'checked' : ''} ${ex.ruta ? '' : 'disabled'}> subcarpetas</label>
+          <button class="ic" data-cerrar title="Cerrar el explorador">✕</button></div>
         <div class="onvexc"><div class="onvexs">${ex.lugares.map(x => link('🏠', x.ruta, x.nombre)).join('')}${ex.proyectos.length ? '<h6>Proyectos de DeskLens</h6>' + ex.proyectos.map(x => link('📁', x.ruta, x.nombre)).join('') : ''}<h6>Unidades</h6>${ex.unidades.map(u => link('💽', u, u)).join('')}</div>
-          <div class="onvexl">${items.map((x, i) => { const ya = yaEsta(x.ruta), marcable = ex.ruta && (modo === 'archivo' ? !x.dir : x.dir);
-            return `<div class="onvexi ${x.atenuada ? 'gris' : ''}" data-e="${i}"><input type="checkbox" ${!marcable || ya ? 'disabled' : ''} ${ya ? 'checked' : N.exp.marcadas.has(x.ruta) ? 'checked' : ''}>
-              <span class="onvexn" ${x.dir ? 'data-entra' : ''}>${x.dir ? '📁' : fileIcon ? fileIcon(x.nombre) : '📄'} ${esc(x.nombre)}</span>${x.tipo?.length ? `<small>${esc(x.tipo.join(' · '))}</small>` : ''}${ya ? '<small>✓ en la lista</small>' : ''}</div>`; }).join('') || '<p class="ohint">No hay nada aquí.</p>'}</div></div>
+          ${sep('exs', 'x', 'Ancho del lateral')}<div class="onvexl" title="${modo === 'archivo' ? 'Márcalos · doble clic en una carpeta: entrar' : 'Márcalas · clic en el nombre: entrar'} · ↑ ↓ moverse · Espacio marcar · Enter entrar"></div></div>
+        ${sep('exh', 'y', 'Alto del explorador')}
         <div class="onvexf">${modo === 'dir' && ex.ruta ? `<button class="obtn" data-aqui title="${esc(ex.ruta)}">＋ Añadir «${esc(ex.ruta.split(/[\\/]/).filter(Boolean).pop() || ex.ruta)}»</button>` : ''}<span class="sp"></span>
-          <button class="obtn primary" data-marc ${N.exp.marcadas.size ? '' : 'disabled'}>＋ Añadir marcad${modo === 'archivo' ? 'os' : 'as'} (${N.exp.marcadas.size})</button></div></div>`;
+          <button class="obtn primary" data-marc ${E.marcadas.size ? '' : 'disabled'}>＋ Añadir marcad${marc} (${E.marcadas.size})</button></div></div>`;
       X.querySelectorAll('[data-go]').forEach(a => a.onclick = () => explorar(modo, a.dataset.go));
       X.querySelector('[data-up]').onclick = () => explorar(modo, ex.padre ?? '');
       X.querySelector('[data-cerrar]').onclick = () => explorar(false);
       X.querySelector('[data-aqui]')?.addEventListener('click', () => anadir(ex.ruta).then(() => explorar(modo, ex.ruta)));
-      const btnM = X.querySelector('[data-marc]');
-      X.querySelectorAll('[data-e]').forEach(el => {
-        const x = items[+el.dataset.e], cb = el.querySelector('input');
-        cb.onchange = () => { cb.checked ? N.exp.marcadas.add(x.ruta) : N.exp.marcadas.delete(x.ruta); btnM.disabled = !N.exp.marcadas.size; btnM.textContent = `＋ Añadir marcad${modo === 'archivo' ? 'os' : 'as'} (${N.exp.marcadas.size})`; };
-        const n = el.querySelector('[data-entra]');
-        if (n) { if (modo === 'archivo') n.ondblclick = () => explorar(modo, x.ruta); else n.onclick = () => explorar(modo, x.ruta); }
-        else el.querySelector('.onvexn').onclick = () => { if (!cb.disabled) { cb.checked = !cb.checked; cb.onchange(); } };
-      });
-      btnM.onclick = async () => { const rs = [...N.exp.marcadas]; N.exp.marcadas.clear(); for (const r of rs) await anadir(r, { archivo: modo === 'archivo', silencio: true }); explorar(modo, ex.ruta); };
+      const L = X.querySelector('.onvexl'), btnM = X.querySelector('[data-marc]'), inQ = X.querySelector('.onvexq'), ckS = X.querySelector('[data-sub]');
+      const contar = () => { btnM.disabled = !E.marcadas.size; btnM.textContent = `＋ Añadir marcad${marc} (${E.marcadas.size})`; };
+      const relPadre = r => { const t = r.slice(ex.ruta.replace(/[\\/]+$/, '').length).replace(/^[\\/]+/, ''); const k = t.search(/[\\/][^\\/]*$/); return k < 0 ? '' : t.slice(0, k) + '\\'; };
+      const fila = (x, i, conRuta) => {
+        const ya = yaEsta(x.ruta), marcable = ex.ruta && (modo === 'archivo' ? !x.dir : x.dir), rp = conRuta ? relPadre(x.ruta) : '';
+        return `<div class="onvexi ${x.atenuada ? 'gris' : ''}" data-e="${i}" tabindex="-1"><input type="checkbox" tabindex="-1" ${!marcable || ya ? 'disabled' : ''} ${ya ? 'checked' : E.marcadas.has(x.ruta) ? 'checked' : ''}>
+          <span class="onvexn" ${x.dir ? 'data-entra' : ''} title="${esc(x.ruta)}">${x.dir ? '📁' : fileIcon ? fileIcon(x.nombre) : '📄'} ${resaltar(x.nombre, E.q)}${rp ? `<small class="onvpadre"> ${esc(rp)}</small>` : ''}</span>${x.tipo?.length ? `<small>${esc(x.tipo.join(' · '))}</small>` : ''}${ya ? '<small>✓ en la lista</small>' : ''}</div>`;
+      };
+      const entrar = x => x.dir && explorar(modo, x.ruta), aqui = ex.ruta ? ex.ruta.split(/[\\/]/).filter(Boolean).pop() || ex.ruta : '';
+      function lista() {
+        const q = E.q.trim(), res = E.res;
+        X.querySelector('.onvexp').toggleAttribute('data-esc', !!(q || res || E.buscando)); // Esc borra esto antes de cerrar la ventana
+        if (E.buscando) {
+          L.innerHTML = `<p class="onvexst">⟳ Buscando «${esc(q)}» en «${esc(aqui)}» y sus subcarpetas… <button class="obtn" data-det>✕ Detener</button></p>`;
+          L.querySelector('[data-det]').onclick = () => { E.tok++; E.buscando = false; lista(); inQ.focus(); };
+          return;
+        }
+        let vis, pie = '';
+        if (res) { vis = res.resultados.filter(x => x.dir || modo === 'archivo'); pie = `${vis.length} encontrad${marc} en «${aqui}» y sus subcarpetas${res.motivo ? ' · ' + res.motivo : ''} · Esc: volver a la carpeta`; }
+        else { const k = claveN(q); vis = k ? items.filter(x => claveN(x.nombre).includes(k)) : items; if (k) pie = `${vis.length} de ${items.length} en «${aqui}»${E.sub ? ' · Enter: buscar también en las subcarpetas' : ''} · Esc borra el filtro`; }
+        E.vis = vis;
+        L.innerHTML = vis.map((x, i) => fila(x, i, !!res)).join('')
+          + (vis.length ? '' : `<p class="ohint">${q ? `Nada con ese nombre ${res ? 'en las subcarpetas' : 'aquí'}.${E.sub && !res ? ' Pulsa Enter para buscar en las subcarpetas.' : !E.sub ? ' Marca «subcarpetas» y pulsa Enter para buscar más abajo.' : ''}` : 'No hay nada aquí.'}</p>`)
+          + (pie ? `<p class="onvexst">${esc(pie)}</p>` : '');
+        L.querySelectorAll('[data-e]').forEach(el => {
+          const x = vis[+el.dataset.e], cb = el.querySelector('input');
+          cb.onchange = () => { cb.checked ? E.marcadas.add(x.ruta) : E.marcadas.delete(x.ruta); contar(); };
+          const n = el.querySelector('[data-entra]');
+          if (n) { if (modo === 'archivo') n.ondblclick = () => entrar(x); else n.onclick = () => entrar(x); }
+          else el.querySelector('.onvexn').onclick = () => { if (!cb.disabled) { cb.checked = !cb.checked; cb.onchange(); } };
+        });
+      }
+      async function buscarSub() {
+        const t = ++E.tok; E.buscando = true; E.res = null; lista();
+        let r; try { r = await api(`/api/org/buscar_carpetas?en=${encodeURIComponent(ex.ruta)}&q=${encodeURIComponent(E.q)}&archivos=${modo === 'archivo' ? 1 : 0}`); }
+        catch (e) { r = { resultados: [], motivo: '⚠ ' + e.message }; }
+        if (N.exp !== E || E.tok !== t) return; // detenida, u otra carpeta
+        E.buscando = false; E.res = r; lista();
+      }
+      inQ.oninput = () => { E.q = inQ.value; E.res = null; if (E.buscando) { E.tok++; E.buscando = false; } lista(); };
+      inQ.onkeydown = e => {
+        if (e.key === 'Escape' && (E.res || E.buscando || inQ.value)) { e.preventDefault(); e.stopPropagation(); if (E.res || E.buscando) { E.tok++; E.buscando = false; E.res = null; } else { inQ.value = E.q = ''; } lista(); }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (E.sub && inQ.value.trim()) buscarSub(); else L.querySelector('.onvexi')?.focus(); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); L.querySelector('.onvexi')?.focus(); }
+      };
+      ckS.onchange = () => { E.sub = ckS.checked; LS('desklens.org.nuevo.sub', E.sub ? '1' : '0'); if (E.sub && E.q.trim()) buscarSub(); else { E.res = null; lista(); } inQ.focus(); };
+      L.onkeydown = e => { // ↑ ↓ entre filas (↑ en la primera: al buscador) · Espacio marca · Enter entra en la carpeta
+        const rows = [...L.querySelectorAll('.onvexi')], i = rows.indexOf(e.target.closest?.('.onvexi'));
+        if (i < 0) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const j = i + (e.key === 'ArrowDown' ? 1 : -1); j < 0 ? inQ.focus() : rows[Math.min(j, rows.length - 1)].focus(); }
+        else if (e.key === ' ') { e.preventDefault(); const cb = rows[i].querySelector('input'); if (!cb.disabled) { cb.checked = !cb.checked; cb.onchange(); } }
+        else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); entrar(E.vis[i]); }
+        else if (e.key === 'Escape' && (E.q || E.res)) { e.preventDefault(); e.stopPropagation(); inQ.focus(); inQ.onkeydown(e); }
+      };
+      lista();
+      btnM.onclick = async () => { const rs = [...E.marcadas]; E.marcadas.clear(); for (const r of rs) await anadir(r, { archivo: modo === 'archivo', silencio: true }); explorar(modo, ex.ruta); };
     }
     // ---- la ruta escrita: autocompletar con las carpetas de su carpeta de arriba ----
     const inR = $n('#nvR'), cacheEx = new Map(); let tR;
@@ -609,6 +718,7 @@
     d.onkeydown = e => {
       if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); if (!$n('#nvOk').disabled) enviar(false); }
       else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'o') { e.preventDefault(); e.stopPropagation(); explorar('dir'); }
+      else if (e.ctrlKey && !e.shiftKey && e.key.toLowerCase() === 'f') { e.preventDefault(); e.stopPropagation(); (N.exp ? Promise.resolve() : explorar('dir')).then(() => { const q = $n('.onvexq'); q?.focus(); q?.select(); }); }
     };
     // ---- crear o añadir ----
     async function enviar(seguir) {
@@ -651,7 +761,7 @@
 
   // ---------- diálogos ----------
   function abrirDlg(titulo, html, { ancho, pie = '' } = {}) {
-    dlg.style.width = ancho ? `min(${ancho}px, calc(100vw - 32px))` : '';
+    dlg.style.width = ancho ? `min(${ancho}px, calc(100vw - 32px))` : ''; dlg.style.height = ''; // el alto que dejó ＋ Nuevo proyecto
     dlg.innerHTML = `<header><b>${titulo}</b><button class="ic" title="Cerrar">✕</button></header><div class="odb">${html}</div>${pie ? `<footer>${pie}</footer>` : ''}`;
     dlg.querySelector('header button').onclick = () => cerrarDlg();
     dlg.onclose = () => pararPoll();
@@ -677,7 +787,7 @@
     if (dlg.open && !dlg.contains(e.target) && !e.target.closest('#ask, #menu')) cerrarDlg();
   }, true);
   addEventListener('keydown', e => { // Esc la cierra (sin showModal el navegador no lo hace solo)
-    if (e.key === 'Escape' && dlg.open && !$('#ask')?.open && !$('#menu')) { e.preventDefault(); e.stopPropagation(); cerrarDlg(); }
+    if (e.key === 'Escape' && dlg.open && !$('#ask')?.open && !$('#menu') && !e.target.closest?.('[data-esc]')) { e.preventDefault(); e.stopPropagation(); cerrarDlg(); } // [data-esc]: ese bloque usa Esc (p. ej. borrar el 🔍)
   }, true);
   // formulario de la ficha: lo usan la ventana «Ficha» (⋯ del tablero) y la pestaña Ficha de la vista del proyecto
   function fichaCampos(f) {

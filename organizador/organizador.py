@@ -1566,6 +1566,57 @@ def sugerencias(nombre, excluir=(), limite=40):
             "aviso": "" if any(d["visto"] for d in discos_info) else "Aún no se recorrió ningún disco: usa 🔍 Buscar en discos para tener sugerencias"}
 
 
+SALTAR_BUSCAR = SALTAR_NOMBRES | {"windows", "program files", "program files (x86)", "programdata", "appdata", "recovery", "perflogs"}
+
+
+def buscar_carpetas(en, q, archivos=False, limite=200, segundos=4.0, profundidad=6):
+    """🔍 del explorador de ＋ Nuevo proyecto: busca por nombre (sin mayúsculas ni acentos) dentro de `en` y sus
+    subcarpetas, en vivo, por niveles (primero lo de arriba). Se salta node_modules, .git, ocultas y de sistema.
+    Para en `limite` resultados, `profundidad` niveles o `segundos`, y lo dice en `motivo`."""
+    raiz = Path(os.path.abspath(corta(str(en or "").strip().strip('"'))))
+    clave = normalizar(q or "")
+    if not clave:
+        raise ValueError("Escribe qué buscar")
+    if not larga(raiz).is_dir():
+        raise ValueError(f"No existe la carpeta: {raiz}")
+    fin, out, nivel, vistas = time.monotonic() + segundos, [], [raiz], 0
+    motivo = ""
+    for prof in range(1, profundidad + 1):
+        siguiente = []
+        for c in nivel:
+            try:
+                with os.scandir(larga(c)) as it:
+                    hijos = sorted(it, key=lambda e: e.name.lower())
+            except OSError:
+                continue
+            for e in hijos:
+                vistas += 1
+                try:
+                    es_dir = e.is_dir(follow_symlinks=False)
+                except OSError:
+                    continue
+                n = e.name
+                if es_dir and (n.lower() in SALTAR_BUSCAR or n.startswith((".", "$")) or n == ANCLA):
+                    continue
+                if not es_dir and (not archivos or n == ANCLA):
+                    continue
+                ruta = c / n
+                if clave in normalizar(n):
+                    out.append({"ruta": str(ruta), "nombre": n, "dir": es_dir, "nivel": prof})
+                    if len(out) >= limite:
+                        return {"resultados": out, "completo": False, "motivo": f"Solo los primeros {limite}", "vistas": vistas}
+                if es_dir:
+                    siguiente.append(ruta)
+            if time.monotonic() > fin:
+                return {"resultados": out, "completo": False, "motivo": f"Se paró a los {int(segundos)} s", "vistas": vistas}
+        nivel = siguiente
+        if not nivel:
+            break
+    else:
+        motivo = f"Hasta {profundidad} niveles"
+    return {"resultados": out, "completo": not motivo, "motivo": motivo, "vistas": vistas}
+
+
 def anadir_carpetas(proyecto_id, carpetas, principal_ruta="", movidas=None):
     """＋ Añadir carpetas a un proyecto existente: cada una {ruta | archivo:{ruta} | remota, tipo, etapa} va a la primera
     parte de su tipo (se crea si no hay). Pone las anclas. Devuelve (ficha, avisos)."""
@@ -2004,8 +2055,10 @@ def get(ruta, q, proyectos_desklens=()):
         return 200, {"recorrido": estado_recorrido()}
     if r == "relaciones":
         return 200, {"proyectos": relaciones(proyectos_desklens)}
-    if r in ("analizar", "sugerencias"):  # ＋ Nuevo proyecto / ＋ Añadir carpetas
+    if r in ("analizar", "sugerencias", "buscar_carpetas"):  # ＋ Nuevo proyecto / ＋ Añadir carpetas
         try:
+            if r == "buscar_carpetas":
+                return 200, buscar_carpetas(q.get("en", ""), q.get("q", ""), q.get("archivos") == "1")
             if r == "analizar":
                 return 200, analizar_ruta(q.get("ruta", ""))
             return 200, sugerencias(q.get("nombre", ""), [x for x in q.get("excluir", "").split("|") if x])

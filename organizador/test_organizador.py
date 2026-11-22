@@ -457,6 +457,18 @@ try:
     assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
     assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
 
+    # 🔍 del explorador: por nombre en subcarpetas, sin acentos ni separadores, saltando node_modules
+    bq = carpeta("busca", "uno", "Canción_Final")
+    carpeta("busca", "node_modules", "cancion-final")
+    (bq / "cancion final.txt").write_text("x", encoding="utf-8")
+    r = org.buscar_carpetas(str(bq.parent.parent), "cancion final")
+    assert [x["nombre"] for x in r["resultados"]] == ["Canción_Final"] and r["completo"], r
+    r = org.buscar_carpetas(str(bq.parent.parent), "cancionfinal", archivos=True)
+    assert {x["nombre"] for x in r["resultados"]} == {"Canción_Final", "cancion final.txt"}, r
+    assert org.buscar_carpetas(str(disco), "busca", limite=1)["completo"] is False
+    assert org.get("/api/org/buscar_carpetas", {"en": str(disco), "q": ""})[0] == 400
+    assert org.get("/api/org/buscar_carpetas", {"en": str(disco), "q": "uno"})[0] == 200
+
     # Quitar varios (casillas de la vista Lista), borrar anclas sin tocar las compartidas, recuperar y vaciar
     qa, qb, qc = carpeta("qa-codigo"), carpeta("qa-docs"), carpeta("qa-comun")
     org.crear_ficha({"nombre": "qa", "partes": [{"tipo": "codigo", "carpetas": [{"ruta": str(qa)}, {"ruta": str(qc)}]},

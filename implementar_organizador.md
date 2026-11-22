@@ -835,6 +835,12 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ 🔍 Buscador en Examinar y bloques que se arrastran en ＋ Nuevo proyecto (ok y hecho 2026-11-22)
+- 🔍 en la barra del explorador: filtra al escribir (sin mayúsculas, acentos ni separadores), resalta lo que coincide y dice «N de M en «carpeta»». ☐ subcarpetas (se recuerda) + Enter: `GET /api/org/buscar_carpetas` en vivo, por niveles, hasta 6 niveles / 200 / 4 s, sin node_modules, .git, ocultas ni de sistema; ✕ Detener; cada resultado con su subcarpeta debajo.
+- Teclas: Ctrl+F (abre el explorador si hace falta), ↓ a la lista, ↑ ↓ entre filas, Espacio marca, Enter entra, Esc: resultados → filtro → cierra la ventana.
+- Separadores: ancho Añadir | Así queda (en ventana estrecha, alto de Así queda), alto del explorador, ancho de su lateral, alto de «En el proyecto». Doble clic: tamaño de antes; Tab + flechas (Mayús: más). Ventana redimensionable por la esquina. Todo en `desklens.org.nuevo.tam`, igual para todos los proyectos.
+- Arreglo: rutas recortadas con `direction:rtl` salían «\:G»; ahora llevan marcas LRM y se leen bien.
+
 ### ✅ Casillas y acciones en la vista Lista · Quitar varios · ↶ Proyectos quitados (ok y hecho 2026-11-22)
 - **Lista con casillas**: clic marca, Mayús+clic marca un tramo, la casilla de la cabecera marca lo que está a la vista (respeta filtro y estado). Con algo marcado, la cabecera de la tabla se vuelve la barra: «N marcados · Marcar todos (n)» · Estado ▾ · 📂 Abrir carpetas (5 como mucho; abre la carpeta principal de cada uno en el Explorador) · 🗑 Quitar… · ✕. Lo marcado no se guarda.
 - **⋯ en cada fila**: Abrir proyecto · Ficha… · Editar jerarquía… · Estado · Fijar · Quitar del organizador….
