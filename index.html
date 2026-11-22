@@ -1958,6 +1958,7 @@ async function renameOnDisk(path, nombre) {
   dirCache.clear(); await loadSide();
   for (const t of [...open.filter(t => t !== was), ...open.filter(t => t === was)]) openTab(to(t), true); // la que veías, al final
   flash(`✓ «${old}» ahora se llama «${nombre}»`);
+  dispatchEvent(new CustomEvent('desklens:renombrado', { detail: { de: path, a: r } })); // p. ej. el árbol del organizador
   return r;
 }
 // ✎ Cambiar nombre de una pestaña (clic derecho o Ctrl+F2): se escribe en la propia pestaña. «nuevo N» sin guardar solo

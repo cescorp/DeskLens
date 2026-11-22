@@ -1294,6 +1294,25 @@
     scroll: O.adm.scroll, ultimo: O.adm.ultimo, abiertas: [...O.adm.abiertas], vista: O.adm.vista, cmp: O.adm.cmp, cam: O.adm.cam, mini: O.adm.mini,
     notaAbierta: O.adm.notaAbierta, info: O.adm.info, exp: O.adm.exp }));
   const guardarAbiertas = guardarVista;
+  // Renombrar en DeskLens (F2 del árbol o Ctrl+F2 de la pestaña) o en el Explorador de Windows: el árbol del proyecto
+  // vuelve a leer lo que tiene desplegado, con los nombres nuevos, sin plegar nada ni perder el desplazamiento.
+  // Si lo renombrado es (o contiene) una carpeta del proyecto, se recargan las fichas: su ancla dice dónde está ahora.
+  async function refrescarArbol(de, a) {
+    if (!O.adm) return;
+    if (de && a) {
+      const lo = de.toLowerCase(), cambia = r => r.toLowerCase() === lo || r.toLowerCase().startsWith(lo + '\\') ? a + r.slice(de.length) : r;
+      O.adm.abiertas = new Set([...O.adm.abiertas].map(cambia)); if (O.adm.ultimo) O.adm.ultimo = cambia(O.adm.ultimo); guardarVista();
+    }
+    const f = O.st?.fichas.find(x => x.id === O.adm.id), T = document.querySelector('#aTree');
+    if (!f || !T || !on() || O.pantalla !== 'proyecto') return;
+    if (de && vivas(f).some(c => c.ruta.toLowerCase() === de.toLowerCase() || c.ruta.toLowerCase().startsWith(de.toLowerCase() + '\\'))) return cargar();
+    if (O.adm.q.trim()) return buscarEn(f, T);
+    const top = T.scrollTop;
+    await Promise.all([...T.querySelectorAll('.onodo.raiz[data-dir]')].filter(n => O.adm.abiertas.has(n.dataset.ruta)).map(n => abrirCarpeta(n, T, true)));
+    T.scrollTop = top;
+  }
+  addEventListener('desklens:renombrado', e => refrescarArbol(e.detail.de, e.detail.a));
+  addEventListener('focus', () => refrescarArbol()); // al volver de otra ventana (p. ej. renombraste en el Explorador)
   // cerrar la pestaña del último archivo del proyecto lo olvida: no vuelve a abrirse solo
   if (typeof closeTab === 'function') {
     const cerrarPestana = closeTab;

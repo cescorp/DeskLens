@@ -1,6 +1,9 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: el árbol del proyecto se entera de los renombrados
+`index.html`: `renameOnDisk` emite `desklens:renombrado` {de, a}. `organizador.js`: `refrescarArbol(de, a)` cambia en `O.adm.abiertas` y `O.adm.ultimo` las rutas renombradas y vuelve a leer las carpetas desplegadas (`abrirCarpeta(n, T, true)`), conservando el desplazamiento; si lo renombrado es una carpeta del proyecto, `cargar()` (el ancla dice dónde está). También al volver a la ventana (`focus`), para lo renombrado fuera de DeskLens. Sin comprobar en la copia aislada: renombrar desde dentro una carpeta raíz (DeskLens no deja renombrar fuera de lo añadido).
+
 ## 2026-11-22 · Organizador: 🔍 en Examinar y bloques que se arrastran en ＋ Nuevo proyecto
 `organizador.py`: `buscar_carpetas(en, q, archivos)` por niveles con `os.scandir`, clave `normalizar` (sin acentos ni separadores), salta `SALTAR_BUSCAR` y ocultas, para en 200 / 6 niveles / 4 s y lo dice en `motivo`; GET `buscar_carpetas`.
 `organizador.js`: el explorador pinta la lista aparte (`lista()`) para filtrar sin perder el foco; `[data-esc]` hace que el Esc general de las ventanas (en captura) deje pasar el del buscador. Separadores `.onvsep` con un solo manejador delegado (AbortController al cerrar), tamaños en variables CSS (`--nvw` va con `min(…, 100% - 307px)`), ventana con `resize:both` y ResizeObserver. Al probar: el `close` de la ventana anterior llegaba tarde y borraba los tamaños de la nueva (ahora `if (d.open) return`); el LRM de las rutas recortadas en CSS (`content:"\200E"`) evita que `direction:rtl` dé la vuelta a «G:\».
