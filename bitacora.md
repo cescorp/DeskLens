@@ -1,6 +1,9 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · Organizador: 🚦 Ordenar entornos
+`organizador.js`: `ordenarEntornos(f)` sobre `abrirDlg`: lista de las carpetas de las partes Entornos (etapa vacía → `etapaSugerida` o Pruebas, marcada «sin etapa»), arrastre con el puntero (no con el arrastre del navegador: el de prueba no lo dispara y en WebView es irregular), ↑ ↓ / Alt+↑ ↓, ⋯ sacar a otro tipo o quitar, `↕ Ordenar por etapa` (estable). Guarda con `ficha/guardar` + partes completas: la primera parte Entornos con el orden, las demás Entornos vacías se quitan, lo sacado va a la primera parte de su tipo (o una nueva). `carpetaGuardar()` manda ancla, remota, `archivo.ruta` e icono propio. Arreglo: `editarFicha` no mandaba la ruta de los accesos ↗ (el servidor rechazaba la ficha).
+
 ## 2026-11-22 · Organizador: filtro siempre visible y pizarra más fluida
 `organizador.js`: `filtroPizarra` crea el cuadro una vez (`.ofcab`) y `pintar()` solo rehace los tipos (antes rehacía todo y había que devolver el foco); los tipos se ven con `:focus-within` o `.fijo` (▾); `tabIndex -1` en la caja para que un clic dentro no los cierre. `aplicarFiltro` usa `cacheDir` (lo leído) y `desplegarEnLote` (marca `lote`: `desplegar` no ordena ni repinta; al final un `ordenarRama` por rama); también al volver al proyecto. Filtro de nombre: no esconde carpetas abiertas (ni en el explorador). Rueda: deltas acumulados y aplicados en `requestAnimationFrame`. Medido: filtrar 9–20 ms tras la pausa de 160 ms (antes, una lectura de disco y un reordenado por carpeta).
 

@@ -835,6 +835,10 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ 🚦 Ordenar entornos (ok y hecho 2026-11-22)
+- Clic derecho en el bloque/parte Entornos o en una etapa (Contenedor, Flujo, Red) › 🚦 Ordenar entornos….
+- Tarjetas arrastrables por ⠿ (línea donde caerá), ↑ ↓, etapa por tarjeta (Pruebas, Calidad, Producción, Otra…), aviso «sin etapa», ⋯ Sacar de Entornos ▸ / Quitar del proyecto, «Así queda» en vivo, ↕ Ordenar por etapa, Cancelar / Guardar (Ctrl+Enter). Teclas ↑ ↓ y Alt+↑ ↓.
+
 ### ✅ Lo desplegado sin montarse (ok y hecho 2026-11-22)
 - Sin física libre (no se desordena): lo del proyecto no se mueve; solo lo desplegado se ordena.
 - Red: abanico desde su carpeta, hueco para cada carpeta abierta según lo suyo; líneas cortas. Flujo: árbol en filas de 4.

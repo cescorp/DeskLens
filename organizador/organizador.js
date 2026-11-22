@@ -78,6 +78,7 @@
   KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
     ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
     ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'],
+    ['Clic derecho en Entornos o en una etapa', '🚦 Ordenar entornos: arrastrar para el orden, etapa de cada una, Guardar'], ['↑ ↓ · Alt+↑ ↓ · Ctrl+Enter (en 🚦 Ordenar entornos)', 'Elegir tarjeta · subirla o bajarla · Guardar'],
     ['Doble clic en Red o Flujo', '🎯 Enfocar: despliega hasta esa carpeta o archivo, lo demás opaco; 🗂 Explorador lo sigue'], ['Esc · clic en el fondo (con foco)', 'Quitar el foco'],
     ['Ctrl+F (en ＋ Nuevo proyecto)', '🔍 Buscar en el explorador (lo abre si está cerrado)'], ['Enter (en el 🔍 con «subcarpetas»)', 'Buscar también dentro de las subcarpetas'],
     ['↑ ↓ · Espacio · Enter (en el explorador)', 'Moverse por la lista · marcar · entrar en la carpeta'], ['Flechas (en un separador)', 'Agrandar o achicar el bloque (Mayús: más rápido); doble clic: tamaño de antes'],
@@ -1187,6 +1188,102 @@
     }
     pintar();
   }
+  // Una carpeta de la ficha tal como la quiere el servidor al guardar partes (ancla, etapa remota, acceso a archivo, icono a mano)
+  const carpetaGuardar = (c, tipo, etapa = c.etapa) => ({ ancla: c.ancla, activa: c.activa !== false,
+    ...(c.remota ? { remota: c.remota } : {}), ...(String(c.ancla).startsWith('archivo:') ? { archivo: { ruta: c.ruta } } : {}),
+    ...(c.icono_propio && c.icono ? { icono: c.icono } : {}), ...(tipo === 'entornos' ? { etapa: etapa || '' } : {}) });
+  // 🚦 Ordenar entornos (aprobado 2026-11-22): clic derecho en Entornos o en una etapa (Contenedor, Flujo y Red).
+  // Tarjetas que se arrastran por ⠿ (o ↑ ↓ / Alt+↑ ↓) para el orden de la cadena; etapa de cada una; ⋯ para sacarla de
+  // Entornos o quitarla del proyecto. «Así queda» en vivo. Guardar cambia solo la ficha (queda en el Historial).
+  function ordenarEntornos(f) {
+    f = O.st.fichas.find(x => x.id === f.id) || f;
+    const L = f.partes.filter(p => p.tipo === 'entornos').flatMap(p => p.carpetas.map(c => ({ c, etapa: c.etapa || etapaSugerida(c.nombre) || 'Pruebas', sinEtapa: !c.etapa })));
+    const fuera = []; // {c, tipo} que salen de Entornos (tipo null: se quitan del proyecto)
+    const huella = () => JSON.stringify([L.map(x => [x.c.ancla, x.etapa]), fuera.map(o => [o.c.ancla, o.tipo])]), original = huella();
+    const d = abrirDlg(`🚦 Entornos de ${esc(f.nombre)}`, '<div class="oent"></div>', { ancho: 660,
+      pie: `<button class="obtn" id="oeOrd" title="Pruebas → Calidad → Producción (las demás etapas, al final)">↕ Ordenar por etapa</button><span class="sp"></span><button class="obtn" id="oeC">Cancelar</button><button class="obtn primary" id="oeG" title="Ctrl+Enter">Guardar</button>` });
+    d.oninput = null;
+    const cont = d.querySelector('.oent');
+    let sel = 0, desde = -1;
+    const marcar = () => { if (huella() !== original) d.dataset.cambios = '1'; else delete d.dataset.cambios; };
+    const mover = (i, j) => { if (j < 0 || j >= L.length || i === j) return; const [x] = L.splice(i, 1); L.splice(j, 0, x); sel = j; pintar(); marcar(); };
+    function pintar() {
+      sel = Math.max(0, Math.min(sel, L.length - 1));
+      cont.innerHTML = `<p class="ohint">Arrastra las tarjetas por ⠿ para cambiar el orden (de arriba abajo: quién «pasa a» quién) y elige la etapa de cada una. Solo cambia la ficha: no se mueve ningún archivo.</p>
+        <div class="oelist">${L.map((x, i) => `<div class="oecard ${i === sel ? 'on' : ''}" data-i="${i}" tabindex="${i === sel ? 0 : -1}">
+          <span class="oeasa" title="Arrastra para cambiar el orden">⠿</span><span class="oen">${i + 1}</span>${icoE(x.etapa)}
+          <div class="oenom"><b>${esc(x.c.nombre)}</b>${x.c.remota ? ' <span title="Etapa remota">☁</span>' : ''}<small>${x.sinEtapa ? `<span class="owarn">⚠ sin etapa (se propone ${esc(x.etapa)})</span> · ` : ''}<span title="${esc(x.c.ruta || '')}">${esc(x.c.ruta || '')}</span></small></div>
+          <select data-et title="Etapa">${[...new Set([...ETAPAS, x.etapa])].map(e => `<option ${e === x.etapa ? 'selected' : ''}>${esc(e)}</option>`).join('')}<option value="__otra">Otra…</option></select>
+          <button class="obtn oico" data-up title="Antes (Alt+↑)" ${i ? '' : 'disabled'}>↑</button><button class="obtn oico" data-dn title="Después (Alt+↓)" ${i < L.length - 1 ? '' : 'disabled'}>↓</button><button class="obtn oico" data-mas title="Sacar de Entornos o quitar del proyecto">⋯</button></div>`).join('')
+          || '<p class="oempty">No quedan etapas en Entornos.</p>'}</div>
+        ${fuera.length ? `<p class="osmall">Al guardar: ${fuera.map(o => `«${esc(o.c.nombre)}» ${o.tipo ? `pasa a ${esc(TIPO[o.tipo][1])}` : 'se quita del proyecto'}`).join(' · ')} · <a data-deshacer>deshacer</a></p>` : ''}
+        <div class="oeasi"><b>Así queda:</b> ${L.map(x => `${icoE(x.etapa)} <span>${esc(x.c.nombre)}</span>`).join(' <span class="oflecha">→</span> ') || '<span class="ogris">sin etapas</span>'}</div>`;
+      cont.querySelectorAll('.oecard').forEach(el => {
+        const i = +el.dataset.i, x = L[i];
+        el.onclick = e => { if (e.target.closest('select, button')) return; sel = i; cont.querySelectorAll('.oecard').forEach(k => k.classList.toggle('on', k === el)); };
+        el.querySelector('[data-et]').onchange = async e => {
+          let v = e.target.value;
+          if (v === '__otra') { v = (await ask('Etapa', 'Nombre de la etapa (p. ej. «Demo», «Cliente»):', ['Usar', 'Cancelar'], { input: '' }))?.trim(); if (!v) return pintar(); }
+          x.etapa = v; x.sinEtapa = false; sel = i; pintar(); marcar();
+        };
+        el.querySelector('[data-up]').onclick = () => mover(i, i - 1);
+        el.querySelector('[data-dn]').onclick = () => mover(i, i + 1);
+        el.querySelector('[data-mas]').onclick = e => openMenu(e.currentTarget, [{ head: 'Sacar de Entornos' },
+          ...Object.entries(TIPO).filter(([t]) => t !== 'entornos').map(([t, [, nom]]) => [nom, () => { fuera.push({ c: x.c, tipo: t }); L.splice(i, 1); pintar(); marcar(); },
+            { html: `${svgI(t, COLT[t])} ${nom}`, disabled: !!x.c.remota, title: x.c.remota ? 'Una etapa remota solo puede estar en Entornos' : '' }]),
+          '-', ['Quitar del proyecto (nada se borra del disco)', () => { fuera.push({ c: x.c, tipo: null }); L.splice(i, 1); pintar(); marcar(); }, { danger: true }]]);
+        // arrastrar por ⠿ (con el puntero, no con el arrastre del navegador): una línea marca dónde caerá
+        el.querySelector('.oeasa').onpointerdown = e => {
+          if (e.button) return; e.preventDefault(); desde = i; el.classList.add('drag');
+          const asa = e.currentTarget; asa.setPointerCapture(e.pointerId);
+          let dest = -1;
+          const limpiar = () => cont.querySelectorAll('.oecard').forEach(k => k.classList.remove('antes', 'despues'));
+          asa.onpointermove = ev => {
+            const t = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.oecard'); limpiar(); dest = -1;
+            if (!t || !cont.contains(t)) return;
+            const r = t.getBoundingClientRect(), arriba = ev.clientY < r.top + r.height / 2, k = +t.dataset.i;
+            t.classList.add(arriba ? 'antes' : 'despues'); dest = k + (arriba ? 0 : 1);
+          };
+          asa.onpointerup = asa.onpointercancel = () => {
+            asa.onpointermove = asa.onpointerup = asa.onpointercancel = null; el.classList.remove('drag'); limpiar();
+            const de = desde; desde = -1; if (dest < 0) return;
+            let j = dest; if (de < j) j--; mover(de, j);
+          };
+        };
+      });
+      cont.querySelector('[data-deshacer]')?.addEventListener('click', () => { for (const o of fuera.splice(0)) L.push({ c: o.c, etapa: o.c.etapa || etapaSugerida(o.c.nombre) || 'Pruebas', sinEtapa: !o.c.etapa }); pintar(); marcar(); });
+      cont.querySelector(`.oecard[data-i="${sel}"]`)?.focus({ preventScroll: false });
+    }
+    async function guardarEnt() {
+      const partes = f.partes.map(p => ({ nombre: p.nombre, tipo: p.tipo, carpetas: p.carpetas.map(c => ({ c, etapa: c.etapa })) }));
+      const iE = partes.findIndex(p => p.tipo === 'entornos');
+      partes.forEach((p, j) => { if (p.tipo === 'entornos') p.carpetas = j === iE ? L.map(x => ({ c: x.c, etapa: x.etapa })) : []; });
+      for (const o of fuera) if (o.tipo) {
+        let p = partes.find(q => q.tipo === o.tipo);
+        if (!p) { p = { nombre: TIPO[o.tipo][1], tipo: o.tipo, carpetas: [] }; partes.push(p); }
+        p.carpetas.push({ c: o.c });
+      }
+      try {
+        await api('/api/org/ficha/guardar', { id: f.id, partes: partes.filter(p => p.tipo !== 'entornos' || p.carpetas.length)
+          .map(p => ({ nombre: p.nombre, tipo: p.tipo, carpetas: p.carpetas.map(e => carpetaGuardar(e.c, p.tipo, e.etapa)) })) });
+        delete d.dataset.cambios; d.close();
+        flash(`✓ Entornos guardados: ${L.map(x => x.etapa).join(' → ') || 'sin etapas'} (solo la ficha: nada se movió en el disco)`);
+        await cargar();
+      } catch (e) { err(e); }
+    }
+    d.querySelector('#oeOrd').onclick = () => { const k = L.map((x, i) => [x, i]); k.sort((a, b) => (ordenEtapa(a[0].etapa) - ordenEtapa(b[0].etapa)) || a[1] - b[1]); L.splice(0, L.length, ...k.map(y => y[0])); pintar(); marcar(); };
+    d.querySelector('#oeC').onclick = () => cerrarDlg();
+    d.querySelector('#oeG').onclick = guardarEnt;
+    d.onkeydown = e => {
+      if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); guardarEnt(); return; }
+      if (e.target.closest?.('select') || !L.length) return;
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault(); const d1 = e.key === 'ArrowUp' ? -1 : 1;
+      if (e.altKey) mover(sel, sel + d1); else { sel = Math.max(0, Math.min(L.length - 1, sel + d1)); pintar(); }
+    };
+    pintar();
+  }
+  const itemEntornos = f => ['🚦 Ordenar entornos…', () => ordenarEntornos(f), { title: 'Cambiar el orden de las etapas (arrastrando) y la etapa de cada una' }];
   // Editar la jerarquía de una ficha existente: las demás fichas a la izquierda (para pasar o compartir carpetas)
   function editarFicha(f) {
     const modelo = O.st.fichas.map(x => ({ id: x.id, nombre: x.nombre, sin: [], partes: x.partes.map(pt => ({ nombre: pt.nombre, tipo: pt.tipo,
@@ -1205,7 +1302,7 @@
             const limpio = x => JSON.stringify(x, (k, v) => k === '_etapa' || k === '_n' ? undefined : v);
             if (limpio(m) === limpio(antes[i])) continue; // solo las fichas que cambiaron
             await api('/api/org/ficha/guardar', { id: m.id, partes: m.partes.map(pt => ({ nombre: pt.nombre, tipo: pt.tipo,
-              carpetas: pt.carpetas.map(c => ({ ...(c.ancla ? { ancla: c.ancla } : {}), activa: c.incluida, ...(c.remota ? { remota: c.remota } : c.icono !== c._ico || c._propio ? { icono: c.icono } : {}),
+              carpetas: pt.carpetas.map(c => ({ ...(c.ancla ? { ancla: c.ancla } : {}), activa: c.incluida, ...(String(c.ancla).startsWith('archivo:') ? { archivo: { ruta: c.ruta } } : {}), ...(c.remota ? { remota: c.remota } : c.icono !== c._ico || c._propio ? { icono: c.icono } : {}),
                 ...(pt.tipo === 'entornos' ? { etapa: c.etapa || '' } : {}) })) })) });
           }
           flash('✓ Jerarquía guardada (solo la ficha: no se movió ningún archivo)');
@@ -1395,6 +1492,7 @@
         e.preventDefault(); e.stopPropagation();
         const pt = n ? f.partes[+n.dataset.parte] : null;
         return openMenu({ x: e.clientX, y: e.clientY }, [{ head: pt ? pt.nombre : f.nombre }, [pt ? `＋ Añadir carpetas a ${pt.nombre}…` : '＋ Añadir carpetas…', () => nuevoProyecto(f, pt?.tipo || '')],
+          ...(pt?.tipo === 'entornos' ? ['-', itemEntornos(f)] : []),
           ...(!pt || pt.tipo === 'entornos' && f.raiz_nombre ? ['-', itemConNombre(f)] : [])]);
       }
       if (n.classList.contains('gris') && !n.classList.contains('raiz')) return;
@@ -1407,6 +1505,7 @@
         ...(remota ? [{ head: c.nombre }] : [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err), { disabled: n.classList.contains('gris') }],
         ...(dir ? [['>_ Terminal aquí', () => openTerminal(ruta), { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]])]),
         ...(raiz && !remota && !n.classList.contains('oacceso') && c.ancla !== f.principal ? ['-', hacerPrincipalItem(f, c.ancla, c.nombre)] : []),
+        ...(raiz && f.partes[+n.dataset.j]?.tipo === 'entornos' ? ['-', itemEntornos(f)] : []),
         ...(raiz && c?.ancla === f.principal && !f.raiz_nombre ? ['-', itemConNombre(f)] : []), // la raíz ★: aquí también se cambia
         ...(raiz ? menuMover(f, c.ancla, f.partes[+n.dataset.j].tipo) : []),
         ...(raiz ? ['-', ['Quitar del proyecto…', async () => {
@@ -2666,6 +2765,7 @@
       ...(el.data('acceso') && viva ? [['Abrir en una pestaña (doble clic)', () => abrirEnContenedor(ruta)]] : []), ...(viva ? [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err)], ['🗂 Ver en el Contenedor', () => { O.adm.vista = 'contenedor'; O.adm.abiertas.add(ruta); guardarVista(); admin(); }]] : []),
       ...(clase === 'carpeta' && viva && !el.data('acceso') && !el.cy().scratch('soloLectura') ? ['-', hacerPrincipalItem(f, id.slice(2), el.data('nombre'))] : []),
       ...((clase === 'parte' || clase === 'proyecto' || clase === 'bloque') && !el.cy().scratch('soloLectura') ? ['-', ['＋ Añadir carpetas…', () => nuevoProyecto(f, clase === 'proyecto' ? '' : el.data('tipo'))]] : []),
+      ...((clase === 'bloque' || el.data('tipo') === 'entornos' && (clase === 'parte' || clase === 'carpeta')) && !el.cy().scratch('soloLectura') ? ['-', itemEntornos(f)] : []),
       ...((clase === 'proyecto' || clase === 'bloque') && !el.cy().scratch('soloLectura') ? ['-', itemConNombre(f)] : []),
       ...(clase === 'carpeta' && !el.cy().scratch('soloLectura') ? menuMover(f, id.slice(2), el.data('tipo')) : [])]);
   }

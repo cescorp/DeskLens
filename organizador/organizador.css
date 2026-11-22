@@ -481,3 +481,16 @@ dialog#orgDlg[data-tipo="nuevo"]{resize:both;overflow:hidden;min-width:620px;min
 .otl.oconfoco .onodo{opacity:.35}
 .otl.oconfoco .onodo.oencamino,.otl.oconfoco .oenrama .onodo{opacity:1}
 .otl .onodo.oenfoco{background:color-mix(in srgb,var(--accent) 18%,transparent);border-radius:5px;font-weight:600}
+
+/* ---------- 🚦 Ordenar entornos: tarjetas que se arrastran (2026-11-22) ---------- */
+.oelist{display:flex;flex-direction:column;gap:6px;margin:6px 0 10px}
+.oecard{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--side);position:relative;outline:0}
+.oecard.on{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.oecard.drag{opacity:.45}
+.oecard.antes::before,.oecard.despues::after{content:"";position:absolute;left:6px;right:6px;height:3px;border-radius:2px;background:var(--accent)}
+.oecard.antes::before{top:-5px}.oecard.despues::after{bottom:-5px}
+.oeasa{touch-action:none;cursor:grab;color:var(--muted);font-size:16px;user-select:none;padding:0 2px}.oecard:active .oeasa{cursor:grabbing}
+.oen{flex:none;width:18px;text-align:center;font-weight:700;color:var(--muted)}
+.oenom{flex:1;min-width:0;display:flex;flex-direction:column}.oenom b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.oenom small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px}
+.oecard select{font:inherit;font-size:12.5px;padding:3px 5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink)}
+.oeasi{display:flex;flex-wrap:wrap;align-items:center;gap:5px;padding:8px 10px;border:1px dashed #2a9d8f;border-radius:8px;font-size:12.5px}
