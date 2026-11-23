@@ -6171,6 +6171,7 @@ async function winDialog() {
 const KEYS = [
   ['General', [['Ctrl+N', 'Archivo nuevo («nuevo 1» sin guardar)'], ['Ctrl+S', 'Guardar'], ['Ctrl+W', 'Cerrar la pestaña'],
     ['Ctrl+Tab / Ctrl+Shift+Tab', 'Pestaña siguiente / anterior (salta los grupos plegados)'], ['Ctrl+F2', 'Cambiar el nombre de la pestaña'],
+    ['Doble clic en el título de una pestaña', 'Fijarla; si el archivo es de fuera, además lo ancla en 📌 Sueltos'],
     ['Alt+← / Alt+→', 'Archivo anterior / siguiente de los que viste'], ['Ctrl+\\', 'Dividir en dos lados o juntar'],
     ['Ctrl+B', 'Mostrar u ocultar la barra lateral'], ['Ctrl+J / Ctrl+Alt+B', 'Mostrar u ocultar el panel de IA'],
     ['Ctrl+Shift+F', 'Buscar en los proyectos (lleva lo que buscabas o lo seleccionado)'], ['Ctrl+Shift+G', 'Vista Git'],
@@ -6504,8 +6505,10 @@ let hi = -1;
 // Pestaña abierta desde la pantalla completa de Git: al cerrarla se vuelve a ella (si se sigue en la vista Git)
 let gitReturn = null;
 function openTab(path, pin = false, fromHist = false) {
+  // el organizador decide antes: dentro de un proyecto, un archivo que no es suyo sale del proyecto y se abre en DeskLens normal
+  if (window.tabGuard && window.tabGuard(path, pin) === false) return;
   if (gitFullOn()) { gitFullClose(true); gitReturn = path; } // la pantalla completa tapa las pestañas: se sale para ver el archivo
-  const usePreview = AJ.pestanas_vista_previa !== false;
+  const usePreview = AJ.pestanas_vista_previa !== false, nuevo = !tabs.includes(path);
   if (!tabs.includes(path)) {
     const i = usePreview ? tabs.indexOf(previewTab) : -1;
     if (i >= 0) { if (!openElsewhere(previewTab)) edits.delete(previewTab); dropWebBox(previewTab, paneEl); tabs[i] = path; } else tabs.push(path); // la vista previa se sustituye
@@ -6514,9 +6517,61 @@ function openTab(path, pin = false, fromHist = false) {
   if (!fromHist && hist[hi] !== path) { hist.splice(hi + 1); hist.push(path); hi = hist.length - 1; }
   const g = groupOf(path); if (g && grp[g]?.plegado) grp[g].plegado = false; // en un grupo plegado: se despliega (como Chrome)
   cur = path; showSrc = preview = false; persist(); render();
+  if (nuevo && !fromHist && esDeFuera(path)) setTimeout(() => exploreHasta(path), 250); // de fuera: el Explorador en su carpeta, con él marcado
 }
 function pinTab(path) {
   if (previewTab === path) { previewTab = null; persist(); renderTabs(); }
+}
+// Un archivo de fuera: ni de un proyecto de la barra, ni de 📌 Sueltos, ni de una ficha del organizador (aprobado 2026-11-22)
+const esDeFuera = p => !isVirtual(p) && !side.proyectos.some(x => under(p, x.ruta)) && !side.sueltos.some(x => x.ruta === p)
+  && !window.orgDentro?.(p) && !window.orgEnProyecto?.();
+// 📌 Doble clic en el título de la pestaña: la fija y, si el archivo es de fuera, lo ancla en «Sueltos» (ya no se anclan solos)
+async function anclarSiFuera(p) {
+  if (!esDeFuera(p)) return;
+  try {
+    const r = await api('/api/anclar_suelto', { ruta: p });
+    if (r.anclado) { await loadSide(); markActive(); revealInTree?.(p); flash(`📌 «${tabName(p)}» añadido a Sueltos`); }
+  } catch (e) { flash('⚠ ' + e.message); }
+}
+// Juegos de pestañas: el organizador guarda las de DeskLens normal al entrar en un proyecto y pone las de ese proyecto
+// (y al salir, al revés). Lo escrito sin guardar no se pierde: vive en `edits`, aparte de las pestañas.
+function tabSetGet() {
+  syncPane();
+  const st = x => ({ tabs: [...(x.tabs || [])], cur: x.cur ?? null, previewTab: x.previewTab ?? null, grp: { ...(x.grp || {}) }, tg: { ...(x.tg || {}) } });
+  return { panes: panes.map(st), active };
+}
+async function tabSetPut(set) {
+  const vacio = { tabs: [], cur: null, previewTab: null, grp: {}, tg: {} };
+  set = set?.panes?.length ? set : { panes: [vacio], active: 0 };
+  syncPane();
+  for (const [i, x] of panes.entries()) for (const t of x.tabs || []) if (!set.panes[i]?.tabs?.includes(t)) dropWebBox(t, x.el);
+  if (set.panes.length > 1 && !panes[1]) { // hacía falta la vista dividida
+    const grip = Object.assign(document.createElement('div'), { id: 'splitGrip', title: 'Arrastra para cambiar el tamaño · doble clic: mitad y mitad' });
+    const el = newPaneEl(); $('#panes').append(grip, el); gripWire(grip); document.body.classList.add('split');
+    panes.push({ el, ...vacio });
+  } else if (set.panes.length < 2 && panes[1]) { // sobraba: se quita sin juntar sus pestañas (son de otro juego)
+    panes[1].el.remove(); document.getElementById('splitGrip')?.remove(); panes.pop(); document.body.classList.remove('split');
+  }
+  for (const [i, x] of set.panes.entries()) Object.assign(panes[i], JSON.parse(JSON.stringify({ ...vacio, ...x })), { editorCM: null, curFile: null, pdfCtl: null, findP: null });
+  const quiere = Math.min(set.active || 0, panes.length - 1);
+  for (const i of [...panes.keys()].reverse().sort((a, b) => (a === quiere) - (b === quiere))) { // cada lado se dibuja; el activo, el último
+    panes.forEach((x, k) => x.el.classList.toggle('on', k === i));
+    active = i; paneEl = panes[i].el; ({ tabs, cur, previewTab, grp = {}, tg = {} } = panes[i]);
+    editorCM = null; curFile = null; pdfCtl = null; findP = null; sel = null;
+    await render();
+  }
+  persist(); markActive();
+}
+// Explorador de DeskLens en la carpeta de un archivo, con él marcado (para un archivo de fuera recién abierto)
+async function exploreHasta(ruta) {
+  exFiles.clear(); $('#exp').hidden = false;
+  await explore(ruta.replace(/[\\/][^\\/]*$/, '') || ruta);
+  if (!ex) return;
+  $('#expFind').value = '';
+  const k = exShown().findIndex(i => i.ruta.toLowerCase() === ruta.toLowerCase());
+  if (k >= 0) exCur = k;
+  drawExList(); $('#expList').focus();
+  $('#expList .cur')?.classList.add('foco');
 }
 function nav(step) {
   const j = hi + step;
@@ -6702,7 +6757,7 @@ function renderTabs() {
     const e = edits.get(p);
     setName(el.firstChild, name, true, kind(name).lock ? '🔒 ' : '', e && isDirty(e) ? ' ●' : '');
     el.onclick = () => p !== cur && openTab(p);
-    el.ondblclick = () => pinTab(p);
+    el.ondblclick = () => { pinTab(p); anclarSiFuera(p); }; // fija; si es de fuera, además a 📌 Sueltos
     el.querySelector('b').onclick = e => { e.stopPropagation(); closeTab(p); };
     el.onauxclick = e => e.button === 1 && closeTab(p);
     el.oncontextmenu = e => { // las opciones del archivo, con las de la pestaña arriba

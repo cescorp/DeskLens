@@ -835,6 +835,11 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ Pestañas propias por proyecto y archivos de fuera (ok y hecho 2026-11-22)
+- Al entrar en un proyecto se guardan las pestañas de DeskLens normal y se ponen las del proyecto (la primera vez, vacío); al salir, al revés. Por proyecto; lo escrito sin guardar no se pierde.
+- Dentro del proyecto solo se abre lo suyo o lo arrastrado a sus pestañas; lo demás sale del proyecto sin preguntar y se abre en DeskLens normal.
+- Archivos de fuera: no van solos a 📌 Sueltos; el Explorador de DeskLens se abre en su carpeta con el archivo marcado; doble clic en el título de la pestaña lo ancla en Sueltos.
+
 ### 🖧 Compartir entre equipos · camino B (elegido 2026-11-22; parte 1 hecha)
 Ejemplo de uso: pruebas en una carpeta de red, calidad en un equipo, producción en otro y material en otro; 3 o 4 equipos por proyecto, en la misma red, con una carpeta compartida de Windows como carpeta común.
 - ✅ **Parte 1:** carpeta común y nombre del equipo (⚙ Ajustes › Proyectos) con resumen antes de unirse; fichas, notas, pendientes, historial y quitados en la carpeta común; cada equipo publica dónde ve cada ancla; las carpetas de otro equipo salen «🖧 en PC-X» (no son alerta); 🖧 en la barra; dejar de compartir trae una copia.

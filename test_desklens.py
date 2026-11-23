@@ -1112,6 +1112,17 @@ assert.deepStrictEqual(findRefs('Ver 1 Samuel 4:4 y 1 Samuel 8:5, 20; Deuteronom
     assert code == 200 and "ventana" in r
     assert json.loads(get(port, "/api/pendientes")[1])["rutas"] == [str(nota.resolve())]
     assert json.loads(get(port, "/api/pendientes")[1])["rutas"] == []  # se entregan una sola vez
+    # un archivo de fuera abierto desde Windows: se puede ver, pero NO va a «Sueltos» hasta anclarlo (doble clic en su pestaña)
+    fuera_win = Path(tempfile.mkdtemp()) / "de_fuera.txt"; fuera_win.write_text("x")
+    post("/api/abrir_fuera", {"rutas": [str(fuera_win)]}); get(port, "/api/pendientes")
+    cfg = desklens.load_config()
+    assert str(fuera_win.resolve()) not in cfg["sueltos"] and str(fuera_win.resolve()) in cfg["abiertos"] and desklens.allowed(fuera_win)
+    code, r = post("/api/anclar_suelto", {"ruta": str(fuera_win)})
+    assert code == 200 and r["anclado"], r
+    cfg = desklens.load_config()
+    assert str(fuera_win.resolve()) in cfg["sueltos"] and str(fuera_win.resolve()) not in cfg["abiertos"]
+    assert post("/api/anclar_suelto", {"ruta": str(fuera_win)})[1]["anclado"] is False  # ya estaba
+    assert post("/api/anclar_suelto", {"ruta": str(proj / "no-existe.txt")})[0] == 400
     for bad in ("x.bat", "x.exe", "x.ps1"):
         try:
             desklens.open_default(proj / bad)

@@ -240,12 +240,48 @@ def add_paths(kind, paths):
     idx_wake.set()  # el índice incorpora lo nuevo enseguida
 
 
+def add_abiertos(paths):
+    """Archivos de fuera que abriste (arrastrados a la ventana o desde Windows): se ven y se editan, pero ya NO van a
+    «📌 Sueltos» (aprobado 2026-11-22); se anclan allí con doble clic en el título de su pestaña (/api/anclar_suelto).
+    Se guardan los 300 últimos para que sus pestañas sigan abriéndose al volver a DeskLens."""
+    cfg = load_config()
+    ab = [a for a in cfg.get("abiertos", []) if isinstance(a, str)]
+    for x in paths:
+        x = str(Path(x).resolve())
+        if x in cfg["sueltos"] or any(Path(x).is_relative_to(Path(r).resolve()) for r in cfg["proyectos"]):
+            continue
+        if x in ab:
+            ab.remove(x)
+        ab.append(x)
+    cfg["abiertos"] = ab[-300:]
+    save_config(cfg)
+
+
+def anclar_suelto(path):
+    """📌 Doble clic en el título de la pestaña de un archivo de fuera: pasa a «Sueltos» (deja de ser solo «abierto»)."""
+    p = Path(path).resolve()
+    if not p.is_file():
+        raise ValueError("No existe ese archivo")
+    cfg = load_config()
+    if str(p) in cfg["sueltos"] or any(p.is_relative_to(Path(r).resolve()) for r in cfg["proyectos"]) \
+            or (org and any(p.is_relative_to(r) for r in org.rutas_permitidas())):
+        return False  # ya está en Sueltos, en un proyecto o en una ficha del organizador
+    if str(p) not in cfg.get("abiertos", []) and not allowed(p):
+        raise PermissionError("Solo se anclan archivos que abriste en DeskLens")
+    add_paths("sueltos", [p])
+    cfg = load_config()
+    cfg["abiertos"] = [a for a in cfg.get("abiertos", []) if a != str(p)]
+    save_config(cfg)
+    return True
+
+
 def allowed(path):
-    """Solo se sirve lo que está dentro de un proyecto o es un archivo suelto añadido."""
+    """Solo se sirve lo que está dentro de un proyecto, es un archivo suelto añadido o uno de fuera que abriste."""
     p = Path(path).resolve()
     cfg = load_config()
     return (any(p.is_relative_to(Path(r).resolve()) for r in cfg["proyectos"])
             or any(p == Path(s).resolve() for s in cfg["sueltos"])
+            or any(p == Path(s).resolve() for s in cfg.get("abiertos", []))
             or bool(org and any(p.is_relative_to(r) for r in org.rutas_permitidas())))  # carpetas ancladas en una ficha
 
 
@@ -2579,7 +2615,7 @@ def locate_dropped(items):
         c.close()
     new = [o["ruta"] for o in out if o["ruta"] and not allowed(o["ruta"])]
     if new:
-        add_paths("sueltos", new)
+        add_abiertos(new)  # se abren, pero no van a «Sueltos» (doble clic en el título de la pestaña los ancla)
     return out
 
 
@@ -5150,9 +5186,14 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError as e:
                 return self.send_json(400, {"error": str(e)})
             return self.send_json(200, {})
+        if url == "/api/anclar_suelto":  # 📌 doble clic en el título de la pestaña de un archivo de fuera
+            try:
+                return self.send_json(200, {"anclado": anclar_suelto(data.get("ruta", ""))})
+            except (ValueError, PermissionError, OSError) as e:
+                return self.send_json(400, {"error": str(e)})
         if url == "/api/abrir_fuera":  # otra instancia (doble clic en el Explorador) pide abrir archivos en esta ventana
             rutas = [str(Path(r).resolve()) for r in data.get("rutas", []) if Path(r).is_file()]
-            add_paths("sueltos", [r for r in rutas if not allowed(r)])
+            add_abiertos([r for r in rutas if not allowed(r)])  # se abren; a «Sueltos» solo con doble clic en su pestaña
             pending_open.extend(rutas)
             return self.send_json(200, {"ventana": time.time() - last_ping < 45})  # la ventana hace ping cada 20 s
         if url == "/api/abrir_con" and allowed(data.get("ruta", "")):
@@ -5502,7 +5543,7 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     files = [str(Path(a).resolve()) for a in args if Path(a).is_file()]
     if files:
-        add_paths("sueltos", files)  # los que ya están en un proyecto no se duplican como sueltos
+        add_abiertos(files)  # se abren; a «📌 Sueltos» solo con doble clic en el título de su pestaña
     else:
         cfg = load_config()
         if sin_duplicar_sueltos(cfg):  # duplicados de versiones anteriores: fuera al arrancar

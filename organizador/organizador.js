@@ -118,7 +118,7 @@
     if (f) adminAbrir(f); // el proyecto donde estabas, con su pestaña y su vista
     guardarDonde();
   }
-  function cerrar() { devolverPanes(); document.body.classList.remove('orgfull'); pararPoll(); guardarDonde(); }
+  function cerrar() { O.tabsListo = salirTabs(); devolverPanes(); document.body.classList.remove('orgfull'); pararPoll(); guardarDonde(); }
   async function cargar() {
     try { O.st = await api('/api/org/estado'); }
     catch (e) { root.innerHTML = `<p class="oempty">⚠ ${esc(e.message)}</p>`; return; }
@@ -1367,14 +1367,59 @@
       info: { abierto: false, sel: null, ancho: 380, pest: 'info', ...(v.info || {}) }, exp: { flujo: [], red: [], ...(v.exp || {}) },
       filtro: { q: '', ocultos: [], abierto: true, ...(v.filtro || {}) } }; // ⓘ panel y carpetas desplegadas en Flujo/Red
     api('/api/org/notas?id=' + encodeURIComponent(f.id)).then(r => { if (O.adm?.id !== f.id) return; O.adm.notas = r.notas; if (r.notas.length && O.pantalla === 'proyecto') admin(); }).catch(() => {});
+    O.tabsListo = entrarTabs(f.id);
     O.pantalla = 'proyecto'; pintar(); guardarDonde();
   }
+  // Cada proyecto, sus pestañas (aprobado 2026-11-22): al entrar se guardan las de DeskLens normal y se ponen las de ese
+  // proyecto (la primera vez, ninguna); al salir, al revés. Se recuerdan por proyecto. Lo escrito sin guardar no se pierde.
+  const TABS_EN = 'desklens.org.tabsEn', TABS_NORMAL = 'desklens.org.tabsNormal', tabsDe = id => 'desklens.org.tabs.' + id;
+  const leerSet = k => { try { return JSON.parse(LS(k) || 'null'); } catch { return null; } };
+  let colaTabs = Promise.resolve(); // un cambio de juego cada vez
+  let cambiando = 0; // mientras se cambia de juego, lo que se pide abrir espera a que termine
+  const enCola = fn => { cambiando++; const fin = () => { cambiando--; }; return (colaTabs = colaTabs.then(fn, fn).finally(fin)); };
+  function entrarTabs(id) {
+    return enCola(async () => {
+      if (typeof tabSetGet !== 'function') return;
+      const ahora = LS(TABS_EN) || '';
+      if (ahora === id) return;
+      LS(ahora ? tabsDe(ahora) : TABS_NORMAL, JSON.stringify(tabSetGet()));
+      LS(TABS_EN, id);
+      await tabSetPut(leerSet(tabsDe(id)));
+    });
+  }
+  function salirTabs() {
+    return enCola(async () => {
+      if (typeof tabSetGet !== 'function') return;
+      const ahora = LS(TABS_EN) || '';
+      if (!ahora) return;
+      LS(tabsDe(ahora), JSON.stringify(tabSetGet()));
+      LS(TABS_EN, '');
+      await tabSetPut(leerSet(TABS_NORMAL));
+    });
+  }
+  // ¿Es de alguna ficha? (sus carpetas y accesos a archivos que están en su sitio)
+  const fichaDe = ruta => O.st?.fichas.find(f => vivas(f).some(c => bajo(ruta, c.ruta)));
+  window.orgDentro = ruta => !!fichaDe(ruta);
+  window.orgEnProyecto = () => !!(LS(TABS_EN) && on() && O.pantalla === 'proyecto');
+  // Dentro de un proyecto solo se abre lo suyo (o lo que arrastras a sus pestañas). Lo demás: se sale del proyecto sin
+  // preguntar (todo queda guardado) y se abre en DeskLens normal, con el Explorador en su carpeta si es de fuera.
+  let soltadoAqui = 0;
+  document.addEventListener('drop', e => { if (window.orgEnProyecto() && e.target.closest?.('#panes')) soltadoAqui = Date.now(); }, true);
+  window.tabGuard = (path, pin) => {
+    if (cambiando) { colaTabs.then(() => openTab(path, pin)); return false; } // se está cambiando de juego: se abre al terminar
+    if (!window.orgEnProyecto() || !O.adm || isVirtual(path)) return true;
+    if (Date.now() - soltadoAqui < 15000) return true; // lo arrastraste a las pestañas del proyecto: se queda aquí
+    const f = O.st?.fichas.find(x => x.id === O.adm.id);
+    if (!f || vivas(f).some(c => bajo(path, c.ruta))) return true;
+    (async () => { adminSalir(); cerrar(); await O.tabsListo; openTab(path, pin); })();
+    return false;
+  };
   function devolverPanes() { // el visor vuelve a su sitio de DeskLens
     if (!panesHome) return;
     panesHome.parent.insertBefore($('#panes'), panesHome.next); panesHome = null;
     document.body.classList.remove('orgadm');
   }
-  function adminSalir() { devolverPanes(); O.adm = null; O.pantalla = 'tablero'; pintar(); guardarDonde(); }
+  function adminSalir() { O.tabsListo = salirTabs(); devolverPanes(); O.adm = null; O.pantalla = 'tablero'; pintar(); guardarDonde(); }
   const vivas = f => f.partes.flatMap(p => p.carpetas.filter(c => c.estado === 'ok' || c.estado === 'movida').map(c => ({ ...c, tipo: p.tipo, parte: p.nombre })));
   function admin() {
     const f = O.st.fichas.find(x => x.id === O.adm.id);
@@ -1434,8 +1479,7 @@
     // al volver al proyecto: su último archivo, si lo que se ve ahora no es de este proyecto
     const dentro = r => r && vivas(f).some(c => r.toLowerCase().startsWith(c.ruta.toLowerCase()));
     // solo una vez al entrar al proyecto (no cada vez que vuelves al Contenedor desde Flujo o Red)
-    if (O.adm.reabrir && O.adm.ultimo && !dentro(typeof cur === 'string' ? cur : '')) openTab(O.adm.ultimo, true);
-    O.adm.reabrir = false;
+    O.adm.reabrir = false; // (antes se reabría el último archivo: ahora el proyecto trae sus propias pestañas)
   }
   const guardarVista = () => O.adm && LS('desklens.org.vista.' + O.adm.id, JSON.stringify({ tab: O.adm.tab, q: O.adm.q, arbolW: O.adm.arbolW,
     scroll: O.adm.scroll, ultimo: O.adm.ultimo, abiertas: [...O.adm.abiertas], vista: O.adm.vista, cmp: O.adm.cmp, cam: O.adm.cam, mini: O.adm.mini,
@@ -3089,5 +3133,6 @@
     O.st = s; insignia(); btn.hidden = !s.ajustes.encendido; // apagado en Ajustes: sin icono
     // DeskLens se cerró con el tablero abierto: vuelve tal cual (salvo si se abrió para ver un archivo desde Windows)
     if (s.ajustes.encendido && donde().abierto && !/[?&](abrir|nueva)=/.test(location.search)) abrir();
+    else if (LS(TABS_EN)) salirTabs(); // se cerró dentro de un proyecto y no se vuelve a él: las pestañas de DeskLens normal
   }).catch(() => {});
 })();
