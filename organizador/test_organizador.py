@@ -515,6 +515,33 @@ try:
     assert code == 200 and r["quitados"]
     assert org.vaciar_quitados() == len(r["quitados"]) and not org.quitados()
 
+    # 🖧 compartir entre equipos: PC-A sube sus fichas a la carpeta común; PC-B (otros datos, sin esas anclas) se une y
+    # ve las carpetas de PC-A como «en otro equipo» (no como alerta); al dejar de compartir se trae una copia
+    comun = tmp / "red" / "DeskLens"
+    n_a = len(org.fichas_crudas())
+    pv = org.previo_compartir(str(comun))
+    assert pv["en_comun"] == 0 and pv["aqui"] == n_a and len(pv["solo_aqui"]) == n_a, pv
+    org.activar_compartir(str(comun), "PC-A")
+    assert org.COMUN == comun and len(list((comun / "proyectos").glob("*.json"))) == n_a
+    pub = org.leer_json(comun / "equipos" / "PC-A.json", {})
+    assert pub["equipo"] == "PC-A" and pub["anclas"], pub
+    datos_a = org.DATA
+    org.configurar(tmp / "datosB")
+    assert org.COMUN == org.DATA and not org.fichas_crudas()
+    assert org.previo_compartir(str(comun))["en_comun"] == n_a
+    org.activar_compartir(str(comun), "PC-B")
+    cs = [c for f in org.fichas() for p in f["partes"] for c in p["carpetas"] if c["ancla"] in pub["anclas"]]
+    assert cs and all(c["estado"] == "otro_equipo" and c["equipo"] == "PC-A" for c in cs), {c["estado"] for c in cs}
+    assert not any(a["id"] in pub["anclas"] for a in org.alertas()), "estar en otro equipo no es una alerta"
+    code, r = org.get("/api/org/compartir", {})
+    assert code == 200 and r["activo"] and {e["equipo"] for e in r["equipos"]} == {"PC-A", "PC-B"}, r
+    assert org.desactivar_compartir()["traidas"] == n_a and org.COMUN == org.DATA and len(org.fichas_crudas()) == n_a
+    org.configurar(datos_a)
+    assert org.COMUN == comun
+    org.desactivar_compartir()
+    assert org.COMUN == org.DATA == datos_a and len(org.fichas_crudas()) == n_a
+    assert org.post("/api/org/compartir/previo", {"carpeta": ""})[0] == 400
+
     # HTTP
     assert org.get("/api/otra", {}) is None and org.post("/api/otra", {}) is None
     code, est = org.get("/api/org/estado", {}, [str(hs), str(disco / "sin-ficha")])

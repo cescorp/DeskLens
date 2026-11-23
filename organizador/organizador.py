@@ -15,6 +15,7 @@ import fnmatch
 import json
 import os
 import re
+import platform
 import shutil
 import sqlite3
 import subprocess
@@ -23,7 +24,7 @@ import time
 import unicodedata
 import uuid
 from datetime import datetime, timedelta
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 WINDOWS = os.name == "nt"
 NO_WINDOW = 0x08000000 if WINDOWS else 0
@@ -31,6 +32,10 @@ ANCLA = ".desklens-ancla"
 ID_RE = re.compile(r"[0-9a-f]{32}")
 
 DATA = Path(__file__).resolve().parent.parent / "historial" / "organizador"  # configurar() lo cambia en las pruebas
+# 🖧 Compartir entre equipos (camino B, aprobado 2026-11-22): fichas, notas, historial de la estructura y quitados van en
+# COMUN (una carpeta compartida de la red); dónde está cada ancla, discos, ajustes, actividad y mapa siguen en DATA (de
+# cada equipo). Sin compartir, COMUN es DATA.
+COMUN = DATA
 
 
 def configurar(carpeta):
@@ -38,6 +43,7 @@ def configurar(carpeta):
     global DATA
     DATA = Path(carpeta)
     DATA.mkdir(parents=True, exist_ok=True)
+    _aplicar_compartir()
 
 
 # ---------- JSON y ajustes ----------
@@ -54,7 +60,7 @@ def escribir_json(p, datos):
     """Escritura atómica: se escribe al lado y se reemplaza, así un corte de luz no deja el archivo a medias."""
     p = Path(p)
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(p.suffix + ".tmp")
+    tmp = p.with_suffix(f"{p.suffix}.{os.getpid()}.{uuid.uuid4().hex[:6]}.tmp")  # propio: otro equipo puede escribir a la vez
     tmp.write_text(json.dumps(datos, ensure_ascii=False, indent=1), encoding="utf-8")
     os.replace(tmp, p)
 
@@ -86,6 +92,9 @@ AJUSTES_BASE = {
     "respaldo_disco": "",       # número de serie del disco donde va la copia diaria de historial/organizador
     "respaldo_guardar": 14,
     "mapa": True,               # mantener MAPA.md para la IA
+    "compartir": False,         # 🖧 fichas, notas e historial en una carpeta de la red, comunes a varios equipos
+    "compartir_carpeta": "",    # p. ej. \\SERVIDOR\DeskLens o Z:\DeskLens
+    "equipo": "",               # nombre de este equipo para los demás ('' = el de Windows)
 }
 
 
@@ -114,8 +123,10 @@ def guardar_ajustes(cambios):
         a[k] = max(lo, min(hi, a[k]))
     if a["respaldo_disco"] and not re.fullmatch(r"[0-9A-F]{1,16}", a["respaldo_disco"]):
         raise ValueError("Disco de respaldo no válido")
+    a["equipo"] = re.sub(r'[\\/:*?"<>|]', "", a["equipo"]).strip()[:40]
     escribir_json(DATA / "ajustes.json", a)
     actividad("ajustes", "Ajustes del organizador guardados", str(DATA / "ajustes.json"))
+    _aplicar_compartir()
     mapa_luego()
     return a
 
@@ -876,12 +887,12 @@ _fichas_lock = threading.RLock()
 def _ficha_path(i):
     if not re.fullmatch(r"[a-z0-9-]{1,80}", i or ""):
         raise ValueError("Id de proyecto no válido")
-    return DATA / "proyectos" / f"{i}.json"
+    return COMUN / "proyectos" / f"{i}.json"
 
 
 def fichas_crudas():
     out = []
-    for p in sorted((DATA / "proyectos").glob("*.json")):
+    for p in sorted((COMUN / "proyectos").glob("*.json")):
         f = leer_json(p, None)
         if isinstance(f, dict) and f.get("id") == p.stem:
             out.append(f)
@@ -1077,13 +1088,153 @@ def quitar_ficha(i):
         f["_anclas"] = {c["ancla"]: reg[c["ancla"]]["ruta"] for q in f.get("partes", []) for c in q.get("carpetas", [])
                         if c.get("ancla") in reg and reg[c["ancla"]].get("ruta")}
         f["_quitado"] = datetime.now().isoformat(timespec="seconds")
-        papelera = DATA / "quitados" / f"{i}-{int(time.time() * 1000)}.json"
+        papelera = COMUN / "quitados" / f"{i}-{int(time.time() * 1000)}.json"
         papelera.parent.mkdir(parents=True, exist_ok=True)
         escribir_json(papelera, f)  # se puede recuperar (⚙ › Proyectos quitados)
         p.unlink()
         actividad("ficha", f"Proyecto quitado del organizador: {f.get('nombre', i)} (copia en quitados/)", str(papelera))
         mapa_luego()
         return papelera
+
+
+# ---------- 🖧 compartir entre equipos (camino B, aprobado 2026-11-22) ----------
+
+def equipo_nombre():
+    """Cómo ven a este equipo los demás: el nombre elegido o el de Windows."""
+    return (ajustes().get("equipo") or os.environ.get("COMPUTERNAME") or platform.node() or "Este equipo")[:40]
+
+
+def _aplicar_compartir():
+    global COMUN
+    a = ajustes()
+    COMUN = Path(a["compartir_carpeta"]) if a.get("compartir") and a.get("compartir_carpeta") else DATA
+
+
+def _equipo_archivo(nombre):
+    return COMUN / "equipos" / (re.sub(r"[^A-Za-z0-9_.-]", "_", nombre) + ".json")
+
+
+def publicar_equipo():
+    """Deja en la carpeta común dónde ve ESTE equipo cada ancla de las fichas (solo las que están en su sitio)."""
+    if COMUN == DATA:
+        return ""
+    reg = registro()
+    usadas = {c["ancla"] for f in fichas_crudas() for q in f.get("partes", []) for c in q.get("carpetas", []) if ID_RE.fullmatch(c.get("ancla", ""))}
+    anclas = {i: {"ruta": reg[i]["ruta"], "visto": reg[i].get("visto", "")} for i in usadas if i in reg and leer_ancla(reg[i]["ruta"]) == i}
+    p = _equipo_archivo(equipo_nombre())
+    escribir_json(p, {"equipo": equipo_nombre(), "visto": datetime.now().isoformat(timespec="seconds"), "anclas": anclas})
+    return str(p)
+
+
+def anclas_de_otros():
+    """{ancla: {equipo, ruta, visto}} según lo que publicaron los OTROS equipos en la carpeta común."""
+    if COMUN == DATA:
+        return {}
+    yo, out = _equipo_archivo(equipo_nombre()).name, {}
+    for p in sorted((COMUN / "equipos").glob("*.json")):
+        if p.name == yo:
+            continue
+        d = leer_json(p, {})
+        for i, x in (d.get("anclas") or {}).items():
+            if i not in out or x.get("visto", "") > out[i].get("visto", ""):
+                out[i] = {"equipo": d.get("equipo") or p.stem, "ruta": x.get("ruta", ""), "visto": x.get("visto", "")}
+    return out
+
+
+def equipos():
+    """Los equipos que comparten la carpeta común, con cuándo publicaron por última vez."""
+    if COMUN == DATA:
+        return []
+    yo = equipo_nombre()
+    return [{"equipo": d.get("equipo") or p.stem, "visto": d.get("visto", ""), "anclas": len(d.get("anclas") or {}), "yo": (d.get("equipo") or p.stem) == yo}
+            for p in sorted((COMUN / "equipos").glob("*.json")) for d in [leer_json(p, {})]]
+
+
+def _probar_carpeta(c):
+    c = Path(str(c or "").strip().strip('"'))
+    if not str(c) or str(c) == ".":
+        raise ValueError("Elige la carpeta común (p. ej. \\\\SERVIDOR\\DeskLens)")
+    try:
+        c.mkdir(parents=True, exist_ok=True)
+        t = c / f".prueba-{uuid.uuid4().hex[:8]}"
+        t.write_text("x", encoding="utf-8")
+        t.unlink()
+    except OSError as e:
+        raise ValueError(f"No se puede escribir en {c}: {e}")
+    return c
+
+
+def previo_compartir(carpeta):
+    """Qué pasará al unir este equipo a la carpeta común (sin tocar nada)."""
+    c = _probar_carpeta(carpeta)
+    aqui = {f["id"]: f for f in fichas_crudas()} if COMUN == DATA else {}
+    alla = {}
+    for p in sorted((c / "proyectos").glob("*.json")):
+        f = leer_json(p, None)
+        if isinstance(f, dict) and f.get("id") == p.stem:
+            alla[f["id"]] = f
+    anc = lambda f: {x["ancla"] for q in f.get("partes", []) for x in q.get("carpetas", [])}
+    mismos = [i for i in aqui if i in alla and anc(aqui[i]) & anc(alla[i])]
+    choque = [i for i in aqui if i in alla and i not in mismos]
+    solo_aqui = [i for i in aqui if i not in alla]
+    return {"carpeta": str(c), "en_comun": len(alla), "aqui": len(aqui), "mismos": [aqui[i]["nombre"] for i in mismos],
+            "choque": [aqui[i]["nombre"] for i in choque], "solo_aqui": [aqui[i]["nombre"] for i in solo_aqui],
+            "equipos": [p.stem for p in sorted((c / "equipos").glob("*.json"))], "equipo": equipo_nombre()}
+
+
+def activar_compartir(carpeta, equipo=""):
+    """Une este equipo a la carpeta común: sube sus fichas (las que ya están allí con las mismas anclas se quedan como
+    están; las de igual nombre pero distintas suben con otro id), sus notas y su historial. Nada se borra."""
+    global COMUN
+    c = _probar_carpeta(carpeta)
+    previo = previo_compartir(c)
+    if COMUN == DATA:
+        with _fichas_lock:
+            for p in sorted((DATA / "proyectos").glob("*.json")):
+                f = leer_json(p, None)
+                if not isinstance(f, dict) or f.get("id") != p.stem:
+                    continue
+                destino = c / "proyectos" / p.name
+                if destino.exists():
+                    if f["nombre"] in previo["mismos"]:
+                        continue  # el mismo proyecto ya está en la carpeta común: manda el de allí
+                    n = 2
+                    while (c / "proyectos" / f"{f['id']}-{n}.json").exists():
+                        n += 1
+                    f["id"] = f"{f['id']}-{n}"
+                    destino = c / "proyectos" / f"{f['id']}.json"
+                escribir_json(destino, f)
+            for sub in ("notas", "versiones", "quitados"):
+                o = DATA / sub
+                if o.exists():
+                    for x in o.rglob("*"):
+                        d = c / sub / x.relative_to(o)
+                        if x.is_file() and not d.exists():
+                            d.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(x, d)
+    guardar_ajustes({"compartir": True, "compartir_carpeta": str(c), **({"equipo": equipo} if equipo else {})})
+    publicar_equipo()
+    actividad("compartir", f"Este equipo ({equipo_nombre()}) comparte fichas en la carpeta común", str(c))
+    return {**previo, "equipo": equipo_nombre()}
+
+
+def desactivar_compartir():
+    """Este equipo deja de usar la carpeta común: se trae una copia de las fichas, notas e historial (allí no se borra nada)."""
+    if COMUN == DATA:
+        return {"traidas": 0}
+    c, n = COMUN, 0
+    for sub in ("proyectos", "notas", "versiones"):
+        o = c / sub
+        if o.exists():
+            for x in o.rglob("*"):
+                if x.is_file() and not x.name.endswith(".tmp"):
+                    d = DATA / sub / x.relative_to(o)
+                    d.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(x, d)
+                    n += sub == "proyectos"
+    guardar_ajustes({"compartir": False})
+    actividad("compartir", f"Este equipo dejó de compartir: {n} ficha(s) copiadas aquí", str(DATA))
+    return {"traidas": n}
 
 
 def quitar_fichas(ids, borrar_anclas=False):
@@ -1132,7 +1283,7 @@ def quitar_fichas(ids, borrar_anclas=False):
 def quitados():
     """Proyectos quitados del organizador (carpeta quitados/ de los datos), del más reciente al más antiguo."""
     out = []
-    for p in (DATA / "quitados").glob("*.json"):
+    for p in (COMUN / "quitados").glob("*.json"):
         f = leer_json(p, None)
         if not isinstance(f, dict) or not f.get("id"):
             continue
@@ -1146,7 +1297,7 @@ def quitados():
 def _quitado_path(nombre):
     if not re.fullmatch(r"[a-z0-9-]{1,80}-\d+\.json", nombre or ""):
         raise ValueError("Archivo de quitados no válido")
-    return DATA / "quitados" / nombre
+    return COMUN / "quitados" / nombre
 
 
 def recuperar_quitados(archivos):
@@ -1183,13 +1334,13 @@ def recuperar_quitados(archivos):
 
 def vaciar_quitados(archivos=None):
     """Borra de verdad copias de quitados (todas si no se dice cuáles). Las carpetas no se tocan."""
-    ps = [_quitado_path(a) for a in archivos] if archivos else list((DATA / "quitados").glob("*.json"))
+    ps = [_quitado_path(a) for a in archivos] if archivos else list((COMUN / "quitados").glob("*.json"))
     n = 0
     for p in ps:
         if p.exists():
             p.unlink()
             n += 1
-    actividad("ficha", f"Quitados vaciados: {n} copia(s) borrada(s)", str(DATA / "quitados"))
+    actividad("ficha", f"Quitados vaciados: {n} copia(s) borrada(s)", str(COMUN / "quitados"))
     return n
 
 
@@ -1197,6 +1348,7 @@ def fichas(ubicar_anclas=True):
     """Fichas con lo calculado al abrir: ruta y estado de cada carpeta, en cuántos proyectos está, nº de partes."""
     reg = registro()
     todas = fichas_crudas()
+    otros = anclas_de_otros()
     usos = {}
     for f in todas:
         for p in f.get("partes", []):
@@ -1220,8 +1372,12 @@ def fichas(ubicar_anclas=True):
                 if i not in estados:
                     estados[i] = ubicar(i, reg) if ubicar_anclas else ("ok", reg.get(i, {}).get("ruta", ""))
                 est, ruta = estados[i]
+                otro = otros.get(i) if est in ("falta", "desconectado") else None
+                if otro:  # 🖧 no está en este equipo pero otro equipo la ve: se dice dónde (no es una alerta)
+                    est, ruta = "otro_equipo", otro["ruta"]
+                    c.update(equipo=otro["equipo"], visto_equipo=otro.get("visto", ""))
                 c["ruta"], c["estado"] = ruta, est
-                c["nombre"] = Path(ruta).name if ruta else "?"
+                c["nombre"] = (PureWindowsPath(ruta).name if "\\" in ruta else Path(ruta).name) if ruta else "?"
                 c["icono_propio"] = "icono" in c  # elegido a mano (si no, el sugerido por el nombre)
                 c.setdefault("icono", icono_sugerido(c["nombre"], (Path(ruta) / ".git").exists() if est in ("ok", "movida") else False))
                 c["proyectos"] = sorted(usos.get(i, ()))
@@ -1263,19 +1419,19 @@ def rutas_permitidas():
     """Carpetas ancladas en alguna ficha (DeskLens las puede mostrar como las de un proyecto). Se recalcula solo si
     cambió anclas.json o la carpeta de fichas: allowed() lo llama en cada petición."""
     try:
-        marca = (os.stat(DATA / "anclas.json").st_mtime_ns, os.stat(DATA / "proyectos").st_mtime_ns)
+        marca = (os.stat(DATA / "anclas.json").st_mtime_ns, os.stat(COMUN / "proyectos").st_mtime_ns)
     except OSError:
         return []
     if marca != _permitidas["marca"]:
         reg = registro()
         cs = [c for f in fichas_crudas() for p in f.get("partes", []) for c in p.get("carpetas", [])]
         ids = {c["ancla"] for c in cs}
-        _permitidas.update(marca=marca, rutas=[Path(reg[i]["ruta"]).resolve() for i in ids if i in reg] + [DATA.resolve()]
+        _permitidas.update(marca=marca, rutas=[Path(reg[i]["ruta"]).resolve() for i in ids if i in reg] + [DATA.resolve(), COMUN.resolve()]
                            + [Path(c["archivo"]["ruta"]).resolve() for c in cs if c.get("archivo", {}).get("ruta")])
     return _permitidas["rutas"]
 
 
-NO_ESTAN = ("falta", "desconectado", "papelera", "eliminada")  # estados que salen en ⚠
+NO_ESTAN = ("falta", "desconectado", "papelera", "eliminada")  # estados que salen en ⚠ («otro_equipo» no: está en otro PC)
 
 
 def quitar_carpeta(proyecto_id, ancla):
@@ -1686,7 +1842,7 @@ def _nota_leer(p):
 
 def notas(proyecto_id):
     """Notas de un proyecto, de la más nueva a la más vieja."""
-    out = [n for n in (_nota_leer(p) for p in (DATA / "notas").glob("*.md")) if n and n["proyecto"] == proyecto_id]
+    out = [n for n in (_nota_leer(p) for p in (COMUN / "notas").glob("*.md")) if n and n["proyecto"] == proyecto_id]
     return sorted(out, key=lambda n: n["creada"], reverse=True)
 
 
@@ -1698,7 +1854,7 @@ def guardar_nota(proyecto_id, destino, texto, nid=""):
     if nid and not re.fullmatch(r"[0-9a-f]{32}", nid):
         raise ValueError("Nota no válida")
     nid = nid or uuid.uuid4().hex
-    p = DATA / "notas" / f"{nid}.md"
+    p = COMUN / "notas" / f"{nid}.md"
     antes = _nota_leer(p) if p.exists() else None
     ahora = datetime.now().isoformat(timespec="seconds")
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -1712,7 +1868,7 @@ def guardar_nota(proyecto_id, destino, texto, nid=""):
 def borrar_nota(proyecto_id, nid):
     if not re.fullmatch(r"[0-9a-f]{32}", nid or ""):
         raise ValueError("Nota no válida")
-    p = DATA / "notas" / f"{nid}.md"
+    p = COMUN / "notas" / f"{nid}.md"
     n = _nota_leer(p)
     if not n or n["proyecto"] != proyecto_id:
         raise ValueError("No existe esa nota")
@@ -1730,7 +1886,7 @@ import gzip  # noqa: E402  (solo lo usa el historial)
 
 def _vdir(i):
     _ficha_path(i)
-    return DATA / "versiones" / i
+    return COMUN / "versiones" / i
 
 
 def _instantanea(i):
@@ -1851,9 +2007,9 @@ def restaurar_version(i, v):
                                                                          for c in p["carpetas"] if c.get("remota") or c.get("archivo") or c["ancla"] in registro()]}
                                 for p in f.get("partes", [])]})
     for n in notas(i):  # las notas, como estaban
-        (DATA / "notas" / f"{n['id']}.md").unlink(missing_ok=True)
+        (COMUN / "notas" / f"{n['id']}.md").unlink(missing_ok=True)
     for n in s.get("notas", []):
-        p = DATA / "notas" / f"{n['id']}.md"
+        p = COMUN / "notas" / f"{n['id']}.md"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(f"---\nproyecto: {i}\ndestino: {n['destino']}\ncreada: {n['creada']}\ncambiada: {n['cambiada']}\n---\n{n['texto']}", encoding="utf-8")
     actividad("version", f"{f.get('nombre', i)} restaurado a la versión del {s['ficha'].get('actualizado', v)}", str(_vdir(i)))
@@ -1942,6 +2098,10 @@ def mapa_luego():
 
 def _mapa_seguro():
     try:
+        publicar_equipo()
+    except Exception as e:  # noqa: BLE001 — publicar nunca rompe nada
+        actividad("compartir", f"No se pudo publicar en la carpeta común: {e}", str(COMUN), "error")
+    try:
         if escribir_mapa():
             actividad("mapa", "MAPA.md actualizado", str(DATA / "MAPA.md"))
     except Exception as e:  # noqa: BLE001 — el mapa nunca rompe nada
@@ -1988,6 +2148,10 @@ def vigilante():
     time.sleep(20)  # que DeskLens arranque primero
     mapa_luego()
     while True:
+        try:
+            publicar_equipo()
+        except Exception:  # noqa: BLE001
+            pass
         try:
             r = info_respaldo()
             if r["disco"] and r["ultimo"][:10] != datetime.now().date().isoformat() and r["letra"]:
@@ -2060,7 +2224,9 @@ def get(ruta, q, proyectos_desklens=()):
                      "discos_activos": sum(1 for d in config_discos().values() if d.get("activo")),
                      "sin_convertir": [x for x in proyectos_desklens if x.lower() not in ya],
                      "recorrido": estado_recorrido(),
-                     "quitados": len(list((DATA / "quitados").glob("*.json"))), "quitados_dir": str(DATA / "quitados")}
+                     "quitados": len(list((COMUN / "quitados").glob("*.json"))), "quitados_dir": str(COMUN / "quitados"),
+                     "compartir": {"activo": COMUN != DATA, "equipo": equipo_nombre(), "carpeta": str(COMUN) if COMUN != DATA else "",
+                                   "equipos": len(equipos()), "alcanzable": COMUN == DATA or (COMUN / "proyectos").exists()}}
     if r == "discos":
         return 200, {"discos": discos()}
     if r == "alertas":
@@ -2081,7 +2247,11 @@ def get(ruta, q, proyectos_desklens=()):
     if r == "actividad":
         return 200, leer_actividad()
     if r == "quitados":
-        return 200, {"quitados": quitados(), "carpeta": str(DATA / "quitados")}
+        return 200, {"quitados": quitados(), "carpeta": str(COMUN / "quitados")}
+    if r == "compartir":  # 🖧 estado de la carpeta común y de los equipos
+        a = ajustes()
+        return 200, {"activo": COMUN != DATA, "carpeta": a["compartir_carpeta"], "equipo": equipo_nombre(), "equipos": equipos(),
+                     "alcanzable": COMUN == DATA or (COMUN / "proyectos").exists()}
     try:
         if r == "versiones":
             return 200, {"versiones": versiones(q.get("id", ""))[::-1], "commits": commits_proyecto(q.get("id", ""))}
@@ -2094,7 +2264,7 @@ def get(ruta, q, proyectos_desklens=()):
     if r == "ajustes":
         return 200, {**ajustes(), "respaldo": info_respaldo(), "datos": str(DATA), "mapa_ruta": str(DATA / "MAPA.md"),
                      "mapa_fecha": datetime.fromtimestamp((DATA / "MAPA.md").stat().st_mtime).isoformat(timespec="seconds") if (DATA / "MAPA.md").exists() else "",
-                     "n_fichas": len(fichas_crudas()), "n_anclas": len(registro()), "n_quitados": len(list((DATA / "quitados").glob("*.json"))),
+                     "n_fichas": len(fichas_crudas()), "n_anclas": len(registro()), "n_quitados": len(list((COMUN / "quitados").glob("*.json"))),
                      "discos": [{"serie": d["serie"], "letra": d["letra"], "nombre": d["nombre"], "conectado": d["conectado"], "activo": d["activo"]} for d in discos()]}
     return 404, {"error": "no existe"}
 
@@ -2127,6 +2297,12 @@ def post(ruta, datos):
         if r == "ficha/quitar":
             quitar_ficha(datos.get("id", ""))
             return 200, {}
+        if r == "compartir/previo":
+            return 200, previo_compartir(datos.get("carpeta", ""))
+        if r == "compartir/activar":
+            return 200, activar_compartir(datos.get("carpeta", ""), str(datos.get("equipo", "")))
+        if r == "compartir/desactivar":
+            return 200, desactivar_compartir()
         if r == "fichas/quitar":  # varios, desde las casillas de la vista Lista
             return 200, quitar_fichas(datos.get("ids", []), bool(datos.get("borrar_anclas")))
         if r == "quitados/recuperar":
@@ -2183,3 +2359,6 @@ def post(ruta, datos):
     except (ValueError, OSError) as e:
         return 400, {"error": str(e)}
     return 404, {"error": "no existe"}
+
+
+_aplicar_compartir()  # al cargar el módulo: la carpeta común de los ajustes de este equipo

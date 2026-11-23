@@ -173,6 +173,7 @@
       <button class="obtn oico ${O.st.alertas ? 'warn' : ''}" id="oAl" title="Anclas no encontradas: ${O.st.alertas}">⚠${O.st.alertas ? ' ' + O.st.alertas : ''}</button>
       <button class="obtn oico" id="oDi" title="Discos donde se buscan anclas: ${O.st.discos_activos} marcado(s)">💽 ${O.st.discos_activos}</button>
       <button class="obtn oico" id="oAc" title="Actividad: qué está pasando y dónde">📋${O.st.recorrido?.activo ? ' ⟳' : ''}</button>
+      ${O.st.compartir?.activo ? `<button class="obtn oico ${O.st.compartir.alcanzable ? '' : 'warn'}" id="oCm" title="${O.st.compartir.alcanzable ? `Compartiendo con ${O.st.compartir.equipos} equipo(s) en ${esc(O.st.compartir.carpeta)}` : `⚠ No se alcanza la carpeta común ${esc(O.st.compartir.carpeta)}`} · este equipo: ${esc(O.st.compartir.equipo)}">🖧 ${O.st.compartir.alcanzable ? esc(O.st.compartir.equipo) : '⚠'}</button>` : ''}
       <button class="obtn oico" id="oAj" title="Ajustes del organizador">⚙</button>
       <button class="obtn primary" id="oNuevo" title="Nuevo proyecto (Ctrl+N), buscar en discos o convertir los de DeskLens">＋ Nuevo ▾</button></div>`;
   }
@@ -193,7 +194,7 @@
       <div class="oest">${ESTADO[f.estado][0]} ${ESTADO[f.estado][1]} <span class="obarp"><i style="width:${f.avance}%"></i></span> ${f.avance}%</div>
       ${f.descripcion ? `<div class="odesc">${esc(f.descripcion)}</div>` : ''}
       ${f.tecnologia?.length ? `<div class="otec">${esc(f.tecnologia.join(' · '))}</div>` : ''}
-      <div class="opartes">${Object.entries(cuenta).filter(([, n]) => n).map(([t, n]) => `<span title="${TIPO[t][1]}">${icoT(t)}${n}</span>`).join('')}${f.papelera ? `<span class="owarn" title="Carpetas enviadas a la papelera o eliminadas">🗑 ${f.papelera} en la papelera</span>` : ''}${f.avisos - f.papelera ? `<span class="owarn" title="Partes no encontradas">⚠ ${f.avisos - f.papelera}</span>` : ''}</div>
+      <div class="opartes">${Object.entries(cuenta).filter(([, n]) => n).map(([t, n]) => `<span title="${TIPO[t][1]}">${icoT(t)}${n}</span>`).join('')}${f.papelera ? `<span class="owarn" title="Carpetas enviadas a la papelera o eliminadas">🗑 ${f.papelera} en la papelera</span>` : ''}${f.avisos - f.papelera ? `<span class="owarn" title="Partes no encontradas">⚠ ${f.avisos - f.papelera}</span>` : ''}${(() => { const es = [...new Set(f.partes.flatMap(p => p.carpetas).filter(c => c.estado === 'otro_equipo').map(c => c.equipo))]; return es.length ? `<span class="oequipo" title="Carpetas que están en otro equipo">🖧 ${esc(es.join(', '))}</span>` : ''; })()}</div>
       ${fila}
       ${(() => { const ab = (f.pendientes || []).filter(x => !x.hecho); return ab.length ? `<div class="ogit opend1" title="${esc(ab.map(x => '☐ ' + x.texto.split('\n')[0]).join('\n'))}">☐ <b>${ab.length}</b> pendiente${ab.length > 1 ? 's' : ''} · ${esc(ab[0].texto.split('\n')[0])}</div>` : ''; })()}
       ${git ? `<div class="ogit">${git}</div>` : ''}
@@ -247,6 +248,7 @@
     const q = root.querySelector('#oQ'); q.oninput = () => { O.q = q.value; const pos = q.selectionStart; tablero(); const n = root.querySelector('#oQ'); n.focus(); n.setSelectionRange(pos, pos); };
     root.querySelector('#oAl').onclick = alertasDlg; root.querySelector('#oDi').onclick = discosDlg;
     root.querySelector('#oAc').onclick = actividadDlg; root.querySelector('#oAj').onclick = ajustesDlg;
+    root.querySelector('#oCm')?.addEventListener('click', ajustesDlg);
     root.querySelector('#oConv')?.addEventListener('click', convertir);
     root.querySelector('#oConvX')?.addEventListener('click', () => { LS('desklens.org.avisoSinFicha', JSON.stringify(sinFicha)); tablero(); });
     root.querySelectorAll('[data-id]').forEach(el => el.onclick = e => {
@@ -964,11 +966,13 @@
           <small>${esc(a.mapa_ruta)}${a.mapa_fecha ? ' · actualizado ' + hace(a.mapa_fecha) : ''}. Con ese texto en tu CLAUDE.md, «lee mi DeskLens» o «mis anclas» basta para que la IA sepa dónde está cada parte.</small>`)}
         ${fila('datos carpeta fichas', 'Datos', `<code>${esc(a.datos)}</code> · ${a.n_fichas} ficha(s) · ${a.n_anclas} ancla(s) ${b('og_dc', 'Abrir carpeta')}`)}
         ${fila('quitados recuperar papelera fichas', 'Quitados', `${a.n_quitados} proyecto(s) quitado(s) del tablero ${b('og_qu', '↶ Ver quitados')}<small>Se recuperan con sus anclas; solo «Vaciar quitados» borra las copias.</small>`)}
+        ${fila('compartir equipos red lan carpeta comun', '🖧 Compartir entre equipos', '<div id="og_comp"><small>Cargando…</small></div>')}
         ${fila('actividad registro', 'Actividad', `Todo lo que hace el organizador, dónde y cuándo ${b('og_ac', '📋 Ver actividad')}`)}`;
       const salir = async fn => { d.close(); if (!on()) await abrir(); fn(); }; // de Ajustes (modal) a una ventana del organizador
       S.querySelector('#og_di').onclick = () => salir(discosDlg);
       S.querySelector('#og_ac').onclick = () => salir(actividadDlg);
       S.querySelector('#og_qu').onclick = () => salir(quitadosDlg);
+      compartirAjustes(S.querySelector('#og_comp'), d);
       S.querySelector('#og_ra').onclick = async () => {
         try { await guardarAj(d); const x = await api('/api/org/respaldo/ahora', {}); flash(`✓ Respaldo en ${x.ruta}`); window.orgAjustes.enlazar(d); }
         catch (e) { ask('Respaldo', e.message, ['Entendido']); }
@@ -981,6 +985,37 @@
     },
     guardar: d => guardarAj(d),
   };
+  // 🖧 Compartir entre equipos (camino B, aprobado 2026-11-22): una carpeta compartida de la red (p. ej. \\SERVIDOR\DeskLens)
+  // con las fichas, notas e historial; cada equipo sigue con sus anclas, discos y ajustes. Se une con un resumen antes.
+  async function compartirAjustes(box, dlgAj) {
+    let c; try { c = await api('/api/org/compartir'); } catch (e) { box.innerHTML = `<small>⚠ ${esc(e.message)}</small>`; return; }
+    const lista = c.equipos.map(e => `<li>${e.yo ? '<b>' : ''}🖥 ${esc(e.equipo)}${e.yo ? ' (este)</b>' : ''} <small>· ${e.anclas} carpeta(s) · ${e.visto ? hace(e.visto) : 'nunca'}</small></li>`).join('');
+    box.innerHTML = c.activo
+      ? `<div>✓ Compartiendo en <code>${esc(c.carpeta)}</code> como <b>${esc(c.equipo)}</b>${c.alcanzable ? '' : ' <span class="owarn">⚠ no se alcanza la carpeta común</span>'}</div>
+        <ul class="oeqs">${lista}</ul><button type="button" class="obtn" id="og_cx">Dejar de compartir…</button>
+        <small>Las fichas, notas, pendientes e historial están en la carpeta común. Dónde está cada carpeta, discos y ajustes son de cada equipo.</small>`
+      : `<label>Este equipo: <input id="og_ceq" value="${esc(c.equipo)}" maxlength="40" spellcheck="false"></label>
+        <label>Carpeta común: <input id="og_cca" value="${esc(c.carpeta)}" placeholder="\\\\SERVIDOR\\DeskLens  o  Z:\\DeskLens" spellcheck="false" style="width:280px"></label>
+        <button type="button" class="obtn primary" id="og_cok">Comprobar y unir…</button>
+        <small>Una carpeta compartida de tu red. Allí van las fichas, notas, pendientes e historial (nunca tus archivos). Cada equipo sigue viendo sus discos; las carpetas de otro equipo salen como «🖧 en PC-…».</small>`;
+    box.querySelector('#og_cok')?.addEventListener('click', async () => {
+      const carpeta = box.querySelector('#og_cca').value.trim(), equipo = box.querySelector('#og_ceq').value.trim();
+      let pv; try { pv = await api('/api/org/compartir/previo', { carpeta }); } catch (e) { return ask('Compartir entre equipos', e.message, ['Entendido']); }
+      const l = (t, xs) => xs.length ? `${t}: ${xs.slice(0, 8).join(', ')}${xs.length > 8 ? '…' : ''}. ` : '';
+      const msg = `En ${pv.carpeta} hay ${pv.en_comun} proyecto(s)${pv.equipos.length ? ` de ${pv.equipos.join(', ')}` : ''}. En este equipo tienes ${pv.aqui}. `
+        + l('Iguales (se unen, manda el de la carpeta común)', pv.mismos) + l('Solo aquí (se suben)', pv.solo_aqui) + l('Mismo nombre pero distintos (se suben con otro nombre)', pv.choque)
+        + 'No se borra nada: tus fichas de antes se quedan en este equipo.';
+      if (await ask(`🖧 Unir «${equipo || pv.equipo}» a la carpeta común`, msg, ['Unir', 'Cancelar']) !== 'Unir') return;
+      try { await api('/api/org/compartir/activar', { carpeta, equipo }); flash('🖧 Este equipo ya comparte las fichas en la carpeta común'); }
+      catch (e) { return ask('Compartir entre equipos', e.message, ['Entendido']); }
+      compartirAjustes(box, dlgAj); if (on()) cargar();
+    });
+    box.querySelector('#og_cx')?.addEventListener('click', async () => {
+      if (await ask('Dejar de compartir', 'Este equipo se trae una copia de las fichas, notas e historial de la carpeta común y deja de usarla. Allí no se borra nada y los otros equipos siguen igual.', ['Dejar de compartir', 'Cancelar']) !== 'Dejar de compartir') return;
+      try { const r = await api('/api/org/compartir/desactivar', {}); flash(`✓ ${r.traidas} ficha(s) copiadas en este equipo`); } catch (e) { return err(e); }
+      compartirAjustes(box, dlgAj); if (on()) cargar();
+    });
+  }
   async function guardarAj(d) {
     const S = d.querySelector(`section[data-g="${AJ_G}"]`); if (!S || !S.querySelector('#og_en')) return;
     const v = id => S.querySelector('#' + id), indice = {};
@@ -1450,7 +1485,7 @@
       if (String(c.ancla).startsWith('archivo:')) return `<div class="onodo raiz oacceso ${viva ? '' : 'gris'}" data-j="${j}" data-k="${k}" data-ruta="${esc(c.ruta)}" title="Acceso a un archivo · ${esc(c.ruta)}">
         <span class="otw"></span>${svgI('documentos', COLT[p.tipo])}<span class="onom">${esc(c.nombre)}</span><span title="Acceso: no lleva ancla">↗</span>${viva ? '' : '<span class="owarn">⚠ no está</span>'}</div>`;
       const nn = nNotas(c.ancla);
-      const marcas = `${nn ? `<span class="onotat" title="${nn} nota(s): se ven y editan en Flujo o Red">${svgI('notas')}${nn}</span>` : ''}${c.git ? '<span title="Repositorio git">⎇</span>' : ''}${c.proyectos.length > 1 ? `<span title="Compartida con ${c.proyectos.length - 1} proyecto(s) más">🔗</span>` : ''}${borrada ? `<span class="owarn">🗑 ${borrada}</span>` : c.estado === 'desconectado' ? '<span class="owarn">⚠ no conectado</span>' : c.estado === 'falta' ? '<span class="owarn">⚠ no encontrada</span>' : ''}`;
+      const marcas = `${nn ? `<span class="onotat" title="${nn} nota(s): se ven y editan en Flujo o Red">${svgI('notas')}${nn}</span>` : ''}${c.git ? '<span title="Repositorio git">⎇</span>' : ''}${c.proyectos.length > 1 ? `<span title="Compartida con ${c.proyectos.length - 1} proyecto(s) más">🔗</span>` : ''}${borrada ? `<span class="owarn">🗑 ${borrada}</span>` : c.estado === 'otro_equipo' ? `<span class="oequipo" title="Está en ${esc(c.equipo)}: ${esc(c.ruta)}${c.visto_equipo ? ' · visto ' + esc(hace(c.visto_equipo)) : ''}">🖧 en ${esc(c.equipo)}</span>` : c.estado === 'desconectado' ? '<span class="owarn">⚠ no conectado</span>' : c.estado === 'falta' ? '<span class="owarn">⚠ no encontrada</span>' : ''}`;
       const det = [principal ? 'principal' : '', p.tipo === 'entornos' ? c.etapa || 'Etapa' : ''].filter(Boolean).join(' · ');
       return `<div class="onodo raiz ${viva ? '' : 'gris'} ${principal ? 'oprincipal' : ''}" data-j="${j}" data-k="${k}" data-ruta="${esc(c.ruta)}" data-dir="1" title="${esc(c.ruta)}">
         <span class="otw">${viva ? (O.adm.abiertas.has(c.ruta) ? '▾' : '▸') : ''}</span>${principal ? svgI('principal', 'var(--accent)', 'Carpeta principal') : ''}${icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span>${marcas}${det ? `<small>${esc(det)}</small>` : ''}</div>${extra}`;
@@ -1747,7 +1782,7 @@
     const anc = conNombre ? '' : ficha.principal || '', pr = ficha.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))).find(x => x.c.ancla === anc);
     const nodoCarpeta = (c, p, id) => {
       const d = datosDe(c);
-      const marca = BORRADA[d.estado] ? '🗑 ' : d.estado === 'falta' || d.estado === 'desconectado' ? '⚠ ' : '';
+      const marca = BORRADA[d.estado] ? '🗑 ' : d.estado === 'otro_equipo' ? '🖧 ' : d.estado === 'falta' || d.estado === 'desconectado' ? '⚠ ' : '';
       const et = p.tipo === 'entornos' ? `${c.etapa || 'Etapa'}\n` : '';
       return { id, label: `${et}${marca}${d.nombre}`, ico: d.estado === 'remota' ? 'produccion' : p.tipo === 'entornos' ? icoKeyEtapa(c.etapa) : icoKey(c.icono || d.icono), clase: 'carpeta', tipo: p.tipo, parte: p.nombre, etapa: c.etapa || '',
         icono: c.icono_propio === false ? '' : c.icono || '', // solo el elegido a mano (el sugerido no es un cambio)
