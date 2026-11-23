@@ -501,6 +501,56 @@ Problema: cada proyecto está repartido entre G: (código), H: (material) y `C:\
 Fases: **1** → 1, 2, 3, 4, 5, 8 · **2** → 7, 9, 11 · **3** → 6, 10, 12.
 Descartado: Gantt y dependencias, kanban de tareas, registro de horas, responsables y roles, chat de equipo, presupuesto, nube, instalar Vikunja/Plane/Focalboard, usar solo la extensión Project Manager de VS Code, notificaciones por correo.
 
+#### Lo que falta del organizador (al 2026-11-22, rama `organizador`)
+Hecho hasta aquí: Fase 1 completa (1a y 1b), punto 7 de la Fase 2 (☑ Pendientes) y la parte 1 de 🖧 Compartir entre equipos. El orden lo decide el usuario: esto es la lista, no un plan.
+
+**Fase 2 · Orden**
+- [ ] **9 · Detector de desorden** (botón 🧹 en el tablero, sobre `carpetas.db` del último recorrido; nunca borra ni mueve):
+  - Carpetas de los discos con nombre parecido a un proyecto pero fuera de su ficha.
+  - Respaldos sueltos (`.zip`, `.rar`, `.7z`, `.sql`, `.bak`) fuera de una parte 🗄 Respaldos o 🛢 Base de datos.
+  - Comprimidos duplicados (mismo nombre y tamaño en sitios distintos).
+  - Copias olvidadas: «copia de…», «- copia», «(1)», «_old», «_bk».
+  - Proyectos de DeskLens sin ficha.
+  - Por cada uno: ＋ Añadir a un proyecto · 📂 Abrir en el Explorador · Ignorar (se recuerda).
+- [ ] **11 · Nuevo proyecto con estructura** (hoy ＋ Nuevo proyecto solo une carpetas que ya existen):
+  - Elegir disco, carpeta y nombre; crear las carpetas desde una plantilla (código, `_material/`, `docs/`).
+  - `.gitignore` con `_material/`; `git init` y primer commit, opcionales.
+  - La ficha queda creada con sus partes y anclas.
+- [ ] **Notas ancladas** (aprobado el 2026-11-21; hoy solo hay notas en nodos y uniones de Flujo y Red, y la pestaña **Notas** del proyecto dice «llegan en la Fase 2»):
+  - Notas a una carpeta, un archivo, una página o un párrafo; ancla + ruta relativa + huella para reencontrar el punto si el archivo se mueve o cambia.
+  - Pestaña Notas del proyecto con todas sus notas (filtrar, buscar, ir al destino).
+- [ ] **Editor de notas al estilo Obsidian** (aprobado el 2026-11-21), por piezas:
+  1. `[[carpeta/archivo]]` con buscador y resolución por ancla.
+  2. Renombrar desde DeskLens actualiza los `[[ ]]` de las notas.
+  3. Fuente / En vivo / Lectura / Lado a lado (CodeMirror 6; esfuerzo alto).
+  4. `![[ ]]` de cualquier archivo, solo lectura, con los visores que ya existen.
+  5. Imágenes: pegar, arrastrar y tamaño.
+  6. Icono y cuadro flotante.
+  7. Tablas como tablas (Tab, Shift+Tab, Enter; menú de filas y columnas; Markdown alineado al guardar).
+- [ ] **Red de proyectos ↔ material ↔ notas del vault**: cada ficha dice qué notas del vault usa; solo lectura; un clic las abre en Obsidian (`obsidian://open`).
+
+**Fase 3 · Extras**
+- [ ] **6 · Iniciar y detener servicios** (XAMPP, API Biblia, bot WhatsApp): por proyecto, con estado ●, ▶ / ■ y la salida en la consola de DeskLens.
+- [ ] **10 · Aviso de último respaldo de BD**: si el último `.sql` / `.bak` de la parte 🛢 o 🗄 tiene más de N días (N por proyecto); se ve en la tarjeta y en ⚠.
+- [ ] **12 · Buscador global por proyecto**: buscar en todas las partes de todos los proyectos (el índice FTS5 ya existe), con filtro por proyecto y por tipo de parte.
+
+**🖧 Compartir entre equipos (camino B; parte 1 hecha)** — 3 o 4 equipos por proyecto, misma red, carpeta compartida de Windows como carpeta común. Ejemplo: pruebas en una carpeta de red, calidad en un equipo, producción en otro, material en otro.
+- [ ] **Parte 2 · Abrir por la red** las carpetas de otro equipo:
+  - En 💽 Discos se añaden carpetas de red (`\\PC-CASA\proyectos`, `\\NAS\respaldos`, unidades `Z:`); allí también se buscan anclas (solo nombres).
+  - Estado nuevo «🌐 en red»: se ven, se abren en el Explorador, se leen y editan sus archivos, salen en el árbol, Flujo y Red.
+  - Git por la red solo de lectura (los commits, en su equipo o por el remoto); el índice de lo de red, solo nombres.
+- [ ] **Parte 3 · Cambios a la vez**: si la ficha cambió en otro equipo mientras la tenías abierta, aviso con «Ver qué cambió» (⇆ Comparar) · «Quedarme con lo de PC-X» · «Guardar lo mío». Necesita un sello de versión por ficha. Las notas 💬 se guardan una a una.
+- [ ] **Parte 4 · Filtro del tablero por equipo**: «Todos · Con algo aquí · PC-CASA · …».
+- [ ] **Refresco en vivo**: ver lo que cambia otro equipo sin recargar (mirar la carpeta común cada pocos segundos).
+- [ ] **Probarlo con los equipos reales** y la carpeta compartida real (hasta ahora, dos equipos simulados en la copia aislada). Los equipos, con la misma versión de DeskLens.
+
+**Aparte**
+- [ ] **Historial de versiones de archivos por ancla** + ruta relativa (que no se pierda al mover una carpeta), con cuota por proyecto; hoy sigue el de DeskLens, por ruta.
+- [ ] **Probar en la ventana real** lo hecho el 2026-11-22 (se probó en la copia aislada): fluidez de la rueda y el zoom en Red y Flujo; 🎯 foco con 🗂 Explorador y 🔍 filtro; 🚦 Ordenar entornos arrastrando; ☑ Pendientes; ＋ Nuevo proyecto con 🔍 Examinar y separadores; quitar y recuperar proyectos; «Contenedor con nombre».
+- [ ] **«homeshape» en Entornos sin etapa** (sale «Etapa»): ordenarlo con 🚦 Ordenar entornos o sacarlo a Código.
+- [ ] **Renombrar una carpeta raíz** del proyecto desde DeskLens y ver que el árbol la sigue: sin probar (en la copia aislada DeskLens no deja renombrar fuera de lo añadido).
+- [ ] **Juntar la rama `organizador` con `main`** y publicar versión (en `novedades.md` lo de después de v1.169 aún no tiene número).
+
 ### Git mejorado tomando Sourcetree como base (acordado el 2026-11-18)
 No copiarlo: quedarse con sus fortalezas y corregir sus debilidades. Sencillo, pero para profesionales. Cada punto se dibuja en detalle y espera el «ok» antes de construirlo. Orden: panel 2 → 3 → 4 → 5 → 1, y después lo general.
 
