@@ -1612,6 +1612,91 @@ def peso_carpeta(ruta, iniciar=True):
         return {k2: (dict(v) if k2 == "hijos" else v) for k2, v in e.items() if k2 != "parar"}
 
 
+# ---------- tarjeta del tablero (aprobado 2026-11-22): peso del proyecto, última entrada y equipos ----------
+PESO_DIA = 24 * 3600  # el peso guardado de una carpeta vale un día (o hasta «Recalcular peso»)
+
+
+def pesos_proyectos(iniciar=True):
+    """{id: {bytes, carpetas, calculando, fuera}}: la suma de lo que pesan sus carpetas (guardado en pesos.json de este
+    equipo, un día). Las que faltan se van calculando aparte (3 a la vez); `calculando` dice cuántas quedan."""
+    guardado = leer_json(DATA / "pesos.json", {})
+    cambio, out, ahora = False, {}, time.time()
+    for f in fichas(False):
+        tot = {"bytes": 0, "carpetas": 0, "calculando": 0, "fuera": 0}
+        for q in f.get("partes", []):
+            for c in q.get("carpetas", []):
+                if c.get("estado") == "remota":
+                    continue
+                if c.get("estado") not in ("ok", "movida"):
+                    tot["fuera"] += 1
+                    continue
+                if c.get("acceso"):
+                    try:
+                        tot["bytes"] += os.stat(larga(c["ruta"])).st_size
+                    except OSError:
+                        pass
+                    continue
+                tot["carpetas"] += 1
+                k = corta(c["ruta"]).lower()
+                g = guardado.get(k)
+                if g and ahora - g.get("t", 0) < PESO_DIA:
+                    tot["bytes"] += g["bytes"]
+                    continue
+                e = peso_carpeta(c["ruta"], iniciar)
+                if e.get("estado") == "listo":
+                    guardado[k] = {"bytes": e["bytes"], "t": e.get("fin") or ahora}
+                    cambio = True
+                    tot["bytes"] += e["bytes"]
+                else:
+                    tot["calculando"] += 1
+                    tot["bytes"] += (g or {}).get("bytes", 0)  # mientras tanto, lo de la última vez
+        out[f["id"]] = tot
+    if cambio:
+        escribir_json(DATA / "pesos.json", guardado)
+    return out
+
+
+def recalcular_peso(proyecto_id):
+    """⋯ › Recalcular peso: olvida lo guardado de sus carpetas y vuelve a medirlas."""
+    f = next((x for x in fichas(False) if x["id"] == proyecto_id), None)
+    if not f:
+        raise ValueError("No existe ese proyecto")
+    guardado = leer_json(DATA / "pesos.json", {})
+    for q in f.get("partes", []):
+        for c in q.get("carpetas", []):
+            k = corta(c.get("ruta", "")).lower()
+            guardado.pop(k, None)
+            with _pesos_lock:
+                _pesos.pop(k, None)
+    escribir_json(DATA / "pesos.json", guardado)
+    return pesos_proyectos()
+
+
+def registrar_entrada(proyecto_id):
+    """Entraste en el proyecto: se apunta cuándo y desde qué equipo (en la carpeta común, si se comparte)."""
+    _ficha_path(proyecto_id)  # valida el id
+    p = COMUN / "entradas.json"
+    d = leer_json(p, {})
+    d.setdefault(proyecto_id, {})[equipo_nombre()] = datetime.now().isoformat(timespec="seconds")
+    escribir_json(p, d)
+    return d[proyecto_id]
+
+
+def datos_tarjeta(fs):
+    """Lo que la tarjeta necesita además de la ficha: entradas por equipo y, compartiendo, los equipos del proyecto."""
+    ent = leer_json(COMUN / "entradas.json", {})
+    yo = equipo_nombre()
+    for f in fs:
+        f["entradas"] = ent.get(f["id"], {})
+        if COMUN != DATA:
+            es = {c["equipo"] for q in f.get("partes", []) for c in q.get("carpetas", []) if c.get("estado") == "otro_equipo" and c.get("equipo")}
+            if any(c.get("estado") in ("ok", "movida") for q in f.get("partes", []) for c in q.get("carpetas", [])):
+                es.add(yo)
+            es |= set(f["entradas"])
+            f["equipos"] = sorted(es, key=lambda e: f["entradas"].get(e, ""), reverse=True)
+    return fs
+
+
 def parar_peso(ruta):
     with _pesos_lock:
         e = _pesos.get(corta(ruta).lower())
@@ -2368,8 +2453,10 @@ def get(ruta, q, proyectos_desklens=()):
             return 200, peso_carpeta(q.get("ruta", ""), q.get("iniciar", "1") != "0")
         except (ValueError, OSError) as e:
             return 400, {"error": str(e)}
+    if r == "pesos":  # 💾 peso de cada proyecto para las tarjetas (lo que falta se calcula aparte)
+        return 200, {"pesos": pesos_proyectos()}
     if r == "estado":
-        fs = fichas()
+        fs = datos_tarjeta(fichas())
         ya = {c["ruta"].lower() for f in fs for p in f["partes"] for c in p["carpetas"]}
         return 200, {"ajustes": ajustes(), "fichas": fs, "alertas": sum(f["avisos"] for f in fs),
                      "discos_activos": sum(1 for d in config_discos().values() if d.get("activo")),
@@ -2435,6 +2522,10 @@ def post(ruta, datos):
         if r == "ficha/anadir":
             f, av = anadir_carpetas(datos.get("id", ""), datos.get("carpetas", []), datos.get("principal_ruta", ""), datos.get("carpetas_movidas"))
             return 200, {"ficha": f, "avisos": av}
+        if r == "entrada":  # 🕘 entraste en el proyecto
+            return 200, {"entradas": registrar_entrada(datos.get("id", ""))}
+        if r == "pesos/recalcular":
+            return 200, {"pesos": recalcular_peso(datos.get("id", ""))}
         if r == "ficha/modo_ancla":  # 🔗 Quitar ancla (seguir por ruta) · Poner ancla
             return 200, {"ancla": cambiar_modo_ancla(datos.get("id", ""), datos.get("ancla", ""), datos.get("modo", ""))}
         if r == "ficha/quitar_carpeta":

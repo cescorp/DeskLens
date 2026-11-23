@@ -155,10 +155,29 @@
     let fs = O.st.fichas.filter(f => (O.filtro === 'todos' ? f.estado !== 'archivo' : f.estado === O.filtro)
       && (!q || [f.nombre, f.descripcion, ...(f.tecnologia || [])].join(' ').toLowerCase().includes(q)));
     const by = { actividad: (a, b) => (b.actualizado || '').localeCompare(a.actualizado || ''), nombre: (a, b) => a.nombre.localeCompare(b.nombre),
-      avance: (a, b) => b.avance - a.avance, estado: (a, b) => Object.keys(ESTADO).indexOf(a.estado) - Object.keys(ESTADO).indexOf(b.estado) };
+      avance: (a, b) => b.avance - a.avance, estado: (a, b) => Object.keys(ESTADO).indexOf(a.estado) - Object.keys(ESTADO).indexOf(b.estado),
+      peso: (a, b) => (O.pesos?.[b.id]?.bytes || 0) - (O.pesos?.[a.id]?.bytes || 0), entrada: (a, b) => ultimaEntrada(b).t.localeCompare(ultimaEntrada(a).t),
+      creado: (a, b) => (b.creado || '').localeCompare(a.creado || '') };
     return fs.sort((a, b) => (b.fijado - a.fijado) || by[O.orden](a, b));
   }
-  const ORDENES = [['actividad', 'Última actividad'], ['nombre', 'Nombre'], ['avance', 'Avance'], ['estado', 'Estado']];
+  const ORDENES = [['entrada', 'Última entrada'], ['actividad', 'Última actividad'], ['nombre', 'Nombre'], ['peso', 'Peso'], ['creado', 'Creado'], ['avance', 'Avance'], ['estado', 'Estado']];
+  // ---- lo de la tarjeta (aprobado 2026-11-22): nombre, ruta principal, peso, última entrada, creado y equipos ----
+  const ultimaEntrada = f => Object.entries(f.entradas || {}).reduce((m, [e, t]) => t > m.t ? { e, t } : m, { e: '', t: '' });
+  const cuandoFue = iso => { if (!iso) return ''; const d = new Date(iso), hoy = new Date(), dias = Math.round((new Date(hoy.toDateString()) - new Date(d.toDateString())) / 864e5);
+    const h = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return dias === 0 ? `hoy ${h}` : dias === 1 ? `ayer ${h}` : dias < 7 ? `hace ${dias} días` : d.toLocaleDateString(); };
+  const rutaPrincipal = f => { const cs = f.partes.flatMap(p => p.carpetas).filter(c => !c.acceso && c.estado !== 'remota');
+    return (!f.raiz_nombre && cs.find(c => c.ancla === f.principal)) || cs[0] || null; };
+  const pesoTxt = id => { const p = O.pesos?.[id]; if (!p) return '💾 …';
+    return `💾 ${p.bytes || p.carpetas ? fmtSize(p.bytes) : '—'}${p.carpetas ? ` · ${p.carpetas} carpeta${p.carpetas > 1 ? 's' : ''}` : ''}${p.calculando ? ` · calculando ${p.calculando}…` : ''}${p.fuera ? ` · ${p.fuera} fuera de aquí` : ''}`; };
+  function cargarPesos() { // 💾 aparte: lo medido se guarda un día; mientras quede algo por medir se vuelve a preguntar
+    clearTimeout(O.tPesos);
+    api('/api/org/pesos').then(r => {
+      O.pesos = r.pesos;
+      document.querySelectorAll('#org [data-peso]').forEach(el => { el.textContent = pesoTxt(el.dataset.peso); });
+      if (Object.values(r.pesos).some(x => x.calculando) && on() && O.pantalla === 'tablero') O.tPesos = setTimeout(cargarPesos, 2500);
+    }).catch(() => {});
+  }
   function barra() { // una sola fila (aprobado 2026-11-22): estado en desplegable, orden e iconos compactos, ＋ Nuevo ▾
     const n = k => O.st.fichas.filter(f => k === 'todos' ? f.estado !== 'archivo' : f.estado === k).length;
     const est = O.filtro === 'todos' ? 'Todos' : `${ESTADO[O.filtro][0]} ${ESTADO[O.filtro][1]}`;
@@ -178,30 +197,18 @@
       <button class="obtn primary" id="oNuevo" title="Nuevo proyecto (Ctrl+N), buscar en discos o convertir los de DeskLens">＋ Nuevo ▾</button></div>`;
   }
   function tarjeta(f) {
-    const cuenta = {}; f.partes.forEach(p => cuenta[p.tipo] = (cuenta[p.tipo] || 0) + p.carpetas.length);
-    // ★ la carpeta principal y, en fila, sus entornos (iguales a ella: pruebas → calidad → producción)
-    const todas = f.partes.flatMap(p => p.carpetas), pr = f.raiz_nombre ? null : todas.find(c => c.ancla === f.principal);
-    const etapas = f.partes.filter(p => p.tipo === 'entornos').flatMap(p => p.carpetas).filter(c => f.raiz_nombre || c.ancla !== f.principal);
-    const flechas = etapas.map((c, i) => `${i || pr ? '<span class="oflecha">→</span>' : ''}${icoE(c.etapa)}<span>${esc(c.nombre)}</span>`).join('');
-    const fila = pr ? `<div class="ogit ofila" title="La carpeta principal${etapas.length ? ' y sus entornos, en orden' : ''}">${svgI('principal', 'var(--accent)', 'Carpeta principal')}<b>${esc(pr.nombre)}</b>${flechas}</div>`
-      : f.raiz_nombre && etapas.length ? `<div class="ogit ofila" title="Contenedor con nombre: sus entornos, en orden">${svgI('etiqueta', 'var(--accent)', 'Contenedor con nombre')}${flechas}</div>` : '';
-    const c = codigoDe(f), g = c && O.git[c.ruta];
-    const git = !c ? '' : !c.git ? '⎇ sin git' : !g ? '⎇ …' : g.rama == null ? '⎇ sin git'
-      : `⎇ ${esc(g.rama)} · ${g.cambios ? `${g.cambios} cambio${g.cambios > 1 ? 's' : ''}` : 'al día'}${g.adelante ? ` · ↑${g.adelante}` : ''}${g.atras ? ` · ↓${g.atras}` : ''}`;
-    const web = (f.enlaces || [])[0];
-    return `<div class="ocard oestado-${f.estado}" data-id="${f.id}" style="${f.color ? `--oc:${esc(f.color)}` : ''}">
-      <h3>${f.fijado ? '⭐' : ''}<span>${esc(f.nombre)}</span></h3>
-      <div class="oest">${ESTADO[f.estado][0]} ${ESTADO[f.estado][1]} <span class="obarp"><i style="width:${f.avance}%"></i></span> ${f.avance}%</div>
-      ${f.descripcion ? `<div class="odesc">${esc(f.descripcion)}</div>` : ''}
-      ${f.tecnologia?.length ? `<div class="otec">${esc(f.tecnologia.join(' · '))}</div>` : ''}
-      <div class="opartes">${Object.entries(cuenta).filter(([, n]) => n).map(([t, n]) => `<span title="${TIPO[t][1]}">${icoT(t)}${n}</span>`).join('')}${f.papelera ? `<span class="owarn" title="Carpetas enviadas a la papelera o eliminadas">🗑 ${f.papelera} en la papelera</span>` : ''}${f.avisos - f.papelera ? `<span class="owarn" title="Partes no encontradas">⚠ ${f.avisos - f.papelera}</span>` : ''}${(() => { const es = [...new Set(f.partes.flatMap(p => p.carpetas).filter(c => c.estado === 'otro_equipo').map(c => c.equipo))]; return es.length ? `<span class="oequipo" title="Carpetas que están en otro equipo">🖧 ${esc(es.join(', '))}</span>` : ''; })()}</div>
-      ${fila}
-      ${(() => { const ab = (f.pendientes || []).filter(x => !x.hecho); return ab.length ? `<div class="ogit opend1" title="${esc(ab.map(x => '☐ ' + x.texto.split('\n')[0]).join('\n'))}">☐ <b>${ab.length}</b> pendiente${ab.length > 1 ? 's' : ''} · ${esc(ab[0].texto.split('\n')[0])}</div>` : ''; })()}
-      ${git ? `<div class="ogit">${git}</div>` : ''}
-      <div class="ogit">${esc(f.actualizado || '')}</div>
-      <div class="oact"><button data-a="carpeta" title="Abrir la carpeta de código en el Explorador">📂</button><button data-a="vscode" title="Abrir en VS Code">VS</button>
-        <button data-a="claude" title="Claude con todas las partes del proyecto (--add-dir)">✦</button><button data-a="terminal" title="Terminal en la carpeta de código">&gt;_</button>
-        ${web ? `<button data-a="web" title="${esc(web.nombre)}: ${esc(web.url)}">🌐</button>` : ''}<span class="sp"></span><button data-a="menu" title="Más acciones">⋯</button></div></div>`;
+    const pr = rutaPrincipal(f), u = ultimaEntrada(f), yo = O.st.compartir?.equipo || '';
+    const pend = (f.pendientes || []).filter(x => !x.hecho);
+    const entrada = !u.t ? 'Aún no has entrado' : u.e && u.e !== yo && O.st.compartir?.activo ? `${esc(u.e)}, ${cuandoFue(u.t)}` : `Entraste ${cuandoFue(u.t)}`;
+    return `<div class="ocard oestado-${f.estado}" data-id="${f.id}" style="${f.color ? `--oc:${esc(f.color)}` : ''}" title="${esc(ESTADO[f.estado].join(' '))}">
+      <h3>${f.fijado ? '⭐' : ''}<span>${esc(f.nombre)}</span>${pend.length ? `<small class="opendn" title="${esc(pend.map(x => '☐ ' + x.texto.split('\n')[0]).join('\n'))}">☐ ${pend.length}</small>` : ''}</h3>
+      <div class="oline" title="${esc(pr?.ruta || '')}">${svgI('carpeta')}<span class="otruta">${pr ? esc(pr.ruta) : '<i>sin carpetas</i>'}</span>${pr?.porruta ? ' <span class="oporruta">🔗</span>' : ''}${pr?.estado === 'otro_equipo' ? ` <span class="oequipo">🖧 ${esc(pr.equipo)}</span>` : ''}</div>
+      <div class="oline" data-peso="${f.id}">${pesoTxt(f.id)}</div>
+      <div class="oline" title="${esc(Object.entries(f.entradas || {}).map(([e, t]) => `${e}: ${new Date(t).toLocaleString()}`).join('\n'))}">🕘 ${entrada}</div>
+      <div class="oline">✚ Creado ${esc(f.creado || '—')}</div>
+      ${f.equipos?.length ? `<div class="oline" title="Equipos con carpetas de este proyecto o que entraron en él">🖧 ${f.equipos.map(e => e === yo ? `<b>${esc(e)}</b>` : esc(e)).join(' · ')}</div>` : ''}
+      <div class="oact"><button data-a="carpeta" title="Abrir la carpeta principal en el Explorador">📂</button><button data-a="vscode" title="Abrir en VS Code">VS</button>
+        <span class="sp"></span><button data-a="menu" title="Más: Claude, terminal, web, ficha, estado…">⋯</button></div></div>`;
   }
   function tablero() {
     if (!O.st.fichas.length) { O.pantalla = 'arranque'; return arranque(); }
@@ -221,13 +228,16 @@
       <button class="obtn odanger" id="oMq" title="Quitar del organizador (Supr). No se borra nada del disco">🗑 Quitar…</button>
       <button class="obtn oico" id="oMx" title="Desmarcar todo (Esc)">✕</button></div>` : '';
     const cuerpo = !fs.length ? '<p class="oempty">Ningún proyecto con este filtro.</p>' : O.vista === 'lista'
-      ? `<table class="olist"><thead><tr><th class="ock"><input type="checkbox" id="oCkT" title="Marcar todos los que están a la vista (Ctrl+A)" ${todos ? 'checked' : ''}></th>${acciones ? `<th colspan="8" class="oselth">${acciones}</th>` : '<th>Proyecto</th><th>Estado</th><th>Avance</th><th>Partes</th><th title="Pendientes por hacer">☐</th><th>Git</th><th>Actualizado</th><th></th>'}</tr></thead><tbody>${fs.map(f => {
-        const c = codigoDe(f), g = c && O.git[c.ruta];
-        return `<tr data-id="${f.id}" tabindex="0" class="${O.marca.has(f.id) ? 'omarc' : ''}"><td class="ock"><input type="checkbox" data-ck ${O.marca.has(f.id) ? 'checked' : ''} title="Marcar (Mayús+clic: desde la última marcada)"></td><td>${f.fijado ? '⭐ ' : ''}<b>${esc(f.nombre)}</b></td><td>${ESTADO[f.estado].join(' ')}</td><td>${f.avance}%</td>
-          <td>${f.partes.map(p => icoT(p.tipo)).join(' ')}${f.papelera ? ` <span class="owarn">🗑 ${f.papelera}</span>` : ''}${f.avisos - f.papelera ? ` <span class="owarn">⚠ ${f.avisos - f.papelera}</span>` : ''}</td><td>${(f.pendientes || []).filter(x => !x.hecho).length || ''}</td><td>${g?.rama ? `⎇ ${esc(g.rama)}${g.cambios ? ` · ${g.cambios}` : ''}` : ''}</td><td>${esc(f.actualizado || '')}</td>
+      ? `<table class="olist"><thead><tr><th class="ock"><input type="checkbox" id="oCkT" title="Marcar todos los que están a la vista (Ctrl+A)" ${todos ? 'checked' : ''}></th>${acciones ? `<th colspan="${O.st.compartir?.activo ? 8 : 7}" class="oselth">${acciones}</th>` : `<th>Proyecto</th><th>Ruta principal</th><th>Peso</th><th>Entraste</th><th>Creado</th>${O.st.compartir?.activo ? '<th>Equipos</th>' : ''}<th title="Pendientes por hacer">☐</th><th></th>`}</tr></thead><tbody>${fs.map(f => {
+        const pr = rutaPrincipal(f), u = ultimaEntrada(f);
+        return `<tr data-id="${f.id}" tabindex="0" class="${O.marca.has(f.id) ? 'omarc' : ''}"><td class="ock"><input type="checkbox" data-ck ${O.marca.has(f.id) ? 'checked' : ''} title="Marcar (Mayús+clic: desde la última marcada)"></td><td>${f.fijado ? '⭐ ' : ''}<b>${esc(f.nombre)}</b></td>
+          <td class="olruta" title="${esc(pr?.ruta || '')}"><span class="otruta">${pr ? esc(pr.ruta) : '—'}</span></td><td data-peso="${f.id}">${pesoTxt(f.id)}</td>
+          <td title="${esc(u.e || '')}">${u.t ? esc(cuandoFue(u.t)) : '—'}${u.e && O.st.compartir?.activo && u.e !== O.st.compartir.equipo ? ` <small>${esc(u.e)}</small>` : ''}</td><td>${esc(f.creado || '')}</td>
+          ${O.st.compartir?.activo ? `<td title="${esc((f.equipos || []).join(', '))}">${(f.equipos || []).length || '—'}</td>` : ''}<td>${(f.pendientes || []).filter(x => !x.hecho).length || ''}</td>
           <td class="omas"><button class="obtn oico" data-a="menu" title="Acciones de este proyecto">⋯</button></td></tr>`; }).join('')}</tbody></table>`
       : `<div class="ocards">${fs.map(tarjeta).join('')}</div>`;
     root.innerHTML = barra() + `<div class="obody">${banner}${cuerpo}</div>`;
+    if (!O.pesos || !O.tPesosHecho) { O.tPesosHecho = true; cargarPesos(); } // una vez por visita al tablero (sigue sola mientras calcula)
     const ckT = root.querySelector('#oCkT'); if (ckT) { ckT.indeterminate = nm > 0 && !todos; ckT.onclick = e => { e.stopPropagation(); fs.forEach(f => todos ? O.marca.delete(f.id) : O.marca.add(f.id)); tablero(); }; }
     root.querySelector('#oMt')?.addEventListener('click', e => { e.preventDefault(); fs.forEach(f => O.marca.add(f.id)); tablero(); });
     root.querySelector('#oMx')?.addEventListener('click', () => { O.marca.clear(); tablero(); });
@@ -339,9 +349,14 @@
     });
   }
   async function accion(a, f, b) {
-    const c = codigoDe(f) || f.partes.flatMap(p => p.carpetas).find(x => (x.estado === 'ok' || x.estado === 'movida') && !x.acceso);
+    const pr = rutaPrincipal(f), principalViva = pr && ['ok', 'movida'].includes(pr.estado) ? pr : null; // 📂 y >_: la carpeta principal
+    const c = (a !== 'vscode' && principalViva) || codigoDe(f) || f.partes.flatMap(p => p.carpetas).find(x => (x.estado === 'ok' || x.estado === 'movida') && !x.acceso);
     try {
-      if (a === 'menu') return openMenu(b, [['📂 Abrir proyecto', () => adminAbrir(f)], ['📋 Ficha… (nombre, descripción…)', () => fichaDlg(f)], ['🧩 Editar jerarquía…', () => editarFicha(f)], '-',
+      if (a === 'menu') return openMenu(b, [['📂 Abrir proyecto', () => adminAbrir(f)],
+        ['✦ Claude con todas sus carpetas', () => accion('claude', f, b)], ['>_ Terminal en la carpeta principal', () => accion('terminal', f, b)],
+        ...((f.enlaces || [])[0] ? [[`🌐 ${f.enlaces[0].nombre || 'Web'}`, () => accion('web', f, b)]] : []),
+        ['💾 Recalcular peso', async () => { try { O.pesos = (await api('/api/org/pesos/recalcular', { id: f.id })).pesos; tablero(); cargarPesos(); } catch (x) { err(x); } }], '-',
+        ['📋 Ficha… (nombre, descripción…)', () => fichaDlg(f)], ['🧩 Editar jerarquía…', () => editarFicha(f)], '-',
         ...Object.keys(ESTADO).map(k => [`${ESTADO[k][0]} ${ESTADO[k][1]}`, () => guardar(f.id, { estado: k }), { disabled: f.estado === k }]),
         '-', [f.fijado ? '☆ Quitar de arriba' : '⭐ Fijar arriba', () => guardar(f.id, { fijado: !f.fijado })],
         [`🗑 Quitar del organizador…`, () => quitar(f), { danger: true }]]);
@@ -1391,6 +1406,7 @@
       filtro: { q: '', ocultos: [], abierto: true, ...(v.filtro || {}) } }; // ⓘ panel y carpetas desplegadas en Flujo/Red
     api('/api/org/notas?id=' + encodeURIComponent(f.id)).then(r => { if (O.adm?.id !== f.id) return; O.adm.notas = r.notas; if (r.notas.length && O.pantalla === 'proyecto') admin(); }).catch(() => {});
     O.tabsListo = entrarTabs(f.id);
+    api('/api/org/entrada', { id: f.id }).then(r => { const x = O.st?.fichas.find(y => y.id === f.id); if (x) x.entradas = r.entradas; }).catch(() => {}); // 🕘 última entrada
     O.pantalla = 'proyecto'; pintar(); guardarDonde();
   }
   // Cada proyecto, sus pestañas (aprobado 2026-11-22): al entrar se guardan las de DeskLens normal y se ponen las de ese
@@ -1442,7 +1458,7 @@
     panesHome.parent.insertBefore($('#panes'), panesHome.next); panesHome = null;
     document.body.classList.remove('orgadm');
   }
-  function adminSalir() { O.tabsListo = salirTabs(); devolverPanes(); O.adm = null; O.pantalla = 'tablero'; pintar(); guardarDonde(); }
+  function adminSalir() { O.tPesosHecho = false; O.tabsListo = salirTabs(); devolverPanes(); O.adm = null; O.pantalla = 'tablero'; pintar(); guardarDonde(); }
   const vivas = f => f.partes.flatMap(p => p.carpetas.filter(c => c.estado === 'ok' || c.estado === 'movida').map(c => ({ ...c, tipo: p.tipo, parte: p.nombre })));
   function admin() {
     const f = O.st.fichas.find(x => x.id === O.adm.id);

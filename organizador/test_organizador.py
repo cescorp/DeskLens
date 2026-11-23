@@ -457,6 +457,21 @@ try:
     assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
     assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
 
+    # 💾 peso del proyecto y 🕘 última entrada (tarjeta del tablero)
+    for _ in range(200):  # se calcula aparte: se espera a que termine
+        pz = org.pesos_proyectos()
+        if not any(x["calculando"] for x in pz.values()):
+            break
+        time.sleep(0.05)
+    assert pz["homeshape"]["bytes"] > 0 and pz["homeshape"]["carpetas"] >= 1 and not pz["homeshape"]["calculando"], pz["homeshape"]
+    assert org.leer_json(org.DATA / "pesos.json", {}), "lo medido se guarda (un día)"
+    assert org.get("/api/org/pesos", {})[0] == 200 and org.post("/api/org/pesos/recalcular", {"id": "homeshape"})[0] == 200
+    e = org.registrar_entrada("homeshape")
+    assert org.equipo_nombre() in e
+    hs_f = next(f for f in org.get("/api/org/estado", {})[1]["fichas"] if f["id"] == "homeshape")
+    assert hs_f["entradas"] == e and hs_f.get("creado"), hs_f.get("entradas")
+    assert org.post("/api/org/entrada", {"id": "../x"})[0] == 400
+
     # 🔗 carpetas sin ancla (por ruta), ¿se puede anclar?, crear estricto y pasar de un modo a otro
     assert org.puede_anclar(str(hs)) == (True, "") and org.puede_anclar(str(disco / "nada"))[0] is False
     assert org.puede_anclar(str(Path(str(disco)).anchor))[0] is False

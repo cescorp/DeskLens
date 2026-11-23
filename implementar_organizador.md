@@ -835,6 +835,10 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ Tarjeta del tablero con solo lo necesario (ok y hecho 2026-11-22)
+- Nombre (☐ N si hay pendientes), ruta principal (entera al pasar el ratón), 💾 peso, 🕘 última entrada (y equipo), ✚ creado, 🖧 equipos (si se comparte). Botones a la vista: 📂 (carpeta principal) y VS; lo demás en ⋯. Estado: color de la franja.
+- Lista con las mismas columnas; orden por última entrada, peso y creación.
+
 ### ✅ Carpetas sin ancla (🔗 por ruta) y no crear proyectos a medias (ok y hecho 2026-11-22)
 - A: al añadir una carpeta se comprueba si admite el ancla; si no, la fila lo dice en rojo con el motivo y «🔗 Usar sin ancla · Elegir «Mi unidad» · 📁 Examinar dentro…»; no se crea ni se añade nada mientras quede una así.
 - B2: carpetas «🔗 por ruta»: como las demás, pero sin escribir nada en ellas; movidas o renombradas salen en ⚠. Clic derecho: Quitar ancla (seguir por ruta) / Poner ancla.
