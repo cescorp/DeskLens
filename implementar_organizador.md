@@ -835,6 +835,9 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ 🆕 Carpeta nueva · punto 11 de la Fase 2, lo mínimo (ok y hecho 2026-11-22)
+- En ＋ Nuevo proyecto y ＋ Añadir carpetas: 🆕 Carpeta nueva… (nombre, dónde, ☐ git). Se crea al pulsar Crear; nunca sobre una que ya existe. Sin plantillas (descartadas).
+
 ### ✅ Tarjeta del tablero con solo lo necesario (ok y hecho 2026-11-22)
 - Nombre (☐ N si hay pendientes), ruta principal (entera al pasar el ratón), 💾 peso, 🕘 última entrada (y equipo), ✚ creado, 🖧 equipos (si se comparte). Botones a la vista: 📂 (carpeta principal) y VS; lo demás en ⋯. Estado: color de la franja.
 - Lista con las mismas columnas; orden por última entrada, peso y creación.

@@ -1,6 +1,42 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-22 · 🔁 Traspaso: estado del módulo Proyectos para seguir con otra IA
+**Dónde está todo.** Rama `organizador` (128 commits por delante de `main`; sin juntar ni subir). Módulo en `organizador/`: `organizador.py` (servidor, rutas `/api/org/…` vía `get()`/`post()`), `organizador.js` (tablero, vista del proyecto, Flujo/Red con Cytoscape 3.30.2 cargado al abrirlas, ventanas), `organizador.css`, `test_organizador.py`. Toca también `index.html` (pestañas por proyecto: `tabSetGet`/`tabSetPut`, `window.tabGuard`, `esDeFuera`, `anclarSiFuera`, `exploreHasta`) y `desklens.pyw` (`add_abiertos`, `anclar_suelto`, `allowed()` con `abiertos`).
+**Documentos.** Qué se aprobó y cómo: `implementar_organizador.md` (cada pieza con «✅ … (ok y hecho fecha)»). Qué cambió para el usuario: `novedades.md` (lo posterior a v1.169 aún sin número de versión). Detalle técnico de cada cambio: las entradas de abajo en esta bitácora. **Lo que falta, detallado:** `## Pendientes › Módulo manejador de proyectos › Lo que falta del organizador`.
+**Datos.** De cada equipo: `historial/organizador/` (`anclas.json`, `discos.json`, `ajustes.json`, `actividad.log`, `carpetas.db`, `pesos.json`, `MAPA.md/json`). Comunes (o en la carpeta compartida si 🖧 está activo): `proyectos/<id>.json`, `notas/`, `versiones/`, `quitados/`, `equipos/`, `entradas.json`. Variables `DATA` y `COMUN` en `organizador.py`. Los datos reales del usuario NO se tocan sin su permiso.
+**Pruebas.** `python organizador/test_organizador.py` (rápida) y `python test_desklens.py` (varios minutos; mejor en segundo plano). Ambas deben terminar en «OK: …». `node --check organizador/organizador.js` para la sintaxis.
+**Copia aislada para probar en el navegador** (nunca la ventana real del usuario): un script fuera del repo que carga `desklens.pyw`, copia `config.json` a una carpeta temporal y sirve en `127.0.0.1:8799`:
+```python
+spec = importlib.util.spec_from_file_location("desklens", r"G:\Atril\desklens.pyw"); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+tmp = Path(__file__).parent / "datos-prueba"; tmp.mkdir(exist_ok=True)
+cfg = json.loads(m.CONFIG.read_text(encoding="utf-8-sig")); m.CONFIG = tmp / "config.json"; m.CONFIG.write_text(json.dumps(cfg), encoding="utf-8")
+m.INDEX_DB = tmp / "indice.db"; m.WIN_DATA = tmp / "ventana_datos.json"; m.org.configurar(tmp / "organizador")
+m.Server(("127.0.0.1", 8799), m.Handler).serve_forever()
+```
+Las fichas de prueba usan carpetas de prueba temporales (nunca anclar carpetas reales del usuario al probar). Reiniciar el script tras cambiar Python.
+**Cómo trabaja el usuario (reglas que pidió, respetarlas):**
+- Antes de construir, **dibujar en texto** cómo quedará y esperar su «ok». Si pregunta «¿es viable?», responder con el dibujo.
+- Cada pieza aprobada se anota en `implementar_organizador.md`; cada cambio, en `novedades.md` (en llano) y en esta bitácora (técnico).
+- Todo lo que cambia la vista o se pulsa se recuerda **por proyecto**. Las ventanas no bloquean (clic fuera o Esc cierran) salvo con cambios sin guardar.
+- **Transparencia:** decir siempre qué pasa y dónde (📋 Actividad). No escribir nada en sus carpetas sin que lo sepa.
+- Todo atajo va a Preferencias › KEYS (`KEYS.push` en `organizador.js`), por sección.
+- Terminar cada entrega con un **flujo para probar por menús**. Commit solo cuando lo pide.
+- Él decide el orden: los pendientes solo se sugieren, no se empiezan solos.
+- Español de España sin «vosotros» («las dos ramas cambiaron», no «cambiasteis»).
+- Probar el teclado de verdad (teclas reales); el panel del navegador a veces cambia de escala entre capturas: para clics fiables, buscar el elemento (referencias) y no fiarse de coordenadas de una captura vieja.
+**Trampas conocidas al editar.**
+- `organizador.js` va con LF y `organizador.py`/`.css` mezclan LF y CRLF: los parches con reemplazo de texto deben detectar el salto de línea del archivo.
+- En heredocs de bash las barras invertidas se comen (`\\` → `\`, `\b`, `\r`…): escribir los scripts de parche con un editor de archivos, no con heredoc, cuando lleven `\`.
+- En CSS, el carácter invisible LRM va escrito `content:"\200E"` (las rutas recortadas con `direction:rtl` lo necesitan para no salir como «\:G»).
+- `abrirDlg` reutiliza el mismo `<dialog>`: lo que una ventana deja (estilos, `onclose`, variables CSS) hay que limpiarlo al cerrar; el `close` de la anterior puede llegar tarde (`if (d.open) return`).
+- Los clics sobre lo que flota en la pizarra deben `aislar()` para que Cytoscape no los tome como «clic en el fondo».
+**Últimos commits de la sesión** (los más nuevos primero): carpeta nueva (este) · tarjeta con solo lo necesario `7e11a1b` · carpetas 🔗 por ruta `95da561` · pestañas por proyecto y Sueltos `87dd530` · compartir entre equipos parte 1 `50d4416` · ☑ Pendientes `3eec60f` · 🚦 Ordenar entornos `a1caaf5` · filtro y fluidez `1313a81` · sin montarse `f149fb9` · foco/filtro/explorador `b0c6810`.
+**Siguiente paso sugerido** (lo decide el usuario): 10 · aviso de respaldo de BD, 12 · buscador global, 🖧 partes 3 y 4 + refresco en vivo; luego probar en la ventana real y juntar con `main`.
+
+## 2026-11-22 · Organizador: 🆕 carpeta nueva (punto 11, lo mínimo)
+Se descartaron las plantillas (PHP, Python…: inventadas, no reflejan cómo trabaja el usuario). `organizador.py`: `crear_carpeta(ruta, git)` (nombre válido, la de arriba existe, nunca encima de una que ya está; `git init -b main`); en `_partes`, una carpeta con `crear` se crea antes de anclarla (con `fallos`, y `estricto` no deja la ficha a medias). `organizador.js`: botón 🆕 Carpeta nueva… y su formulario (revisa en vivo con `analizar`; 📁 Elegir… usa el explorador con «📍 Crear aquí»), fila «🆕 se creará al pulsar Crear», y la carpeta va con `crear`/`git` al crear o añadir.
+
 ## 2026-11-22 · Organizador: tarjeta con solo lo necesario
 `organizador.py`: `pesos_proyectos()` suma el peso de las carpetas de cada ficha con `peso_carpeta` (3 a la vez) y lo guarda en `pesos.json` de este equipo un día (`PESO_DIA`); mientras falta algo devuelve `calculando` y lo de la última vez; `recalcular_peso()`; `registrar_entrada()` en `entradas.json` de la carpeta común (por equipo); `datos_tarjeta()` añade a `estado` las entradas y, compartiendo, los equipos (los de sus carpetas, este si tiene alguna aquí y los que entraron). Rutas GET `pesos`, POST `entrada`, `pesos/recalcular`. `organizador.js`: tarjeta nueva (ruta principal con `rutaPrincipal`, `pesoTxt`, `ultimaEntrada`/`cuandoFue`), lista con esas columnas, `cargarPesos()` (sondeo cada 2,5 s mientras calcula, solo cambia los `[data-peso]`), órdenes nuevos, ⋯ con Claude, terminal, web y Recalcular peso; 📂 y >_ usan la carpeta principal.
 

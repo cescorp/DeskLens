@@ -1037,6 +1037,12 @@ def _partes(partes, avisos, fallos=None):
                 if not any(_ruta_fija(x).lower() == ruta_r.lower() for x in cs):
                     cs.append(item)
                 continue
+            if c.get("crear") and not c.get("ancla"):  # 🆕 carpeta nueva (＋ Nuevo proyecto): se crea ahora, antes del ancla
+                try:
+                    crear_carpeta(c.get("ruta", ""), bool(c.get("git")))
+                except (ValueError, OSError) as e:
+                    (fallos if fallos is not None else avisos).append(f"No se pudo crear {c.get('ruta', '')}: {e}")
+                    continue
             if c.get("ancla"):
                 if c["ancla"] not in reg:
                     raise ValueError("Ancla desconocida")
@@ -1787,6 +1793,29 @@ def _usos_por_ruta():
                 if rc:
                     usos.setdefault(os.path.normcase(rc), set()).add(f["id"])
     return usos, nombres
+
+
+def crear_carpeta(ruta, git=False):
+    """🆕 Carpeta nueva desde ＋ Nuevo proyecto (aprobado 2026-11-22, lo mínimo): se crea vacía dentro de una carpeta que
+    ya existe; nunca sobre una que ya está. Con `git`, «git init» (rama main). Queda en 📋 Actividad."""
+    c = Path(os.path.abspath(corta(str(ruta or "").strip().strip('"'))))
+    nombre = c.name
+    if not nombre or any(x in nombre for x in '\\/:*?"<>|') or nombre in (".", "..") or nombre.endswith((" ", ".")):
+        raise ValueError("Nombre de carpeta no válido")
+    if not larga(c.parent).is_dir():
+        raise ValueError(f"No existe la carpeta donde crearla: {c.parent}")
+    if larga(c).exists():
+        raise ValueError(f"Ya existe: {c} (añádela tal cual, no la creo)")
+    larga(c).mkdir()
+    actividad("ficha", "Carpeta nueva creada", str(c))
+    if git:
+        if not shutil.which("git"):
+            raise ValueError("Se creó la carpeta, pero git no está instalado")
+        r = subprocess.run(["git", "init", "-b", "main"], cwd=str(c), capture_output=True, text=True, timeout=30, creationflags=NO_WINDOW)
+        if r.returncode != 0:
+            raise ValueError(f"Se creó la carpeta, pero «git init» falló: {(r.stderr or r.stdout).strip()[:200]}")
+        actividad("git", "git iniciado (rama main)", str(c))
+    return str(c)
 
 
 def puede_anclar(carpeta):

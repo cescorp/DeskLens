@@ -457,6 +457,26 @@ try:
     assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
     assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
 
+    # 🆕 carpeta nueva al crear el proyecto (lo mínimo): se crea vacía, con git si se pide; nunca encima de una que ya está
+    nueva = disco / "proyecto-desde-cero"
+    f, _ = org.crear_ficha({"nombre": "Desde cero", "estricto": True, "principal_ruta": str(nueva),
+                            "partes": [{"tipo": "codigo", "carpetas": [{"ruta": str(nueva), "crear": True, "git": bool(shutil.which("git"))}]}]})
+    assert nueva.is_dir() and org.leer_ancla(nueva) == f["principal"] and f["partes"][0]["carpetas"], f
+    if shutil.which("git"):
+        assert (nueva / ".git").is_dir()
+    try:
+        org.crear_ficha({"nombre": "Otra vez", "estricto": True, "partes": [{"tipo": "codigo", "carpetas": [{"ruta": str(nueva), "crear": True}]}]})
+        raise AssertionError("no debe crear encima de una carpeta que ya existe")
+    except ValueError as e:
+        assert "Ya existe" in str(e) and not org._ficha_path("otra-vez").exists()
+    for malo in (str(disco / "a:b"), str(disco / "no-hay" / "sub")):
+        try:
+            org.crear_carpeta(malo)
+            raise AssertionError("nombre o sitio no válido: " + malo)
+        except ValueError:
+            pass
+    org.quitar_ficha("desde-cero")
+
     # 💾 peso del proyecto y 🕘 última entrada (tarjeta del tablero)
     for _ in range(200):  # se calcula aparte: se espera a que termine
         pz = org.pesos_proyectos()

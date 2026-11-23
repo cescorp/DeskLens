@@ -543,3 +543,11 @@ dialog#orgDlg[data-tipo="nuevo"]{resize:both;overflow:hidden;min-width:620px;min
 .olist td.olruta{max-width:280px}.olist td.olruta .otruta{display:block}
 .ocard h3 .opendn{margin-left:auto;font-size:11px;font-weight:600;color:#1f7a6f;background:#e9f5f2;border-radius:8px;padding:0 6px}
 .ocard .oact{margin-top:8px}
+
+/* ---------- 🆕 carpeta nueva en ＋ Nuevo proyecto (2026-11-22) ---------- */
+.onvnueva{margin-top:8px;padding:8px 10px;border:1px dashed var(--accent);border-radius:8px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.onvnfila{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.onvnfila .sp{flex:1}
+.onvnfila label{display:flex;align-items:center;gap:5px}
+.onvnfila input:not([type]){font:inherit;font-size:13px;padding:4px 7px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);width:170px}
+.onvnfila .onvnd{flex:1;min-width:200px}.onvnfila .onvnd input{flex:1;width:auto}
+.onvnuevo{color:#2a7d4f;font-weight:600}

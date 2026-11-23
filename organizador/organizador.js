@@ -400,7 +400,9 @@
         <h5>Añadir</h5>
         <div class="onvruta"><input id="nvR" list="nvRL" placeholder="Escribe o pega una ruta (G:\\www\\proyecto) y pulsa Enter" spellcheck="false" autocomplete="off"><datalist id="nvRL"></datalist>
           <button class="obtn" id="nvX" title="Elegir carpetas (Ctrl+O)">📁 Examinar…</button><button class="obtn" id="nvA" title="Un archivo suelto (p. ej. un PDF de requisitos): entra como acceso ↗">＋ Archivo…</button>
-          <button class="obtn" id="nvRem" title="Una etapa que no es una carpeta de este PC (p. ej. el VPS)">☁ Etapa remota…</button></div>
+          <button class="obtn" id="nvRem" title="Una etapa que no es una carpeta de este PC (p. ej. el VPS)">☁ Etapa remota…</button>
+          <button class="obtn" id="nvNueva" title="Una carpeta que aún no existe: se crea al pulsar Crear">🆕 Carpeta nueva…</button></div>
+        <div id="nvNv" class="onvnueva" hidden></div>
         <div id="nvExp" hidden></div>
         <h5>En el proyecto <span id="nvC" class="osmall"></span></h5>
         <div id="nvL" class="onvl"></div>${sep('lh', 'y', 'Alto de la lista «En el proyecto»')}
@@ -514,6 +516,7 @@
       const cont = (a.contiene || []).filter(ajeno);
       if (cont.length) out.push(`<span title="${esc(cont.map(x => x.ruta).join(' · '))}">ⓘ contiene ${cont.length} elemento(s) de otros proyectos</span>`);
       if (it.archivo) out.push('<span>↗ acceso a un archivo: no lleva ancla; si lo mueves, sale en ⚠</span>');
+      if (it.nueva) out.push(`<span class="onvnuevo">🆕 se creará al pulsar ${f ? 'Añadir' : 'Crear'}${it.crearGit ? ' · con git (main)' : ''}</span>`);
       if (it.porruta) out.push(`<span>🔗 por ruta: no se escribe nada en ella; si la mueves o renombras, sale en ⚠ <button class="obtn onvmini" data-conancla ${a.anclable ? '' : 'disabled'} title="${a.anclable ? 'Ponerle el ancla (sigue la carpeta aunque la muevas)' : esc(a.motivo || '')}">Poner ancla</button></span>`);
       else if (it.dir && a.anclable === false) out.push(`<span class="onvmal">⚠ Aquí no se puede poner el ancla: ${esc(a.motivo || '')}</span>
         <span class="onvbtns"><button class="obtn onvmini" data-sinancla title="Se sigue por su ruta; no se escribe nada en ella">🔗 Usar sin ancla</button>${a.sugerida ? `<button class="obtn onvmini" data-sug title="${esc(a.sugerida)}">Elegir «${esc(a.sugerida.split(/[\\/]/).pop())}»</button>` : ''}<button class="obtn onvmini" data-dentro>📁 Examinar dentro…</button></span>`);
@@ -653,7 +656,7 @@
     };
     async function explorar(modo, ruta) {
       const X = $n('#nvExp');
-      if (modo === false) { X.hidden = true; N.exp = null; return; }
+      if (modo === false) { X.hidden = true; N.exp = null; N.eligeDonde = false; return; }
       const E = N.exp = { modo, marcadas: new Set(N.exp?.modo === modo ? N.exp.marcadas : []), q: '', res: null, buscando: false, tok: 0, sub: LS('desklens.org.nuevo.sub') === '1' };
       let ex;
       try { ex = await api('/api/explorar?ruta=' + encodeURIComponent(ruta ?? LS('desklens.org.nuevo.ruta') ?? '')); } catch (e) { try { ex = await api('/api/explorar?ruta='); } catch { return flash('⚠ ' + e.message); } }
@@ -670,12 +673,13 @@
         <div class="onvexc"><div class="onvexs">${ex.lugares.map(x => link('🏠', x.ruta, x.nombre)).join('')}${ex.proyectos.length ? '<h6>Proyectos de DeskLens</h6>' + ex.proyectos.map(x => link('📁', x.ruta, x.nombre)).join('') : ''}<h6>Unidades</h6>${ex.unidades.map(u => link('💽', u, u)).join('')}</div>
           ${sep('exs', 'x', 'Ancho del lateral')}<div class="onvexl" title="${modo === 'archivo' ? 'Márcalos · doble clic en una carpeta: entrar' : 'Márcalas · clic en el nombre: entrar'} · ↑ ↓ moverse · Espacio marcar · Enter entrar"></div></div>
         ${sep('exh', 'y', 'Alto del explorador')}
-        <div class="onvexf">${modo === 'dir' && ex.ruta ? `<button class="obtn" data-aqui title="${esc(ex.ruta)}">＋ Añadir «${esc(ex.ruta.split(/[\\/]/).filter(Boolean).pop() || ex.ruta)}»</button>` : ''}<span class="sp"></span>
+        <div class="onvexf">${N.eligeDonde && ex.ruta ? `<button class="obtn primary" data-dondeaqui title="${esc(ex.ruta)}">📍 Crear aquí la carpeta nueva</button>` : modo === 'dir' && ex.ruta ? `<button class="obtn" data-aqui title="${esc(ex.ruta)}">＋ Añadir «${esc(ex.ruta.split(/[\\/]/).filter(Boolean).pop() || ex.ruta)}»</button>` : ''}<span class="sp"></span>
           <button class="obtn primary" data-marc ${E.marcadas.size ? '' : 'disabled'}>＋ Añadir marcad${marc} (${E.marcadas.size})</button></div></div>`;
       X.querySelectorAll('[data-go]').forEach(a => a.onclick = () => explorar(modo, a.dataset.go));
       X.querySelector('[data-up]').onclick = () => explorar(modo, ex.padre ?? '');
       X.querySelector('[data-cerrar]').onclick = () => explorar(false);
       X.querySelector('[data-aqui]')?.addEventListener('click', () => anadir(ex.ruta).then(() => explorar(modo, ex.ruta)));
+      X.querySelector('[data-dondeaqui]')?.addEventListener('click', () => { N.eligeDonde = false; explorar(false); carpetaNueva(ex.ruta); });
       const L = X.querySelector('.onvexl'), btnM = X.querySelector('[data-marc]'), inQ = X.querySelector('.onvexq'), ckS = X.querySelector('[data-sub]');
       const contar = () => { btnM.disabled = !E.marcadas.size; btnM.textContent = `＋ Añadir marcad${marc} (${E.marcadas.size})`; };
       const relPadre = r => { const t = r.slice(ex.ruta.replace(/[\\/]+$/, '').length).replace(/^[\\/]+/, ''); const k = t.search(/[\\/][^\\/]*$/); return k < 0 ? '' : t.slice(0, k) + '\\'; };
@@ -745,6 +749,46 @@
     inR.onkeydown = e => { if (e.key === 'Enter' && !e.ctrlKey) { e.preventDefault(); const v = inR.value; inR.value = ''; anadir(v); } };
     $n('#nvX').onclick = () => N.exp?.modo === 'dir' ? explorar(false) : explorar('dir');
     $n('#nvA').onclick = () => N.exp?.modo === 'archivo' ? explorar(false) : explorar('archivo');
+    // 🆕 Carpeta nueva (aprobado 2026-11-22, lo mínimo): nombre, dónde y ☐ git; se crea al pulsar Crear (o Añadir)
+    function carpetaNueva(donde) {
+      const P = $n('#nvNv');
+      const def = donde ?? (principalIt() ? padreDe(principalIt().ruta).replace(/\\$/, '') : (LS('desklens.org.nuevo.ruta') || ''));
+      P.hidden = false;
+      P.innerHTML = `<div class="onvnfila"><label>Nombre <input id="nvNvN" spellcheck="false" placeholder="nombre de la carpeta" value="${esc(P.dataset.nombre || (!f && !N.items.length ? N.nombre.trim() : ''))}"></label>
+        <label class="onvnd">Dónde <input id="nvNvD" spellcheck="false" value="${esc(def)}"></label><button class="obtn" id="nvNvE" title="Elegir dónde con el explorador">📁 Elegir…</button></div>
+        <div class="onvnfila"><label><input type="checkbox" id="nvNvG" ${P.dataset.git === '1' ? 'checked' : ''}> Iniciar git (rama main)</label><span class="osmall" id="nvNvR"></span>
+        <span class="sp"></span><button class="obtn" id="nvNvC">Cancelar</button><button class="obtn primary" id="nvNvA" disabled>＋ Añadir a la lista</button></div>`;
+      const nN = P.querySelector('#nvNvN'), nD = P.querySelector('#nvNvD'), res = P.querySelector('#nvNvR'), btn = P.querySelector('#nvNvA');
+      let tk = 0, ok = false;
+      const ruta = () => nD.value.trim().replace(/[\\/]+$/, '') + '\\' + nN.value.trim();
+      const revisar = async () => {
+        const t = ++tk, n = nN.value.trim(), d = nD.value.trim(); ok = false; btn.disabled = true;
+        if (!n || !d) { res.textContent = 'Escribe el nombre y dónde'; return; }
+        if (/[\\/:*?"<>|]/.test(n) || /[ .]$/.test(n)) { res.innerHTML = '<span class="owarn">⚠ Nombre no válido (sin \\ / : * ? " < > | y sin espacio o punto al final)</span>'; return; }
+        let pd, pc; try { [pd, pc] = await Promise.all([api('/api/org/analizar?ruta=' + encodeURIComponent(d)), api('/api/org/analizar?ruta=' + encodeURIComponent(ruta()))]); } catch (e) { if (t === tk) res.textContent = '⚠ ' + e.message; return; }
+        if (t !== tk) return;
+        if (!pd.existe || !pd.dir) { res.innerHTML = `<span class="owarn">⚠ No existe «${esc(d)}»</span>`; return; }
+        if (pc.existe) { res.innerHTML = '<span class="owarn">⚠ Ya existe: añádela tal cual (Enter en la ruta), no la creo</span>'; return; }
+        if (yaEsta(ruta())) { res.innerHTML = '<span class="owarn">⚠ Ya está en la lista</span>'; return; }
+        ok = true; btn.disabled = false; res.textContent = `→ se creará ${pc.ruta}`;
+      };
+      let ti; const tarde = () => { clearTimeout(ti); ti = setTimeout(revisar, 200); };
+      nN.oninput = nD.oninput = tarde;
+      const anadirNueva = () => {
+        if (!ok) return;
+        const r = ruta(), it = { ruta: r, nombre: nN.value.trim(), dir: true, archivo: false, tipo: P.querySelector('#nvNvG').checked ? 'codigo' : (tipoInicial || 'otro'), etapa: '',
+          git: P.querySelector('#nvNvG').checked, nueva: true, crearGit: P.querySelector('#nvNvG').checked, accion: 'compartir', info: { anclable: true, proyectos: [], dentro_de: [], contiene: [] } };
+        N.items.push(it);
+        if (!f && !principalIt()) N.principal = it.ruta;
+        N.nuevo = it.ruta; P.hidden = true; P.dataset.nombre = ''; marcarCambios(); pintar(); sugerir();
+      };
+      btn.onclick = anadirNueva;
+      P.onkeydown = e => { if (e.key === 'Enter' && !e.ctrlKey) { e.preventDefault(); e.stopPropagation(); anadirNueva(); } else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); P.hidden = true; } };
+      P.querySelector('#nvNvC').onclick = () => { P.hidden = true; };
+      P.querySelector('#nvNvE').onclick = () => { P.dataset.nombre = nN.value; P.dataset.git = P.querySelector('#nvNvG').checked ? '1' : ''; N.eligeDonde = true; explorar('dir', nD.value.trim() || undefined); };
+      nN.focus(); revisar();
+    }
+    $n('#nvNueva').onclick = () => $n('#nvNv').hidden ? carpetaNueva() : ($n('#nvNv').hidden = true);
     $n('#nvRem').onclick = async () => {
       const nombre = await ask('Etapa remota', 'Nombre (p. ej. «VPS producción»):', ['Siguiente', 'Cancelar'], { input: '' }); if (!nombre?.trim()) return;
       const url = await ask('Etapa remota', 'Dirección: https://… o ssh usuario@servidor (opcional):', ['Añadir', 'Cancelar'], { input: '' }); if (url === null) return;
@@ -767,7 +811,7 @@
       const movidas = {};
       for (const it of N.items) { const otros = (it.info?.proyectos || []).filter(x => !f || x.id !== f.id).map(x => x.id); if (it.accion === 'mover' && otros.length) movidas[it.ruta] = otros; }
       const carpeta = it => it.remota ? { remota: it.remota, etapa: it.etapa } : it.archivo ? { archivo: { ruta: it.ruta } }
-        : { ...(it.porruta ? { porruta: { ruta: it.ruta } } : { ruta: it.ruta }), ...(it.tipo === 'entornos' ? { etapa: it.etapa } : {}) };
+        : { ...(it.porruta ? { porruta: { ruta: it.ruta } } : { ruta: it.ruta }), ...(it.tipo === 'entornos' ? { etapa: it.etapa } : {}), ...(it.nueva ? { crear: true, git: !!it.crearGit } : {}) };
       try {
         let r;
         if (f) r = await api('/api/org/ficha/anadir', { id: f.id, carpetas: N.items.map(it => ({ ...carpeta(it), tipo: it.tipo })), principal_ruta: N.principal || '', carpetas_movidas: movidas });
