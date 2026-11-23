@@ -1,8 +1,11 @@
 # Bitácora de DeskLens
 Entradas nuevas arriba. Formato: `## AAAA-MM-DD · título` + 2–4 líneas (qué, por qué, pendiente).
 
+## 2026-11-23 · Ramas: solo `publico` y `privado`
+Para no confundirse con cuatro ramas: `organizador` → **`privado`** (renombrada; solo en este PC, nunca se sube a `origin`, que es público) y **`publico`** (GitHub, la que todos ven). Borrada `ventana-sin-edge` (estaba entera dentro de `privado`). `main` (foto del 2026-11-03 en un solo commit, sin historia en común) queda como marca **local** `respaldo-main` (no subirla: nada de `git push --tags`); se borra en GitHub cuando la rama principal del repositorio pase a ser `publico`.
+
 ## 2026-11-22 · 🔁 Traspaso: estado del módulo Proyectos para seguir con otra IA
-**Dónde está todo.** Rama `organizador` (128 commits por delante de `main`; sin juntar ni subir). Módulo en `organizador/`: `organizador.py` (servidor, rutas `/api/org/…` vía `get()`/`post()`), `organizador.js` (tablero, vista del proyecto, Flujo/Red con Cytoscape 3.30.2 cargado al abrirlas, ventanas), `organizador.css`, `test_organizador.py`. Toca también `index.html` (pestañas por proyecto: `tabSetGet`/`tabSetPut`, `window.tabGuard`, `esDeFuera`, `anclarSiFuera`, `exploreHasta`) y `desklens.pyw` (`add_abiertos`, `anclar_suelto`, `allowed()` con `abiertos`).
+**Dónde está todo.** Rama `privado` (antes `organizador`; solo en este PC, sin subir; contiene entera a `publico`). Módulo en `organizador/`: `organizador.py` (servidor, rutas `/api/org/…` vía `get()`/`post()`), `organizador.js` (tablero, vista del proyecto, Flujo/Red con Cytoscape 3.30.2 cargado al abrirlas, ventanas), `organizador.css`, `test_organizador.py`. Toca también `index.html` (pestañas por proyecto: `tabSetGet`/`tabSetPut`, `window.tabGuard`, `esDeFuera`, `anclarSiFuera`, `exploreHasta`) y `desklens.pyw` (`add_abiertos`, `anclar_suelto`, `allowed()` con `abiertos`).
 **Documentos.** Qué se aprobó y cómo: `implementar_organizador.md` (cada pieza con «✅ … (ok y hecho fecha)»). Qué cambió para el usuario: `novedades.md` (lo posterior a v1.169 aún sin número de versión). Detalle técnico de cada cambio: las entradas de abajo en esta bitácora. **Lo que falta, detallado:** `## Pendientes › Módulo manejador de proyectos › Lo que falta del organizador`.
 **Datos.** De cada equipo: `historial/organizador/` (`anclas.json`, `discos.json`, `ajustes.json`, `actividad.log`, `carpetas.db`, `pesos.json`, `MAPA.md/json`). Comunes (o en la carpeta compartida si 🖧 está activo): `proyectos/<id>.json`, `notas/`, `versiones/`, `quitados/`, `equipos/`, `entradas.json`. Variables `DATA` y `COMUN` en `organizador.py`. Los datos reales del usuario NO se tocan sin su permiso.
 **Pruebas.** `python organizador/test_organizador.py` (rápida) y `python test_desklens.py` (varios minutos; mejor en segundo plano). Ambas deben terminar en «OK: …». `node --check organizador/organizador.js` para la sintaxis.
@@ -557,7 +560,7 @@ Problema: cada proyecto está repartido entre G: (código), H: (material) y `C:\
 Fases: **1** → 1, 2, 3, 4, 5, 8 · **2** → 7, 9, 11 · **3** → 6, 10, 12.
 Descartado: Gantt y dependencias, kanban de tareas, registro de horas, responsables y roles, chat de equipo, presupuesto, nube, instalar Vikunja/Plane/Focalboard, usar solo la extensión Project Manager de VS Code, notificaciones por correo.
 
-#### Lo que falta del organizador (al 2026-11-22, rama `organizador`)
+#### Lo que falta del organizador (al 2026-11-22, rama `privado`)
 Hecho hasta aquí: Fase 1 completa (1a y 1b), punto 7 de la Fase 2 (☑ Pendientes) y la parte 1 de 🖧 Compartir entre equipos. El orden lo decide el usuario: esto es la lista, no un plan.
 
 **Fase 2 · Orden**
@@ -606,7 +609,7 @@ Hecho hasta aquí: Fase 1 completa (1a y 1b), punto 7 de la Fase 2 (☑ Pendient
 - [ ] **Probar en la ventana real** lo hecho el 2026-11-22 (se probó en la copia aislada): fluidez de la rueda y el zoom en Red y Flujo; 🎯 foco con 🗂 Explorador y 🔍 filtro; 🚦 Ordenar entornos arrastrando; ☑ Pendientes; ＋ Nuevo proyecto con 🔍 Examinar y separadores; quitar y recuperar proyectos; «Contenedor con nombre».
 - [ ] **«homeshape» en Entornos sin etapa** (sale «Etapa»): ordenarlo con 🚦 Ordenar entornos o sacarlo a Código.
 - [ ] **Renombrar una carpeta raíz** del proyecto desde DeskLens y ver que el árbol la sigue: sin probar (en la copia aislada DeskLens no deja renombrar fuera de lo añadido).
-- [ ] **Juntar la rama `organizador` con `main`** y publicar versión (en `novedades.md` lo de después de v1.169 aún no tiene número).
+- [ ] **Pasar lo de la rama `privado` a `publico`** (lo que se quiera publicar) y publicar versión (en `novedades.md` lo de después de v1.169 aún no tiene número).
 
 ### Git mejorado tomando Sourcetree como base (acordado el 2026-11-18)
 No copiarlo: quedarse con sus fortalezas y corregir sus debilidades. Sencillo, pero para profesionales. Cada punto se dibuja en detalle y espera el «ok» antes de construirlo. Orden: panel 2 → 3 → 4 → 5 → 1, y después lo general.
