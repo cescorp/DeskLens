@@ -34,6 +34,12 @@ Las fichas de prueba usan carpetas de prueba temporales (nunca anclar carpetas r
 **Últimos commits de la sesión** (los más nuevos primero): carpeta nueva (este) · tarjeta con solo lo necesario `7e11a1b` · carpetas 🔗 por ruta `95da561` · pestañas por proyecto y Sueltos `87dd530` · compartir entre equipos parte 1 `50d4416` · ☑ Pendientes `3eec60f` · 🚦 Ordenar entornos `a1caaf5` · filtro y fluidez `1313a81` · sin montarse `f149fb9` · foco/filtro/explorador `b0c6810`.
 **Siguiente paso sugerido** (lo decide el usuario): 10 · aviso de respaldo de BD, 12 · buscador global, 🖧 partes 3 y 4 + refresco en vivo; luego probar en la ventana real y juntar con `main`.
 
+## 2026-11-22 · Organizador: ▯ / Ctrl+B ocultan el árbol del proyecto
+En el Contenedor de un proyecto el ▯ de las pestañas cambiaba `body.noside` (la barra lateral de DeskLens, que ahí no se ve): no hacía nada. `index.html`: `toggleSide` y el título del ▯ en `renderTabs` preguntan antes a `window.orgPanelIzq` (`activo`/`oculto`/`alternar`, en `organizador.js`). `.oadm.sinarbol` oculta `.oarbol` y `.ores`; `O.adm.sinArbol` se guarda en la vista del proyecto. `adminArchivos` y `devolverPanes` llaman a `renderTabs` para que el título del ▯ diga «árbol del proyecto» o «barra lateral» según dónde estés. Ctrl+B anotado en KEYS › Proyectos.
+
+## 2026-11-22 · Organizador: vista del proyecto con 3 pestañas en una fila
+`organizador.js`: `TABS` = archivos · pendientes · proyecto (con icono + `<span>` que se oculta en ventana estrecha); `TAB_VIEJA` traslada la pestaña guardada (ficha/estado/historial → proyecto; git/notas → archivos). En Archivos, `admin()` mueve `nav.otabs` al principio de `.obarra` (Contenedor y pizarra la pintan antes de su primer `await`). `adminProyecto`: `<details class="osecc">` Datos (`fichaCampos(f, corto)` sin estado/avance/partes; `fichaDatos` solo manda estado/avance si están) · Partes y carpetas (`adminEstado`, con 🧩) · Historial (`adminHistorial`); abiertas en `O.adm.secc` (en `guardarVista`), carga perezosa. Quitados `adminFicha`, `adminGit`, `adminLuego`; `abrirGit(f)` desde el botón `#aG` («⎇ …» de la cabecera) pregunta antes de `/api/agregar`. CSS: `.obarra .otabs`, `.ogitchip`, `.oproy .osecc`.
+
 ## 2026-11-22 · Organizador: 🆕 carpeta nueva (punto 11, lo mínimo)
 Se descartaron las plantillas (PHP, Python…: inventadas, no reflejan cómo trabaja el usuario). `organizador.py`: `crear_carpeta(ruta, git)` (nombre válido, la de arriba existe, nunca encima de una que ya está; `git init -b main`); en `_partes`, una carpeta con `crear` se crea antes de anclarla (con `fallos`, y `estricto` no deja la ficha a medias). `organizador.js`: botón 🆕 Carpeta nueva… y su formulario (revisa en vivo con `analizar`; 📁 Elegir… usa el explorador con «📍 Crear aquí»), fila «🆕 se creará al pulsar Crear», y la carpeta va con `crear`/`git` al crear o añadir.
 
@@ -588,6 +594,7 @@ Hecho hasta aquí: Fase 1 completa (1a y 1b), punto 7 de la Fase 2 (☑ Pendient
 - [ ] **Parte 3 · Cambios a la vez**: si la ficha cambió en otro equipo mientras la tenías abierta, aviso con «Ver qué cambió» (⇆ Comparar) · «Quedarme con lo de PC-X» · «Guardar lo mío». Necesita un sello de versión por ficha. Las notas 💬 se guardan una a una.
 - [ ] **Parte 4 · Filtro del tablero por equipo**: «Todos · Con algo aquí · PC-CASA · …».
 - [ ] **Refresco en vivo**: ver lo que cambia otro equipo sin recargar (mirar la carpeta común cada pocos segundos).
+- [ ] **☑ Pendientes multiusuario** (pedido el 2026-11-22): que la lista de pendientes sirva para trabajar en red entre varias personas/equipos (quién lo anotó, quién lo hizo, cambios de otro equipo sin pisarse; va con la parte 3 y el refresco en vivo).
 - [ ] **Probarlo con los equipos reales** y la carpeta compartida real (hasta ahora, dos equipos simulados en la copia aislada). Los equipos, con la misma versión de DeskLens.
 
 **Aparte**

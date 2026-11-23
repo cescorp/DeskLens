@@ -835,6 +835,12 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ Vista del proyecto con 3 pestañas en una fila (ok y hecho 2026-11-22)
+- Pestañas: 📁 Archivos · ☑ Pendientes · 📋 Proyecto (antes 7). En Archivos van en la misma fila que Contenedor/Flujo/Red y 🏷/⇆: se quita la doble barra.
+- 📋 Proyecto junta Ficha, Estado e Historial en secciones plegables (Datos · Partes y carpetas · Historial de la estructura); cada proyecto recuerda cuáles están abiertas. Datos ya no repite estado ni avance (están en la cabecera).
+- Git deja de ser pestaña: clic en «⎇ rama» de la cabecera abre la vista Git (pregunta antes si hay que añadir la carpeta a DeskLens). Notas se quita hasta que existan las notas ancladas.
+- La pestaña guardada de antes se traslada: Ficha/Estado/Historial → Proyecto; Git/Notas → Archivos.
+
 ### ✅ 🆕 Carpeta nueva · punto 11 de la Fase 2, lo mínimo (ok y hecho 2026-11-22)
 - En ＋ Nuevo proyecto y ＋ Añadir carpetas: 🆕 Carpeta nueva… (nombre, dónde, ☐ git). Se crea al pulsar Crear; nunca sobre una que ya existe. Sin plantillas (descartadas).
 

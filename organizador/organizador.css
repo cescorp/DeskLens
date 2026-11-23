@@ -181,6 +181,17 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .otabs button{font:inherit;font-size:13px;padding:7px 14px;border:0;border-bottom:2px solid transparent;background:none;color:var(--muted);cursor:pointer}
 .otabs button:hover{color:var(--ink)}
 .otabs button.on{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+/* en Archivos las pestañas van en la barra de Contenedor/Flujo/Red: una sola fila */
+.obarra .otabs{padding:0;border:0;background:none;align-self:stretch;margin:-6px 0;flex:none}
+.obarra .otabs button{padding:6px 10px;white-space:nowrap}
+.oadmbar .ogitchip{font:inherit;font-size:12px;color:var(--muted);background:none;border:1px solid transparent;border-radius:6px;padding:2px 6px;cursor:pointer;white-space:nowrap}
+.oadmbar .ogitchip:hover{color:var(--ink);border-color:var(--line);background:var(--hover)}
+/* ⓘ Proyecto: secciones plegables */
+.oproy .osecc{border:1px solid var(--line);border-radius:8px;margin:0 0 12px;background:var(--bg)}
+.oproy .osecc>summary{cursor:pointer;padding:8px 12px;font-weight:600;user-select:none}
+.oproy .osecc[open]>summary{border-bottom:1px solid var(--line)}
+.oproy .oseccb{padding:12px}
+.oproy .oseccb .ofoot{margin:12px 0 0}
 .oadmbody{flex:1;min-height:0;display:flex;flex-direction:column}
 .oadm{flex:1;min-height:0;display:grid;grid-template-columns:var(--arbolW,320px) 5px minmax(0,1fr)}
 .oarbol{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--side)}
@@ -199,6 +210,7 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .onodo small{color:var(--muted);overflow:hidden;text-overflow:ellipsis;margin-left:4px}
 .onodo .ogitpt{color:var(--warn);font-size:10px}
 .onodo .fi{flex:none}
+.oadm.sinarbol{grid-template-columns:minmax(0,1fr)}.oadm.sinarbol>.oarbol,.oadm.sinarbol>.ores{display:none} /* ▯ / Ctrl+B en el proyecto */
 .ores{cursor:col-resize}.ores:hover{background:var(--accent);opacity:.45}
 .oslot{min-width:0;min-height:0;display:grid}
 .opage{padding:16px;overflow:auto;flex:1;min-height:0}
@@ -312,7 +324,7 @@ body.orgfull.orgadm #panes{display:grid!important;height:100%} /* el visor de De
 .oseg button.on{background:var(--accent);color:#fff;font-weight:600}
 .osepv{width:1px;align-self:stretch;margin:2px 4px;background:var(--line);flex:none}
 .obarra .obtn{white-space:nowrap}
-@media (max-width:1250px){.obarra .obtn>span,.obarra .oseg button>span{display:none}} /* estrecha: solo el icono (el texto sigue al pasar el ratón) */
+@media (max-width:1250px){.obarra .obtn>span,.obarra .oseg button>span,.obarra .otabs button>span{display:none}} /* estrecha: solo el icono (el texto sigue al pasar el ratón) */
 .opizbar{flex-wrap:nowrap}.opistat{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
 .olist td small{margin-left:8px;color:var(--muted)}
 

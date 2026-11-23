@@ -75,7 +75,7 @@
   ($('#ribbon [data-v=g]') || $('#ribbon .sp')).after(btn);
   // otra vista de la cinta (Explorador, Buscar, Git) sale del tablero antes de abrirse
   $('#ribbon').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b !== btn && b.dataset.v && on()) cerrar(); }, true);
-  KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
+  KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+B (en un proyecto, Contenedor)', 'Ocultar o mostrar el árbol del proyecto (también ▯ de las pestañas)'],['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
     ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
     ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'],
     ['Ctrl+Enter (en ☑ Pendientes)', 'Añadir el pendiente escrito, o guardar el que cambias'], ['Espacio · Enter · Supr (en un pendiente)', 'Hecho / pendiente · cambiar el texto · borrar'],
@@ -876,25 +876,26 @@
   addEventListener('keydown', e => { // Esc la cierra (sin showModal el navegador no lo hace solo)
     if (e.key === 'Escape' && dlg.open && !$('#ask')?.open && !$('#menu') && !e.target.closest?.('[data-esc]')) { e.preventDefault(); e.stopPropagation(); cerrarDlg(); } // [data-esc]: ese bloque usa Esc (p. ej. borrar el 🔍)
   }, true);
-  // formulario de la ficha: lo usan la ventana «Ficha» (⋯ del tablero) y la pestaña Ficha de la vista del proyecto
-  function fichaCampos(f) {
+  // formulario de la ficha: lo usan la ventana «Ficha» (⋯ del tablero) y ⓘ Proyecto › Datos de la vista del proyecto
+  // (corto: sin estado ni avance, que ya están en la cabecera, ni el resumen de partes, que tiene su propia sección)
+  function fichaCampos(f, corto) {
     const partes = f.partes.map(p => `<div>${TIPO[p.tipo][0]} <b>${esc(p.nombre)}</b> ${p.carpetas.map(c => `<div class="osmall" style="margin-left:22px">${esc(c.icono || '📁')} ${esc(c.ruta)} ${c.estado === 'ok' ? '' : c.estado === 'movida' ? '↷ movida' : `<span class="owarn">${BORRADA[c.estado] ? `🗑 ${BORRADA[c.estado]}${c.eliminada ? ' · ' + hace(c.eliminada) : ''}` : c.estado === 'desconectado' ? '⚠ disco no conectado' : '⚠ no encontrada'}</span>`}${c.proyectos.length > 1 ? ` · 🔗 ${c.proyectos.length} proyectos` : ''}</div>`).join('')}</div>`).join('');
     return `<div class="oform">
       <label>Nombre</label><input id="fN" value="${esc(f.nombre)}">
-      <label>Estado</label><select id="fE">${Object.entries(ESTADO).map(([k, v]) => `<option value="${k}" ${f.estado === k ? 'selected' : ''}>${v.join(' ')}</option>`).join('')}</select>
-      <label>Avance</label><span><input id="fA" type="range" min="0" max="100" value="${f.avance}" style="width:200px;vertical-align:middle"> <b id="fAv">${f.avance}%</b></span>
+      ${corto ? '' : `<label>Estado</label><select id="fE">${Object.entries(ESTADO).map(([k, v]) => `<option value="${k}" ${f.estado === k ? 'selected' : ''}>${v.join(' ')}</option>`).join('')}</select>
+      <label>Avance</label><span><input id="fA" type="range" min="0" max="100" value="${f.avance}" style="width:200px;vertical-align:middle"> <b id="fAv">${f.avance}%</b></span>`}
       <label>Descripción</label><textarea id="fD">${esc(f.descripcion || '')}</textarea>
       <label>Tecnología</label><input id="fT" value="${esc((f.tecnologia || []).join(', '))}" placeholder="Laravel, PostgreSQL">
       <label>Color</label><input id="fC" type="color" value="${esc(f.color || '#7c5cdb')}" style="width:60px;padding:2px">
       <label>Enlaces</label><textarea id="fL" placeholder="Local | http://localhost/proyecto">${esc((f.enlaces || []).map(e => `${e.nombre} | ${e.url}`).join('\n'))}</textarea>
       <label>Nota del vault</label><input id="fV" value="${esc(f.nota || '')}" placeholder="01 Tecnología/Proyectos/${esc(f.nombre)}">
       <label>Historial</label><span>Guardar por <input id="fHd" type="number" min="1" max="365" value="${f.historial?.dias ?? 7}" style="width:64px"> días · cuota <input id="fHm" type="number" min="0" max="100000" value="${f.historial?.mb ?? 200}" style="width:80px"> MB <small>(0 = sin versiones)</small></span>
-      <div class="oancho"><h4 style="margin:10px 0 4px">Partes</h4>${partes || '<small>Sin partes</small>'}</div></div>`;
+      ${corto ? '' : `<div class="oancho"><h4 style="margin:10px 0 4px">Partes</h4>${partes || '<small>Sin partes</small>'}</div>`}</div>`;
   }
   function fichaDatos(d) {
     const v = id => d.querySelector(id).value;
     const enlaces = v('#fL').split('\n').map(l => l.split('|').map(s => s.trim())).filter(x => x[0] || x[1]).map(([nombre, url]) => url ? { nombre, url } : { nombre: 'Enlace', url: nombre });
-    return { nombre: v('#fN'), estado: v('#fE'), avance: +v('#fA'), descripcion: v('#fD'), color: v('#fC'), nota: v('#fV'),
+    return { nombre: v('#fN'), ...(d.querySelector('#fE') ? { estado: v('#fE'), avance: +v('#fA') } : {}), descripcion: v('#fD'), color: v('#fC'), nota: v('#fV'),
       tecnologia: v('#fT').split(',').map(s => s.trim()).filter(Boolean), enlaces, historial: { dias: +v('#fHd'), mb: +v('#fHm') } };
   }
   function fichaDlg(f) {
@@ -1433,16 +1434,18 @@
   }
 
   // ---------- vista de administración del proyecto (clic en una tarjeta) ----------
-  // Arriba: nombre, estado ▾, avance (clic en la barra), tecnología, git y botones. Pestañas: Archivos · Ficha · Git ·
-  // Estado · Historial · Notas. En Archivos, el árbol une todas las carpetas del proyecto (G:, H:, htdocs…) por partes y a
-  // la derecha va el visor/editor de DeskLens de siempre (#panes se presta aquí y se devuelve al salir).
+  // Arriba: nombre, estado ▾, avance (clic en la barra), tecnología, ⎇ git (clic: vista Git) y botones. Pestañas (2026-11-22):
+  // Archivos · ☑ Pendientes · ⓘ Proyecto; en Archivos van en la misma fila que Contenedor/Flujo/Red. En Archivos, el árbol
+  // une todas las carpetas del proyecto (G:, H:, htdocs…) por partes y a la derecha va el visor/editor de DeskLens de
+  // siempre (#panes se presta aquí y se devuelve al salir).
   let panesHome = null;
-  const TABS = [['archivos', 'Archivos'], ['ficha', 'Ficha'], ['pendientes', '☑ Pendientes'], ['git', 'Git'], ['estado', 'Estado'], ['historial', 'Historial'], ['notas', 'Notas']];
+  const TABS = [['archivos', '📁', 'Archivos'], ['pendientes', '☑', 'Pendientes'], ['proyecto', '📋', 'Proyecto']];
+  const TAB_VIEJA = { ficha: 'proyecto', estado: 'proyecto', historial: 'proyecto', git: 'archivos', notas: 'archivos' }; // pestañas que se unieron
   function adminAbrir(f) {
     // cada proyecto recuerda su vista: pestaña, búsqueda, ancho del árbol, carpetas abiertas, desplazamiento y último archivo
     let v = {};
     try { v = JSON.parse(LS('desklens.org.vista.' + f.id) || '{}'); } catch {}
-    O.adm = { id: f.id, tab: v.tab || 'archivos', q: v.q || '', arbolW: v.arbolW || 320, scroll: v.scroll || 0, ultimo: v.ultimo || '',
+    O.adm = { id: f.id, tab: TAB_VIEJA[v.tab] || v.tab || 'archivos', secc: { datos: true, partes: true, historial: false, ...(v.secc || {}) }, sinArbol: !!v.sinArbol, q: v.q || '', arbolW: v.arbolW || 320, scroll: v.scroll || 0, ultimo: v.ultimo || '',
       abiertas: new Set(v.abiertas || JSON.parse(LS('desklens.org.abiertas.' + f.id) || '[]')),
       vista: v.vista || 'contenedor', cmp: v.cmp || { v: '', modo: 'encima', solo: false }, cam: v.cam || {}, mini: v.mini ?? true, notaAbierta: v.notaAbierta || '', notas: [],
       reabrir: true, // su último archivo se abre al entrar (una vez)
@@ -1501,6 +1504,7 @@
     if (!panesHome) return;
     panesHome.parent.insertBefore($('#panes'), panesHome.next); panesHome = null;
     document.body.classList.remove('orgadm');
+    if (typeof renderTabs === 'function') queueMicrotask(renderTabs); // el ▯ vuelve a ser el de la barra lateral
   }
   function adminSalir() { O.tPesosHecho = false; O.tabsListo = salirTabs(); devolverPanes(); O.adm = null; O.pantalla = 'tablero'; pintar(); guardarDonde(); }
   const vivas = f => f.partes.flatMap(p => p.carpetas.filter(c => c.estado === 'ok' || c.estado === 'movida').map(c => ({ ...c, tipo: p.tipo, parte: p.nombre })));
@@ -1515,21 +1519,26 @@
         <h2><span class="ocol"></span>${esc(f.nombre)}</h2>
         <select id="aE" title="Estado">${Object.entries(ESTADO).map(([k, v]) => `<option value="${k}" ${f.estado === k ? 'selected' : ''}>${v.join(' ')}</option>`).join('')}</select>
         <span class="obarp oclic" id="aA" title="Clic para cambiar el avance"><i style="width:${f.avance}%"></i></span><b>${f.avance}%</b>
-        ${f.tecnologia?.length ? `<span class="osmall">${esc(f.tecnologia.join(' · '))}</span>` : ''}<span class="osmall">${git}</span>
+        ${f.tecnologia?.length ? `<span class="osmall">${esc(f.tecnologia.join(' · '))}</span>` : ''}${c ? `<button class="ogitchip" id="aG" title="Abrir ${esc(c.ruta)} en la vista Git de DeskLens">${git}</button>` : ''}
         <span class="sp"></span>
         <span class="oact"><button data-a="carpeta" title="Abrir la carpeta de código en el Explorador">📂</button><button data-a="vscode" title="Abrir en VS Code">VS</button>
           <button data-a="claude" title="Claude con todas las partes del proyecto">✦</button><button data-a="terminal" title="Terminal en la carpeta de código">&gt;_</button>
           ${web ? `<button data-a="web" title="${esc(web.nombre)}: ${esc(web.url)}">🌐 ${esc(web.url.replace(/^https?:\/\//, ''))}</button>` : ''}</span></div>
-      <nav class="otabs">${TABS.map(([k, t]) => { const n = k === 'pendientes' ? (f.pendientes || []).filter(x => !x.hecho).length : 0;
-        return `<button data-t="${k}" class="${O.adm.tab === k ? 'on' : ''}">${t}${n ? ` <b class="ocnt">${n}</b>` : ''}</button>`; }).join('')}</nav>
+      <nav class="otabs">${TABS.map(([k, i, t]) => { const n = k === 'pendientes' ? (f.pendientes || []).filter(x => !x.hecho).length : 0;
+        return `<button data-t="${k}" class="${O.adm.tab === k ? 'on' : ''}" title="${t}">${i} <span>${t}</span>${n ? ` <b class="ocnt">${n}</b>` : ''}</button>`; }).join('')}</nav>
       <div class="oadmbody" id="aB"></div>`;
     root.querySelector('#aT').onclick = adminSalir;
+    root.querySelector('#aG')?.addEventListener('click', () => abrirGit(f));
     root.querySelector('#aE').onchange = e => guardar(f.id, { estado: e.target.value });
     root.querySelector('#aA').onclick = e => { const r = e.currentTarget.getBoundingClientRect(); guardar(f.id, { avance: Math.round((e.clientX - r.left) / r.width * 20) * 5 }); };
     root.querySelectorAll('.oadmbar .oact button').forEach(b => b.onclick = () => accion(b.dataset.a, f, b));
     root.querySelectorAll('.otabs button').forEach(b => b.onclick = () => { O.adm.tab = b.dataset.t; guardarVista(); admin(); });
     const archivos = O.adm.vista === 'contenedor' ? adminArchivos : adminPizarra;
-    ({ archivos, ficha: adminFicha, pendientes: adminPendientes, git: adminGit, estado: adminEstado, historial: adminHistorial }[O.adm.tab] || adminLuego)(f, root.querySelector('#aB'));
+    if (!TABS.some(([k]) => k === O.adm.tab)) O.adm.tab = 'archivos';
+    ({ archivos, pendientes: adminPendientes, proyecto: adminProyecto }[O.adm.tab])(f, root.querySelector('#aB'));
+    // en Archivos, una sola fila: las pestañas suben a la barra de Contenedor/Flujo/Red (se pinta antes de su primer await)
+    const barra = O.adm.tab === 'archivos' && root.querySelector('#aB .obarra');
+    if (barra) { const nav = root.querySelector('nav.otabs'); barra.prepend(nav, Object.assign(document.createElement('span'), { className: 'osepv' })); }
   }
 
   // Archivos: árbol unido por partes (carpetas que se abren al pulsar) + visor de DeskLens a la derecha
@@ -1544,6 +1553,8 @@
     B.querySelector('.oslot').append($('#panes'));
     document.body.classList.add('orgadm');
     B.querySelector('.oadm').style.setProperty('--arbolW', O.adm.arbolW + 'px');
+    B.querySelector('.oadm').classList.toggle('sinarbol', !!O.adm.sinArbol);
+    if (typeof renderTabs === 'function') renderTabs(); // el ▯ de las pestañas pasa a hablar del árbol del proyecto
     B.querySelector('.ores').onpointerdown = e => { // ancho del árbol: arrastrando el borde (se recuerda)
       const box = B.querySelector('.oadm'), x0 = e.clientX, w0 = box.querySelector('.oarbol').offsetWidth;
       const mv = ev => box.style.setProperty('--arbolW', Math.max(220, Math.min(700, w0 + ev.clientX - x0)) + 'px');
@@ -1566,8 +1577,15 @@
   }
   const guardarVista = () => O.adm && LS('desklens.org.vista.' + O.adm.id, JSON.stringify({ tab: O.adm.tab, q: O.adm.q, arbolW: O.adm.arbolW,
     scroll: O.adm.scroll, ultimo: O.adm.ultimo, abiertas: [...O.adm.abiertas], vista: O.adm.vista, cmp: O.adm.cmp, cam: O.adm.cam, mini: O.adm.mini,
-    notaAbierta: O.adm.notaAbierta, info: O.adm.info, exp: O.adm.exp, filtro: O.adm.filtro }));
+    notaAbierta: O.adm.notaAbierta, info: O.adm.info, exp: O.adm.exp, filtro: O.adm.filtro, secc: O.adm.secc, sinArbol: O.adm.sinArbol }));
   const guardarAbiertas = guardarVista;
+  // ▯ de las pestañas (y Ctrl+B) dentro de un proyecto, en el Contenedor: oculta o muestra el árbol del proyecto en vez de
+  // la barra lateral de DeskLens (que aquí no se ve). Se recuerda por proyecto.
+  window.orgPanelIzq = {
+    activo: () => !!(O.adm && O.pantalla === 'proyecto' && O.adm.tab === 'archivos' && O.adm.vista === 'contenedor' && root.querySelector('.oadm')),
+    oculto: () => !!O.adm?.sinArbol,
+    alternar() { O.adm.sinArbol = !O.adm.sinArbol; guardarVista(); root.querySelector('.oadm')?.classList.toggle('sinarbol', O.adm.sinArbol); },
+  };
   // Renombrar en DeskLens (F2 del árbol o Ctrl+F2 de la pestaña) o en el Explorador de Windows: el árbol del proyecto
   // vuelve a leer lo que tiene desplegado, con los nombres nuevos, sin plegar nada ni perder el desplazamiento.
   // Si lo renombrado es (o contiene) una carpeta del proyecto, se recargan las fichas: su ancla dice dónde está ahora.
@@ -1826,33 +1844,45 @@
     if (O.adm.focoPend) { O.adm.focoPend = false; nuevo.focus(); }
     else if (O.adm.pendSel) { B.querySelector(`.opcard[data-id="${CSS.escape(O.adm.pendSel)}"]`)?.focus(); O.adm.pendSel = ''; }
   }
-  // Ficha: el mismo formulario que la ventana «Ficha», aquí en su pestaña
-  function adminFicha(f, B) {
-    B.innerHTML = `<div class="opage">${fichaCampos(f)}<div class="ofoot"><button class="obtn" id="fJer">🧩 Editar jerarquía…</button><span class="sp"></span><span class="osmall" id="fM"></span><button class="obtn primary" id="fOk">Guardar</button></div></div>`;
-    B.querySelector('#fA').oninput = e => B.querySelector('#fAv').textContent = e.target.value + '%';
-    B.oninput = () => B.querySelector('#fM').textContent = 'Cambios sin guardar';
-    B.querySelector('#fJer').onclick = () => editarFicha(f);
-    B.querySelector('#fOk').onclick = async () => { if (await guardar(f.id, fichaDatos(B))) flash('✓ Ficha guardada'); };
+  // ⓘ Proyecto (aprobado 2026-11-22): lo que eran las pestañas Ficha, Estado e Historial, en una página con secciones
+  // plegables. Cada proyecto recuerda cuáles tiene abiertas; una sección plegada no se carga hasta que se abre.
+  function adminProyecto(f, B) {
+    const ab = O.adm.secc;
+    const sec = (k, t) => `<details class="osecc" data-s="${k}" ${ab[k] ? 'open' : ''}><summary>${t}</summary><div class="oseccb"></div></details>`;
+    B.innerHTML = `<div class="opage oproy">${sec('datos', 'Datos')}${sec('partes', 'Partes y carpetas')}${sec('historial', 'Historial de la estructura')}</div>`;
+    const pinta = {
+      datos: el => {
+        el.innerHTML = `${fichaCampos(f, true)}<div class="ofoot"><span class="sp"></span><span class="osmall" data-m></span><button class="obtn primary" data-ok>Guardar</button></div>`;
+        el.oninput = () => el.querySelector('[data-m]').textContent = 'Cambios sin guardar';
+        el.querySelector('[data-ok]').onclick = async () => { if (await guardar(f.id, fichaDatos(el))) flash('✓ Datos guardados'); };
+      },
+      partes: el => adminEstado(f, el),
+      historial: el => adminHistorial(f, el),
+    };
+    B.querySelectorAll('details.osecc').forEach(d => {
+      const k = d.dataset.s, el = d.querySelector('.oseccb');
+      if (d.open) pinta[k](el);
+      d.ontoggle = () => { ab[k] = d.open; guardarVista(); if (d.open && !el.childElementCount) pinta[k](el); };
+    });
   }
-  // Git: el de la carpeta de código, en la vista Git de DeskLens (que trabaja con sus proyectos)
-  function adminGit(f, B) {
-    const c = codigoDe(f), g = c && O.git[c.ruta], esProyecto = c && side?.proyectos?.some(p => p.ruta.toLowerCase() === c.ruta.toLowerCase());
-    B.innerHTML = `<div class="opage">${!c ? '<p>Este proyecto no tiene una parte 💻 Código disponible.</p>' : !c.git
-      ? `<p>La carpeta de código <code>${esc(c.ruta)}</code> no usa git.</p><p class="ohint">Para empezar a usarlo: añádela a DeskLens y en la vista Git sale el asistente «Empezar a usar git aquí».</p>`
-      : `<p>⎇ <b>${esc(g?.rama || '…')}</b> ${g ? `· ${g.cambios ? g.cambios + ' cambio(s) sin commit' : 'sin cambios'}${g.remota ? ` · ↔ ${esc(g.remota)}` : ' · sin servidor'}${g.adelante ? ` · ↑${g.adelante} por subir` : ''}${g.atras ? ` · ↓${g.atras} por traer` : ''}` : ''}</p><p class="osmall">${esc(c.ruta)}</p>`}
-      ${c ? `<p style="margin-top:14px">${esProyecto ? '<button class="obtn primary" id="gA">Abrir en la vista Git de DeskLens</button>' : '<button class="obtn primary" id="gP">Añadir la carpeta de código a DeskLens y abrir Git</button><br><small>La vista Git trabaja con los proyectos de la barra lateral; añadirla también la indexa.</small>'}</p>` : ''}</div>`;
+  // ⎇ de la cabecera: la carpeta de código en la vista Git de DeskLens (que trabaja con los proyectos de la barra lateral).
+  // Si aún no está en la barra, se pregunta antes de añadirla; sin git, la vista Git ofrece «Empezar a usar git aquí».
+  async function abrirGit(f) {
+    const c = codigoDe(f); if (!c) return;
     const ir = () => { LS('desklens.git.repo', c.ruta); adminSalir(); cerrar(); sideView('g', true); };
-    B.querySelector('#gA')?.addEventListener('click', ir);
-    B.querySelector('#gP')?.addEventListener('click', async () => { try { await api('/api/agregar', { tipo: 'proyectos', rutas: [c.ruta] }); await loadSide(); ir(); } catch (e) { err(e); } });
+    if (side?.proyectos?.some(p => p.ruta.toLowerCase() === c.ruta.toLowerCase())) return ir();
+    if (await ask('Abrir en Git', `La vista Git trabaja con los proyectos de la barra lateral. Se añade «${c.ruta}» a DeskLens (también se indexa) y se abre en Git.`, ['Añadir y abrir', 'Cancelar']) !== 'Añadir y abrir') return;
+    try { await api('/api/agregar', { tipo: 'proyectos', rutas: [c.ruta] }); await loadSide(); ir(); } catch (e) { err(e); }
   }
-  // Estado (M3): de cada carpeta, si tiene git, si tiene copia y cuánto ocupa. Solo informa: no copia nada.
+  // Partes y carpetas (antes «Estado», M3): de cada carpeta, si tiene git, si tiene copia y cuánto ocupa. Solo informa.
   async function adminEstado(f, B) {
     const filas = f.partes.flatMap(p => p.carpetas.map(c => ({ ...c, tipo: p.tipo, parte: p.nombre })));
     const hayResp = f.partes.some(p => p.tipo === 'respaldos' && p.carpetas.some(c => c.estado === 'ok' || c.estado === 'movida'));
-    B.innerHTML = `<div class="opage"><table class="olist"><thead><tr><th>Parte</th><th>Carpeta</th><th>Git</th><th>Copia</th><th>Tamaño</th></tr></thead><tbody>${filas.map((c, i) => `<tr>
+    B.innerHTML = `<div><table class="olist"><thead><tr><th>Parte</th><th>Carpeta</th><th>Git</th><th>Copia</th><th>Tamaño</th></tr></thead><tbody>${filas.map((c, i) => `<tr>
       <td>${icoT(c.tipo)} ${esc(c.parte)}</td><td><span title="${esc(c.ruta)}">${icoC(c, c.tipo)} ${esc(c.nombre)}</span><br><small>${esc(c.ruta)}</small></td>
       <td data-g="${i}">${c.git ? '⎇ …' : '—'}</td><td data-c="${i}">…</td><td data-t="${i}">${c.estado === 'ok' || c.estado === 'movida' ? '…' : '—'}</td></tr>`).join('')}</tbody></table>
-      <p id="eR" class="ohint"></p><p class="ohint">Historial de versiones: cuota ${f.historial?.dias ?? 7} días · ${f.historial?.mb ?? 200} MB (se empieza a usar con la Fase 1b). Solo informa: no copia nada.</p></div>`;
+      <div class="ofoot"><span class="ohint" data-r></span><span class="sp"></span><button class="obtn" data-jer>🧩 Editar jerarquía…</button></div></div>`;
+    B.querySelector('[data-jer]').onclick = () => editarFicha(f);
     const gits = filas.filter(c => c.git).map(c => c.ruta);
     let gs = {};
     if (gits.length) try { (await api('/api/git/resumen?rutas=' + encodeURIComponent(gits.join('|')))).forEach(g => gs[g.ruta] = g); } catch {}
@@ -1873,14 +1903,11 @@
       else { copia = '<span class="owarn">⚠ sin copia</span>'; sinCopia++; }
       td('c').innerHTML = copia;
     });
-    B.querySelector('#eR').textContent = `Resumen: ${sinCopia ? `${sinCopia} ⚠ sin copia` : '✓ todo con copia'} · ${sinGit ? `${sinGit} sin git` : 'git en orden'} · ${f.avisos ? `${f.avisos} carpeta(s) no disponibles` : 'todas las carpetas en su sitio'}`;
+    B.querySelector('[data-r]').textContent = `Resumen: ${sinCopia ? `${sinCopia} ⚠ sin copia` : '✓ todo con copia'} · ${sinGit ? `${sinGit} sin git` : 'git en orden'} · ${f.avisos ? `${f.avisos} carpeta(s) no disponibles` : 'todas las carpetas en su sitio'}`;
     filas.forEach(async (c, i) => { // tamaño de cada carpeta (como mucho 1,5 s cada una: «más de…» si no terminó)
       if (c.estado !== 'ok' && c.estado !== 'movida') return;
       try { const s = await api('/api/carpeta/tam?seg=1.5&ruta=' + encodeURIComponent(c.ruta)); const td = B.querySelector(`[data-t="${i}"]`); if (td) td.textContent = (s.parcial ? 'más de ' : '') + fmtSize(s.tam); } catch {}
     });
-  }
-  function adminLuego(f, B) {
-    B.innerHTML = `<div class="opage"><p class="ohint">${O.adm.tab === 'historial' ? 'El historial de la estructura (comparar con versiones anteriores en las 3 vistas) llega en la Fase 1b.' : 'Las notas ancladas (a carpetas, archivos, páginas y párrafos) llegan en la Fase 2.'}</p></div>`;
   }
 
   // ===================== Fase 1b: Flujo y Red en pizarra, notas en nodos, historial y comparativo =====================
@@ -2012,7 +2039,7 @@
   async function guardarVersionNombre(f) {
     const n = await ask('Guardar versión', 'Nombre de la versión (p. ej. «v3 · antes de reorganizar material»):', ['Guardar', 'Cancelar'], { input: '' });
     if (!n?.trim()) return;
-    try { await api('/api/org/version/nombre', { id: f.id, nombre: n.trim() }); flash(`🏷 Versión «${n.trim()}» guardada`); if (O.adm?.tab === 'historial') admin(); } catch (e) { err(e); }
+    try { await api('/api/org/version/nombre', { id: f.id, nombre: n.trim() }); flash(`🏷 Versión «${n.trim()}» guardada`); if (O.adm?.tab === 'proyecto') admin(); } catch (e) { err(e); }
   }
 
   // ---------- ⇆ Comparar la estructura: una ventana como la comparación de git ----------
@@ -3100,15 +3127,15 @@
     });
   }
 
-  // ---------- pestaña Historial: versiones de la estructura y commits del código ----------
+  // ---------- ⓘ Proyecto › Historial de la estructura: versiones de la estructura y commits del código ----------
   async function adminHistorial(f, B) {
-    B.innerHTML = '<div class="opage"><p class="ohint">Cargando…</p></div>';
-    let r; try { r = await api('/api/org/versiones?id=' + encodeURIComponent(f.id)); } catch (e) { B.innerHTML = `<div class="opage"><p class="owarn">⚠ ${esc(e.message)}</p></div>`; return; }
+    B.innerHTML = '<p class="ohint">Cargando…</p>';
+    let r; try { r = await api('/api/org/versiones?id=' + encodeURIComponent(f.id)); } catch (e) { B.innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p>`; return; }
     const fecha = s => s.replace('T', ' ').slice(0, 16);
     const lineas = [...r.versiones.map(v => ({ fecha: v.fecha, html: `${v.auto ? '·' : '🏷'} <b>${v.auto ? 'Automática' : esc(v.nombre)}</b><small>${esc(v.resumen)}</small>`, v: v.v })),
       ...r.commits.map(c => ({ fecha: c.fecha, html: `⎇ <b>${esc(c.corto)}</b> ${esc(c.titulo)}<small>commit del código${c.v ? '' : ' · sin estructura guardada antes'}</small>`, v: c.v }))]
       .sort((a, b) => b.fecha.localeCompare(a.fecha));
-    B.innerHTML = `<div class="opage"><div class="ofoot" style="margin:0 0 12px"><b>Historial de la estructura</b><span class="sp"></span><button class="obtn primary" id="hG">🏷 Guardar versión</button></div>
+    B.innerHTML = `<div><div class="ofoot" style="margin:0 0 12px"><span class="sp"></span><button class="obtn primary" id="hG">🏷 Guardar versión</button></div>
       <p class="ohint">Partes, carpetas, iconos, conectores, cajas, posiciones y notas. Se guarda siempre (no tiene cuota ni se borra). Restaurar crea un punto nuevo: lo de ahora no se pierde.</p>
       <table class="olist"><tbody>${lineas.map((l, i) => `<tr><td style="white-space:nowrap">${fecha(l.fecha)}</td><td>${l.html}</td><td style="white-space:nowrap">${l.v ? `<button class="obtn" data-c="${l.v}">⇆ Comparar</button> <button class="obtn" data-r="${l.v}">↶ Restaurar…</button>` : ''}</td></tr>`).join('')
         || '<tr><td>Todavía no hay versiones: se crean solas con cada cambio.</td></tr>'}</tbody></table>

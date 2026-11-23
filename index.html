@@ -6807,9 +6807,9 @@ function renderTabs() {
   T.append(plus);
   // conmutadores de paneles en los extremos, siempre visibles (como en VS Code / Obsidian)
   // con la vista dividida: barra lateral a la izquierda del primer lado; dividir/juntar e IA a la derecha del último
-  const side = document.body.classList.contains('noside'), ia = document.body.classList.contains('ia');
+  const side = window.orgPanelIzq?.activo() ? window.orgPanelIzq.oculto() : document.body.classList.contains('noside'), ia = document.body.classList.contains('ia');
   const first = active === 0, last = active === panes.length - 1;
-  if (first) T.prepend(iconBtn('panelLeft', (side ? 'Mostrar' : 'Ocultar') + ' barra lateral (Ctrl+B)', toggleSide));
+  if (first) T.prepend(iconBtn('panelLeft', (side ? 'Mostrar' : 'Ocultar') + (window.orgPanelIzq?.activo() ? ' el árbol del proyecto' : ' barra lateral') + ' (Ctrl+B)', toggleSide));
   T.append(Object.assign(document.createElement('span'), { style: 'flex:1' }));
   if (last) T.append(iconBtn(panes[1] ? 'unsplit' : 'split', panes[1] ? 'Juntar en un solo lado (Ctrl+\\)' : 'Dividir: dos pestañas lado a lado (Ctrl+\\)',
     () => setSplit(!panes[1])), iconBtn('panelRight', (ia ? 'Ocultar' : 'Mostrar') + ' panel de IA (Ctrl+J)', () => setIA(!ia)));
@@ -10243,6 +10243,7 @@ async function openDropped(dt) {
 // ---------- arranque ----------
 // cinta de iconos y herramientas de la barra lateral
 const toggleSide = () => {
+  if (window.orgPanelIzq?.activo()) { window.orgPanelIzq.alternar(); renderTabs(); editorCM?.refresh(); return; } // en un proyecto: su árbol, no la barra de DeskLens
   document.body.classList.toggle('noside');
   try { localStorage.setItem('desklens.noside', document.body.classList.contains('noside') ? '1' : ''); } catch {}
   renderTabs(); editorCM?.refresh();
