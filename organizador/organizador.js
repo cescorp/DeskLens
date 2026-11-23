@@ -74,8 +74,11 @@
   btn.dataset.v = 'o';
   ($('#ribbon [data-v=g]') || $('#ribbon .sp')).after(btn);
   // otra vista de la cinta (Explorador, Buscar, Git) sale del tablero antes de abrirse
-  $('#ribbon').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b !== btn && b.dataset.v && on()) cerrar(); }, true);
-  KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+B (en un proyecto, Contenedor)', 'Ocultar o mostrar el árbol del proyecto (también ▯ de las pestañas)'],['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
+  // 📁 🔍 ⎇ de la cinta con el tablero abierto: se cierra y se MUESTRA esa vista (sin esto, la barra que estaba detrás
+  // tomaba el clic como «otro clic en la vista que ya se ve» y se ocultaba)
+  $('#ribbon').addEventListener('click', e => { const b = e.target.closest('button'); if (!b || b === btn || !b.dataset.v || !on()) return;
+    e.stopImmediatePropagation(); e.preventDefault(); cerrar(); sideView(b.dataset.v, true); }, true);
+  KEYS.push(['Proyectos', [['Ctrl+Shift+O', 'Abrir o cerrar el tablero de proyectos'], ['Ctrl+B (en un proyecto, Contenedor)', 'Ocultar o mostrar el árbol del proyecto (también ▯ de las pestañas)'], ['Ctrl+J (en un proyecto, Contenedor)', 'Ocultar o mostrar ⓘ Información: el archivo que ves, sus commits y ⇆ Comparar (también ▯ derecho)'],['Ctrl+N (en el tablero)', '＋ Nuevo proyecto'],
     ['Enter (en la ruta de ＋ Nuevo proyecto)', 'Añadir la ruta escrita o pegada'], ['Ctrl+O (en ＋ Nuevo proyecto)', '📁 Examinar'],
     ['Supr (en la lista de ＋ Nuevo proyecto)', 'Quitar la fila elegida'], ['Ctrl+Enter (en ＋ Nuevo proyecto)', 'Crear y abrir (o Añadir al proyecto)'],
     ['Ctrl+Enter (en ☑ Pendientes)', 'Añadir el pendiente escrito, o guardar el que cambias'], ['Espacio · Enter · Supr (en un pendiente)', 'Hecho / pendiente · cambiar el texto · borrar'],
@@ -116,6 +119,7 @@
     await cargar();
     const f = d.proyecto && O.pantalla === 'tablero' && O.st?.fichas.find(x => x.id === d.proyecto);
     if (f) adminAbrir(f); // el proyecto donde estabas, con su pestaña y su vista
+    else if (O.pantalla === 'proyecto' && O.adm) O.tabsListo = entrarTabs(O.adm.id); // se cerró dentro de un proyecto: vuelven sus pestañas
     guardarDonde();
   }
   function cerrar() { O.tabsListo = salirTabs(); devolverPanes(); document.body.classList.remove('orgfull'); pararPoll(); guardarDonde(); }
@@ -1547,13 +1551,15 @@
         <div class="oaq"><input type="search" id="aQ" placeholder="Buscar en el proyecto…" value="${esc(O.adm.q)}"></div>
         <div id="aTree" class="otree"></div>
         <button class="obtn" id="aJ">🧩 Editar jerarquía</button></div>
-      <div class="ores" title="Arrastra para cambiar el ancho"></div><div class="oslot"></div><div class="oinfo oflota" id="pI" hidden></div></div>`;
+      <div class="ores" title="Arrastra para cambiar el ancho"></div><div class="oslot"></div><div class="oinfo" id="pI" hidden></div></div>`;
     // el visor de DeskLens se presta a esta vista (mismas pestañas, editor, PDF, Word…)
     if (!panesHome) { const p = $('#panes'); panesHome = { parent: p.parentNode, next: p.nextSibling }; }
     B.querySelector('.oslot').append($('#panes'));
     document.body.classList.add('orgadm');
     B.querySelector('.oadm').style.setProperty('--arbolW', O.adm.arbolW + 'px');
     B.querySelector('.oadm').classList.toggle('sinarbol', !!O.adm.sinArbol);
+    O.adm.tabVista = undefined; // ⓘ: la pestaña que se ve se vuelve a mirar
+    if (O.adm.info.abierto) infoMostrar(f, B.querySelector('#pI'), selPanelDer(f));
     if (typeof renderTabs === 'function') renderTabs(); // el ▯ de las pestañas pasa a hablar del árbol del proyecto
     B.querySelector('.ores').onpointerdown = e => { // ancho del árbol: arrastrando el borde (se recuerda)
       const box = B.querySelector('.oadm'), x0 = e.clientX, w0 = box.querySelector('.oarbol').offsetWidth;
@@ -1564,6 +1570,11 @@
     B.querySelector('#aJ').onclick = () => { devolverPanes(); editarFicha(f); };
     cablearBarra(f, B);
     const T = B.querySelector('#aTree');
+    T.addEventListener('click', e => { // con ⓘ abierto: clic en una carpeta del árbol = su información
+      const n = e.target.closest('.onodo'), pI = B.querySelector('#pI');
+      if (pI.hidden || !n?.dataset.dir || !n.dataset.ruta || n.classList.contains('gris') || n.classList.contains('oremota')) return;
+      infoMostrar(f, pI, { tipo: 'carpeta', ruta: n.dataset.ruta });
+    });
     T.dataset.menuPropio = '1'; // el árbol del proyecto tiene su propio menú (clic derecho)
     const q = B.querySelector('#aQ');
     let tq;
@@ -1582,9 +1593,27 @@
   // ▯ de las pestañas (y Ctrl+B) dentro de un proyecto, en el Contenedor: oculta o muestra el árbol del proyecto en vez de
   // la barra lateral de DeskLens (que aquí no se ve). Se recuerda por proyecto.
   window.orgPanelIzq = {
-    activo: () => !!(O.adm && O.pantalla === 'proyecto' && O.adm.tab === 'archivos' && O.adm.vista === 'contenedor' && root.querySelector('.oadm')),
+    activo: () => !!(window.orgEnProyecto() && O.adm && O.adm.tab === 'archivos' && O.adm.vista === 'contenedor' && root.querySelector('.oadm')),
     oculto: () => !!O.adm?.sinArbol,
     alternar() { O.adm.sinArbol = !O.adm.sinArbol; guardarVista(); root.querySelector('.oadm')?.classList.toggle('sinarbol', O.adm.sinArbol); },
+  };
+  // ▯ derecho (y Ctrl+J) dentro de un proyecto, en el Contenedor: ⓘ Información como tercera columna (el panel de IA no
+  // va aquí). Muestra el archivo de la pestaña que se ve (y la sigue), la carpeta que pulsas en el árbol o, sin nada
+  // abierto, el resumen del proyecto. Abierto o cerrado y su ancho se recuerdan por proyecto.
+  const fichaAdm = () => O.st?.fichas.find(x => x.id === O.adm?.id);
+  const tabDelProyecto = r => r && !isVirtual(r) && fichaAdm() && vivas(fichaAdm()).some(c => bajo(r, c.ruta)) ? r : '';
+  const selPanelDer = () => { const r = tabDelProyecto(cur); return r ? { tipo: 'archivo', ruta: r } : O.adm.info.sel?.tipo === 'carpeta' ? O.adm.info.sel : { tipo: 'proyecto' }; };
+  window.orgPanelDer = {
+    activo: () => window.orgPanelIzq.activo(),
+    abierto: () => !!O.adm?.info.abierto,
+    alternar() { const pI = root.querySelector('.oadm #pI'), f = fichaAdm(); if (!pI || !f) return; pI.hidden ? infoMostrar(f, pI, selPanelDer()) : infoAlternar(f, pI, null, false); },
+  };
+  window.orgTabActiva = r => {
+    if (!O.adm || r === O.adm.tabVista) return; // solo cuando cambia la pestaña (renderTabs se llama por más cosas)
+    O.adm.tabVista = r;
+    const pI = root.querySelector('.oadm #pI'), f = fichaAdm();
+    if (!pI || pI.hidden || !f || !window.orgPanelDer.activo() || !tabDelProyecto(r) || O.adm.info.sel?.ruta === r) return;
+    infoMostrar(f, pI, { tipo: 'archivo', ruta: r });
   };
   // Renombrar en DeskLens (F2 del árbol o Ctrl+F2 de la pestaña) o en el Explorador de Windows: el árbol del proyecto
   // vuelve a leer lo que tiene desplegado, con los nombres nuevos, sin plegar nada ni perder el desplazamiento.
@@ -2667,13 +2696,16 @@
     if (abrir) return O.adm.info.pest === 'exp' && cyActual && O.adm.vista !== 'contenedor' ? explorarEnPanel(f, panel) : infoMostrar(f, panel, O.adm.info.sel || { tipo: 'proyecto' });
     infoTok++; panel.hidden = true; O.adm.info.abierto = false; guardarVista();
     document.querySelector('#pI1')?.classList.remove('primary');
+    tituloPanelDer();
   }
+  const tituloPanelDer = () => { if (O.adm?.vista === 'contenedor' && typeof renderTabs === 'function') queueMicrotask(renderTabs); }; // el ▯ derecho: «Mostrar» u «Ocultar»
   let infoTok = 0;
   // el armazón del panel derecho: en Red y Flujo, con pestañas ⓘ Info · 🗂 Explorador
   function armarPanel(f, panel, pest) {
     const conPest = !!cyActual && O.adm.vista !== 'contenedor' && !cyActual.destroyed();
     O.adm.info.pest = conPest ? pest : 'info'; O.adm.info.abierto = true; guardarVista();
     document.querySelector('#pI1')?.classList.add('primary');
+    if (panel.hidden) tituloPanelDer();
     panel.hidden = false; panel.style.width = O.adm.info.ancho + 'px';
     const tabs = conPest ? `<span class="oitabs"><button data-pt="info" class="${pest === 'info' ? 'on' : ''}">ⓘ Info</button><button data-pt="exp" class="${pest === 'exp' ? 'on' : ''}" title="Las carpetas del proyecto como explorador; doble clic en el dibujo lo enfoca aquí">🗂 Explorador</button></span>` : '';
     panel.innerHTML = `<div class="oires" title="Arrastra para cambiar el ancho"></div><header>${tabs}<b class="oitit">${conPest ? '' : 'ⓘ Información'}</b><button class="ic" title="Cerrar (Esc)">✕</button></header><div class="oicuerpo" tabindex="-1"><p class="ohint">Cargando…</p></div>`;
@@ -2838,8 +2870,12 @@
       ['Tamaño', `<b>${fmtSize(m.tam)}</b>${ext ? ` · ${esc(ext.slice(1).toUpperCase())}` : ''}${txt ? ` · ${esc(m.codificacion)} · ${esc(m.eol)} · ${(m.lineas || 0).toLocaleString()} líneas` : ''}`],
       ['Modificado', fFecha(m.modificado)], ['Creado', fFecha(m.creado)], ['Atributos', esc((m.atributos || []).join(', '))], ['Git', gt ? `● ${gt}` : ''],
       ...Object.entries(m.doc || {}).filter(([, v]) => v != null && v !== '').slice(0, 6).map(([k, v]) => [k, esc(String(v))]),
-    ]) + `<div class="oicab"><b>Vista previa</b></div><div class="oiprev">${img ? `<img src="${esc(raw(ruta))}" alt="">` : txt ? '<p class="ohint">Cargando…</p>' : '<p class="ohint">Sin vista previa aquí: ábrelo en una pestaña.</p>'}</div>`;
+    ]) + `<div class="oicab"><b>Commits</b><span class="sp"></span><button class="obtn" data-cmp title="Abrir el comparador de versiones de este archivo">⇆ Comparar…</button></div>
+      <div class="oicms"><p class="ohint">Buscando sus commits…</p></div>
+      <div class="oicab"><b>Vista previa</b></div><div class="oiprev">${img ? `<img src="${esc(raw(ruta))}" alt="">` : txt ? '<p class="ohint">Cargando…</p>' : '<p class="ohint">Sin vista previa aquí: ábrelo en una pestaña.</p>'}</div>`;
     accionesRuta(cuerpo, ruta);
+    cuerpo.querySelector('[data-cmp]').onclick = () => compareDialog(ruta);
+    commitsArchivo(ruta, cuerpo.querySelector('.oicms'), vivo);
     if (!txt || img) return;
     const a = await api('/api/abrir?ruta=' + encodeURIComponent(ruta));
     if (!vivo()) return;
@@ -2847,6 +2883,25 @@
     cuerpo.querySelector('.oiprev').innerHTML = `<pre>${esc(lineas.slice(0, 200).join('\n'))}</pre>${lineas.length > 200 ? `<p class="ohint">… ${lineas.length - 200} líneas más: ábrelo en una pestaña.</p>` : ''}`;
   }
 
+  // Commits que tocaron el archivo, una línea cada uno (el mensaje completo al pasar el ratón). Clic: el comparador con
+  // ese commit a la izquierda y el disco a la derecha (luego se cambia cualquiera de las dos en el propio comparador).
+  async function commitsArchivo(ruta, box, vivo) {
+    let log;
+    try { log = await api('/api/git/log?ruta=' + encodeURIComponent(ruta)); } catch (e) { if (vivo()) box.innerHTML = `<p class="owarn">⚠ ${esc(e.message)}</p>`; return; }
+    if (!vivo()) return;
+    if (!log.repositorio) { box.innerHTML = '<p class="ohint">No está en un repositorio git.</p>'; box.previousElementSibling.querySelector('[data-cmp]')?.remove(); return; }
+    const cs = log.commits || [];
+    if (!cs.length) { box.innerHTML = '<p class="ohint">Todavía sin commits.</p>'; box.previousElementSibling.querySelector('[data-cmp]')?.remove(); return; }
+    const N = 25, pinta = todos => {
+      box.innerHTML = (todos ? cs : cs.slice(0, N)).map((c, i) => `<button class="oicm" data-i="${i}" title="${esc(`${c.corto} · ${c.autor} · ${c.fecha}\n\n${c.mensaje}\n\nClic: comparar con el disco`)}">
+        <code>${esc(c.corto)}</code><span class="oicmm">${esc(c.mensaje.split('\n')[0])}</span><small>${esc(fmtWhen(c.ts))}</small></button>`).join('')
+        + (!todos && cs.length > N ? `<button class="obtn" data-mas>… ${cs.length - N} más</button>` : '');
+      box.querySelector('[data-mas]')?.addEventListener('click', () => pinta(true));
+      box.querySelectorAll('.oicm').forEach(b => b.onclick = () => { const c = cs[+b.dataset.i];
+        compareDialog(ruta, { cols: 2, picks: [{ id: c.hash, label: `${msgParts(c.mensaje)[0]} · ${fmtWhen(c.ts)}`, title: c.mensaje }, { id: 'disco', label: '💾 Disco (actual)', title: '' }] }); });
+    };
+    pinta(false);
+  }
   function infoRemota(f, sel, cuerpo, titulo) {
     const c = f.partes.flatMap(p => p.carpetas).find(x => x.ancla === sel.ancla);
     if (!c) { cuerpo.innerHTML = '<p class="ohint">Esa etapa ya no está en el proyecto.</p>'; return; }

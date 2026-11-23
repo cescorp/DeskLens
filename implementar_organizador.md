@@ -835,6 +835,11 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ ▯ derecho = ⓘ Información en el Contenedor, con los commits del archivo (ok y hecho 2026-11-22)
+- Dentro de un proyecto el panel de IA no va: ▯ derecho y Ctrl+J abren/cierran ⓘ como tercera columna (ancho arrastrable; abierto y ancho por proyecto).
+- Muestra el archivo de la pestaña que se ve (lo sigue), la carpeta pulsada en el árbol o, sin nada abierto, el resumen del proyecto.
+- Commits del archivo, una línea cada uno (mensaje completo al pasar el ratón); clic → comparador con ese commit frente al disco; ⇆ Comparar… → el comparador con todas las versiones.
+
 ### ✅ Vista del proyecto con 3 pestañas en una fila (ok y hecho 2026-11-22)
 - Pestañas: 📁 Archivos · ☑ Pendientes · 📋 Proyecto (antes 7). En Archivos van en la misma fila que Contenedor/Flujo/Red y 🏷/⇆: se quita la doble barra.
 - 📋 Proyecto junta Ficha, Estado e Historial en secciones plegables (Datos · Partes y carpetas · Historial de la estructura); cada proyecto recuerda cuáles están abiertas. Datos ya no repite estado ni avance (están en la cabecera).

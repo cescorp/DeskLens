@@ -6742,6 +6742,7 @@ addEventListener('keydown', e => {
 // reordenar, al chat o al otro lado, y los botones de barra lateral, dividir y panel de IA en los extremos.
 function renderTabs() {
   const T = $('#tabs'); T.innerHTML = '';
+  window.orgTabActiva?.(cur); // el ⓘ del proyecto sigue a la pestaña que se ve
   if (groupOrder()) persist();
   let lastG = null;
   for (const p of tabs) {
@@ -6809,10 +6810,12 @@ function renderTabs() {
   // con la vista dividida: barra lateral a la izquierda del primer lado; dividir/juntar e IA a la derecha del último
   const side = window.orgPanelIzq?.activo() ? window.orgPanelIzq.oculto() : document.body.classList.contains('noside'), ia = document.body.classList.contains('ia');
   const first = active === 0, last = active === panes.length - 1;
-  if (first) T.prepend(iconBtn('panelLeft', (side ? 'Mostrar' : 'Ocultar') + (window.orgPanelIzq?.activo() ? ' el árbol del proyecto' : ' barra lateral') + ' (Ctrl+B)', toggleSide));
+  if (first) T.prepend(iconBtn('panelLeft', (side ? 'Mostrar' : 'Ocultar') + (window.orgPanelIzq?.activo() ? ' el árbol del proyecto' : ' barra lateral') + ' (Ctrl+B)', togglePanelIzq));
   T.append(Object.assign(document.createElement('span'), { style: 'flex:1' }));
   if (last) T.append(iconBtn(panes[1] ? 'unsplit' : 'split', panes[1] ? 'Juntar en un solo lado (Ctrl+\\)' : 'Dividir: dos pestañas lado a lado (Ctrl+\\)',
-    () => setSplit(!panes[1])), iconBtn('panelRight', (ia ? 'Ocultar' : 'Mostrar') + ' panel de IA (Ctrl+J)', () => setIA(!ia)));
+    () => setSplit(!panes[1])), window.orgPanelDer?.activo() // en un proyecto (Contenedor): ⓘ Información; si no, el panel de IA
+      ? iconBtn('panelRight', (window.orgPanelDer.abierto() ? 'Ocultar' : 'Mostrar') + ' ⓘ Información (Ctrl+J)', togglePanelDer)
+      : iconBtn('panelRight', (ia ? 'Ocultar' : 'Mostrar') + ' panel de IA (Ctrl+J)', () => setIA(!ia)));
 }
 
 // Migas: "proyecto / carpeta / archivo" (o "carpeta / archivo" para sueltos)
@@ -10242,8 +10245,17 @@ async function openDropped(dt) {
 
 // ---------- arranque ----------
 // cinta de iconos y herramientas de la barra lateral
+// ▯ de las pestañas y Ctrl+B: dentro de un proyecto (Contenedor), su árbol; si no, la barra lateral. toggleSide sigue siendo
+// solo la barra lateral (la usan 📁 Explorador, 🔍 y ⎇ Git)
+const togglePanelDer = () => { // ▯ derecho y Ctrl+J: en un proyecto, ⓘ Información; si no, el panel de IA
+  if (!window.orgPanelDer?.activo()) return setIA(!document.body.classList.contains('ia'));
+  window.orgPanelDer.alternar(); renderTabs(); editorCM?.refresh();
+};
+const togglePanelIzq = () => {
+  if (!window.orgPanelIzq?.activo()) return toggleSide();
+  window.orgPanelIzq.alternar(); renderTabs(); editorCM?.refresh();
+};
 const toggleSide = () => {
-  if (window.orgPanelIzq?.activo()) { window.orgPanelIzq.alternar(); renderTabs(); editorCM?.refresh(); return; } // en un proyecto: su árbol, no la barra de DeskLens
   document.body.classList.toggle('noside');
   try { localStorage.setItem('desklens.noside', document.body.classList.contains('noside') ? '1' : ''); } catch {}
   renderTabs(); editorCM?.refresh();
@@ -10251,7 +10263,7 @@ const toggleSide = () => {
 addEventListener('keydown', e => { // Ctrl+B: barra lateral · Ctrl+Alt+B: panel de IA
   if (!e.ctrlKey || e.key.toLowerCase() !== 'b' || maxZone) return;
   e.preventDefault();
-  e.altKey ? setIA(!document.body.classList.contains('ia')) : toggleSide();
+  e.altKey ? setIA(!document.body.classList.contains('ia')) : togglePanelIzq();
 });
 // Ctrl+J: panel de IA (como el panel inferior de VS Code). Ctrl+G: ir a la línea. En captura: antes que el editor,
 // que las descargas del navegador (Ctrl+J) y que su «buscar siguiente» (Ctrl+G).
@@ -10260,7 +10272,7 @@ addEventListener('keydown', e => {
   if (!e.ctrlKey || e.altKey || e.shiftKey || (k !== 'j' && k !== 'g') || modalOpen()) return;
   e.preventDefault(); e.stopPropagation();
   if (k === 'g') return goToLine();
-  if (!maxZone) setIA(!document.body.classList.contains('ia'));
+  if (!maxZone) togglePanelDer();
 }, true);
 // Ir a la línea N: en el editor, con el cuadro de CodeMirror («línea» o «línea:columna»); en la vista de código
 // numerada, se pide el número y se desplaza hasta ella marcándola un momento. En otras vistas avisa.
