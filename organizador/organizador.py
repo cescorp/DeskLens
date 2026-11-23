@@ -777,7 +777,7 @@ def iniciar_recorrido(series, modo="anclas", buscar=()):
         return recorrido.estado()
     if modo == "anclas":
         if not buscar:
-            buscar = [x["id"] for x in alertas() if x["estado"] == "falta" and not x["id"].startswith("archivo:")]  # en la papelera o sin disco: no se busca
+            buscar = [x["id"] for x in alertas() if x["estado"] == "falta" and not x["id"].startswith(("archivo:", "ruta:"))]  # en la papelera, sin disco o sin ancla: no se busca
         orden = {}
         reg = registro()
         for i in buscar:  # primero el disco donde estaba cada ancla
@@ -920,7 +920,9 @@ def principal_de(f, ruta_de):
 def nombre_principal(f):
     """Nombre de la carpeta principal tal como está hoy en el disco ('' si no hay)."""
     reg = registro()
-    r = reg.get(principal_de(f, lambda a: reg.get(a, {}).get("ruta", "")), {}).get("ruta", "")
+    fijas = {c["ancla"]: _ruta_fija(c) for q in f.get("partes", []) for c in q.get("carpetas", []) if c.get("porruta")}
+    ruta = lambda a: reg.get(a, {}).get("ruta", "") or fijas.get(a, "")
+    r = ruta(principal_de(f, ruta))
     return Path(r).name if r else ""
 
 
@@ -982,7 +984,12 @@ def _limpiar(datos, previa=None):
     return f
 
 
-def _partes(partes, avisos):
+def _ruta_fija(c):
+    """La ruta de una entrada que no lleva ancla en el disco (acceso a archivo o carpeta 🔗 por ruta), o ''."""
+    return str((c.get("archivo") or c.get("porruta") or {}).get("ruta") or "")
+
+
+def _partes(partes, avisos, fallos=None):
     """Partes de la ficha: cada carpeta llega como {"ruta"} (se ancla) o {"ancla"} (ya anclada)."""
     out = []
     reg = registro()
@@ -1011,6 +1018,25 @@ def _partes(partes, avisos):
                 if not any(x["ancla"] == "archivo:" + rid for x in cs):
                     cs.append({"ancla": "archivo:" + rid, "archivo": {"ruta": str(Path(os.path.abspath(corta(ruta_a))))}, "activa": True})
                 continue
+            if c.get("porruta") or str(c.get("ancla", "")).startswith("ruta:"):  # 🔗 carpeta sin ancla: se sigue por su ruta
+                ruta_r = str((c.get("porruta") or {}).get("ruta") or c.get("ruta") or "").strip()
+                rid = str(c.get("ancla", ""))[5:] or uuid.uuid4().hex[:12]
+                if not re.fullmatch(r"[0-9a-f]{6,32}", rid) or not ruta_r:
+                    raise ValueError("Carpeta por ruta no válida: necesita la ruta")
+                ruta_r = str(Path(os.path.abspath(corta(ruta_r))))
+                if not str(c.get("ancla", "")).startswith("ruta:") and not larga(ruta_r).is_dir():
+                    (fallos if fallos is not None else avisos).append(f"No existe la carpeta: {ruta_r}")
+                    continue
+                item = {"ancla": "ruta:" + rid, "porruta": {"ruta": ruta_r}, "activa": bool(c.get("activa", True))}
+                if c.get("icono"):
+                    item["icono"] = str(c["icono"])[:8]
+                if c.get("indice") in INDICE:
+                    item["indice"] = c["indice"]
+                if tipo == "entornos":
+                    item["etapa"] = str(c.get("etapa") or etapa_sugerida(Path(ruta_r).name))[:30]
+                if not any(_ruta_fija(x).lower() == ruta_r.lower() for x in cs):
+                    cs.append(item)
+                continue
             if c.get("ancla"):
                 if c["ancla"] not in reg:
                     raise ValueError("Ancla desconocida")
@@ -1018,9 +1044,11 @@ def _partes(partes, avisos):
             else:
                 try:
                     i, av = poner_ancla(c["ruta"])
-                except (ValueError, OSError) as e:  # sin permiso, solo lectura, ya no está…: se salta y se avisa
-                    avisos.append(f"No se pudo anclar {c['ruta']}: {e}")
-                    actividad("ancla", f"No se pudo anclar: {e}", c["ruta"], "error")
+                except (ValueError, OSError) as e:  # sin permiso, solo lectura, ya no está…
+                    _, motivo = puede_anclar(c["ruta"]) if larga(c["ruta"]).is_dir() else (False, str(e))
+                    texto = f"No se pudo poner el ancla en {c['ruta']}: {motivo or e}"
+                    (fallos if fallos is not None else avisos).append(texto)
+                    actividad("ancla", texto, c["ruta"], "error")
                     continue
                 avisos.extend(av)
             item = {"ancla": i, "activa": bool(c.get("activa", True))}
@@ -1045,7 +1073,11 @@ def crear_ficha(datos):
         i, n = base, 2
         while _ficha_path(i).exists():
             i, n = f"{base}-{n}", n + 1
-        f = {"id": i, **f, "partes": _partes(datos.get("partes"), avisos)}
+        fallos = []
+        f = {"id": i, **f, "partes": _partes(datos.get("partes"), avisos, fallos)}
+        if fallos and datos.get("estricto"):  # ＋ Nuevo proyecto: no se crea a medias (ni vacío); la ventana sigue abierta con el motivo
+            raise ValueError("No se creó el proyecto. " + " · ".join(fallos) + ". Usa «Usar sin ancla» o elige otra carpeta.")
+        avisos.extend(fallos)  # el flujo de arranque (varias fichas): se salta y se avisa, como antes
         if datos.get("principal_ruta"):  # «＋ Nuevo proyecto»: la ★ llega como ruta (aún no tenía ancla)
             f["principal"] = _ancla_de_ruta(f, datos["principal_ruta"]) or f.get("principal", "")
         if "nombre_sigue" not in datos and not f.get("raiz_nombre") and f["nombre"] == nombre_principal(f):
@@ -1121,6 +1153,9 @@ def publicar_equipo():
     reg = registro()
     usadas = {c["ancla"] for f in fichas_crudas() for q in f.get("partes", []) for c in q.get("carpetas", []) if ID_RE.fullmatch(c.get("ancla", ""))}
     anclas = {i: {"ruta": reg[i]["ruta"], "visto": reg[i].get("visto", "")} for i in usadas if i in reg and leer_ancla(reg[i]["ruta"]) == i}
+    ahora = datetime.now().isoformat(timespec="seconds")
+    anclas |= {c["ancla"]: {"ruta": _ruta_fija(c), "visto": ahora} for f in fichas_crudas() for q in f.get("partes", []) for c in q.get("carpetas", [])
+               if c.get("porruta") and larga(_ruta_fija(c)).is_dir()}
     p = _equipo_archivo(equipo_nombre())
     escribir_json(p, {"equipo": equipo_nombre(), "visto": datetime.now().isoformat(timespec="seconds"), "anclas": anclas})
     return str(p)
@@ -1369,6 +1404,16 @@ def fichas(ubicar_anclas=True):
                     c.update(ruta=ra, estado="ok" if ok else "falta", nombre=Path(ra).name or "?", icono_propio=False, icono="📄",
                              proyectos=[f["id"]], git=False, eliminada="", acceso=True)
                     continue
+                if i.startswith("ruta:"):  # 🔗 carpeta sin ancla: está o no en su ruta
+                    rr = c["porruta"].get("ruta", "")
+                    ok = larga(rr).is_dir() if rr else False
+                    otro = None if ok else otros.get(i)
+                    c.update(ruta=otro["ruta"] if otro else rr, estado="ok" if ok else "otro_equipo" if otro else "falta",
+                             nombre=(PureWindowsPath(rr).name if "\\" in rr else Path(rr).name) or rr or "?", icono_propio="icono" in c,
+                             proyectos=sorted(usos.get(i, ())), git=ok and (larga(rr) / ".git").exists(), eliminada="", porruta=True,
+                             **({"equipo": otro["equipo"], "visto_equipo": otro.get("visto", "")} if otro else {}))
+                    c.setdefault("icono", icono_sugerido(c["nombre"], c["git"]))
+                    continue
                 if i not in estados:
                     estados[i] = ubicar(i, reg) if ubicar_anclas else ("ok", reg.get(i, {}).get("ruta", ""))
                 est, ruta = estados[i]
@@ -1403,10 +1448,11 @@ def rutas_indice():
     for f in fichas_crudas():
         for p in f.get("partes", []):
             for c in p.get("carpetas", []):
-                if p.get("tipo") in ("respaldos", "base_datos") or c["ancla"] not in reg or not c.get("activa", True):
+                fija = (c.get("porruta") or {}).get("ruta", "")
+                if p.get("tipo") in ("respaldos", "base_datos") or (c["ancla"] not in reg and not fija) or not c.get("activa", True):
                     continue
                 modo = c.get("indice") or a["indice"].get(p.get("tipo"), "nombres")
-                ruta = reg[c["ancla"]]["ruta"]
+                ruta = fija or reg[c["ancla"]]["ruta"]
                 if modo != "no" and not en_papelera(ruta) and peso[modo] > peso.get(out.get(ruta, "no"), 0):
                     out[ruta] = modo
     return sorted(out.items())
@@ -1427,7 +1473,7 @@ def rutas_permitidas():
         cs = [c for f in fichas_crudas() for p in f.get("partes", []) for c in p.get("carpetas", [])]
         ids = {c["ancla"] for c in cs}
         _permitidas.update(marca=marca, rutas=[Path(reg[i]["ruta"]).resolve() for i in ids if i in reg] + [DATA.resolve(), COMUN.resolve()]
-                           + [Path(c["archivo"]["ruta"]).resolve() for c in cs if c.get("archivo", {}).get("ruta")])
+                           + [Path(_ruta_fija(c)).resolve() for c in cs if _ruta_fija(c)])  # accesos a archivos y carpetas por ruta
     return _permitidas["rutas"]
 
 
@@ -1628,7 +1674,7 @@ def _ancla_de_ruta(f, ruta):
     reg, r = registro(), os.path.normcase(os.path.abspath(corta(ruta)))
     for p in f.get("partes", []):
         for c in p.get("carpetas", []):
-            if os.path.normcase(os.path.abspath(reg.get(c["ancla"], {}).get("ruta", "") or "?")) == r:
+            if os.path.normcase(os.path.abspath(reg.get(c["ancla"], {}).get("ruta", "") or _ruta_fija(c) or "?")) == r:
                 return c["ancla"]
     return ""
 
@@ -1652,10 +1698,108 @@ def _usos_por_ruta():
         nombres[f["id"]] = f.get("nombre", f["id"])
         for q in f.get("partes", []):
             for c in q.get("carpetas", []):
-                rc = reg.get(c["ancla"], {}).get("ruta") or (c.get("archivo") or {}).get("ruta")
+                rc = reg.get(c["ancla"], {}).get("ruta") or _ruta_fija(c)
                 if rc:
                     usos.setdefault(os.path.normcase(rc), set()).add(f["id"])
     return usos, nombres
+
+
+def puede_anclar(carpeta):
+    """(True, '') si se puede escribir el ancla en la carpeta; si no, (False, el motivo en llano). Prueba de verdad
+    (crea y borra un archivo temporal): la raíz de Google Drive, una carpeta de solo lectura o una unidad de red sin
+    permiso no dejan crear archivos aunque «se vean» normales."""
+    c = Path(os.path.abspath(corta(carpeta)))
+    L = larga(c)
+    if not L.is_dir():
+        return False, "No existe la carpeta"
+    if c == Path(c.anchor):
+        return False, "Es un disco entero: elige una carpeta dentro de él"
+    if leer_ancla(c):
+        return True, ""
+    t = L / f".desklens-prueba-{uuid.uuid4().hex[:8]}"
+    try:
+        t.write_text("x", encoding="utf-8")
+        t.unlink()
+        return True, ""
+    except OSError:
+        pass
+    try:
+        nombres = {x.lower() for x in os.listdir(L)}
+    except OSError:
+        nombres = set()
+    if nombres & {"mi unidad", "my drive", "otros ordenadores", "other computers"}:
+        return False, "Es la raíz de Google Drive: no deja crear archivos ahí"
+    if "onedrive" in c.name.lower():
+        return False, "Es la raíz de una carpeta en la nube: no deja crear archivos ahí"
+    return False, "No deja crear archivos (solo lectura o sin permiso)"
+
+
+def cambiar_modo_ancla(proyecto_id, ancla, modo):
+    """🔗 «Quitar ancla (seguir por ruta)» o «Poner ancla» a una carpeta de la ficha. Cambia la entrada y todo lo que la
+    nombra en el proyecto (principal, uniones, posiciones, pendientes, notas). Al pasar a «por ruta» se borra el archivo
+    .desklens-ancla si ninguna otra ficha lo usa. Devuelve el id nuevo."""
+    with _fichas_lock:
+        pth = _ficha_path(proyecto_id)
+        f = leer_json(pth, None)
+        if not f:
+            raise ValueError("No existe ese proyecto")
+        hit = next(((q, k) for q in f.get("partes", []) for k, c in enumerate(q.get("carpetas", [])) if c["ancla"] == ancla), None)
+        if not hit:
+            raise ValueError("Esa carpeta no está en el proyecto")
+        q, k = hit
+        c = q["carpetas"][k]
+        resto = {x: c[x] for x in ("activa", "icono", "indice", "etapa") if x in c}
+        if modo == "ruta" and ID_RE.fullmatch(ancla):
+            ruta = registro().get(ancla, {}).get("ruta", "")
+            if not ruta or not larga(ruta).is_dir():
+                raise ValueError("La carpeta no está en su sitio: no se puede pasar a «por ruta»")
+            nuevo = "ruta:" + uuid.uuid4().hex[:12]
+            q["carpetas"][k] = {"ancla": nuevo, "porruta": {"ruta": str(Path(ruta))}, **resto}
+            otros_usan = any(x["ancla"] == ancla for g in fichas_crudas() if g["id"] != proyecto_id
+                             for y in g.get("partes", []) for x in y.get("carpetas", []))
+            if not otros_usan and leer_ancla(ruta) == ancla:
+                try:
+                    (larga(ruta) / ANCLA).unlink()
+                    with _anclas_lock:
+                        r = registro()
+                        r.pop(ancla, None)
+                        escribir_json(DATA / "anclas.json", r)
+                    actividad("ancla", "Ancla quitada: la carpeta se sigue por su ruta", str(Path(ruta) / ANCLA))
+                except OSError as e:
+                    actividad("ancla", f"No se pudo borrar el ancla: {e}", str(Path(ruta) / ANCLA), "error")
+        elif modo == "ancla" and ancla.startswith("ruta:"):
+            ruta = c["porruta"]["ruta"]
+            ok, motivo = puede_anclar(ruta)
+            if not ok:
+                raise ValueError(f"No se puede poner el ancla: {motivo}")
+            nuevo, _ = poner_ancla(ruta)
+            q["carpetas"][k] = {"ancla": nuevo, **resto}
+        else:
+            raise ValueError("Cambio no válido")
+        if f.get("principal") == ancla:
+            f["principal"] = nuevo
+        for x in f.get("conexiones", []):
+            for lado in ("de", "a"):
+                if x.get(lado) == "n:" + ancla:
+                    x[lado] = "n:" + nuevo
+        for v, pos in (f.get("posiciones") or {}).items():
+            if "n:" + ancla in pos:
+                pos["n:" + nuevo] = pos.pop("n:" + ancla)
+        for x in f.get("pendientes", []):
+            if x.get("ancla") == ancla:
+                x["ancla"] = nuevo
+        f["actualizado"] = datetime.now().date().isoformat()
+        escribir_json(pth, f)
+    for n in notas(proyecto_id):  # las notas puestas en esa carpeta la siguen
+        if n.get("destino") == "nodo:" + ancla:
+            np_ = COMUN / "notas" / f"{n['id']}.md"
+            try:
+                np_.write_text(np_.read_text(encoding="utf-8").replace("destino: nodo:" + ancla, "destino: nodo:" + nuevo, 1), encoding="utf-8")
+            except OSError:
+                pass
+    guardar_version(proyecto_id)
+    mapa_luego()
+    return nuevo
 
 
 def analizar_ruta(ruta):
@@ -1678,6 +1822,9 @@ def analizar_ruta(ruta):
     if out["tipo"] == "otro" and normalizar(p.name).startswith("bk"):
         out["tipo"] = "respaldos"
     out["ancla"] = (leer_ancla(p) if out["dir"] else None) or ""
+    if out["dir"]:
+        out["anclable"], out["motivo"] = puede_anclar(p)
+        out["sugerida"] = next((str(p / n) for n in ("Mi unidad", "My Drive") if (larga(p) / n).is_dir()), "") if not out["anclable"] else ""
     usos, nombres = _usos_por_ruta()
     yo = os.path.normcase(str(p))
     out["proyectos"] = [{"id": i, "nombre": nombres[i]} for i in sorted(usos.get(yo, ())) if i in nombres]
@@ -1794,11 +1941,14 @@ def anadir_carpetas(proyecto_id, carpetas, principal_ruta="", movidas=None):
         avisos, partes = [], f.setdefault("partes", [])
         for c in carpetas or []:
             tipo = c.get("tipo") if c.get("tipo") in TIPOS else "otro"
-            nuevas = _partes([{"tipo": tipo, "carpetas": [c]}], avisos)[0]["carpetas"]
+            fallos = []
+            nuevas = _partes([{"tipo": tipo, "carpetas": [c]}], avisos, fallos)[0]["carpetas"]
+            if fallos:
+                raise ValueError("No se añadió nada. " + " · ".join(fallos) + ". Usa «Usar sin ancla» o elige otra carpeta.")
             if not nuevas:
                 continue
             n = nuevas[0]
-            if any(x["ancla"] == n["ancla"] for q in partes for x in q.get("carpetas", [])):
+            if any(x["ancla"] == n["ancla"] or (_ruta_fija(n) and _ruta_fija(x).lower() == _ruta_fija(n).lower()) for q in partes for x in q.get("carpetas", [])):
                 avisos.append(f"Ya estaba en el proyecto: {c.get('ruta') or n['ancla']}")
                 continue
             dest = next((q for q in partes if q.get("tipo") == tipo), None)
@@ -1824,7 +1974,7 @@ def anadir_carpetas(proyecto_id, carpetas, principal_ruta="", movidas=None):
 # ---------- notas en nodos y conectores (Markdown, una por archivo en notas/) ----------
 # Cabecera mínima y luego el texto. destino: proyecto · nodo:<ancla> · parte:<n> · conector:<id> · caja:<id>
 
-DESTINO_RE = re.compile(r"(proyecto|nodo:((remota|archivo):)?[0-9a-f]{6,32}|parte:\d{1,3}|conector:[\w:>-]{1,120}|caja:[\w-]{1,40})")
+DESTINO_RE = re.compile(r"(proyecto|nodo:((remota|archivo|ruta):)?[0-9a-f]{6,32}|parte:\d{1,3}|conector:[\w:>-]{1,120}|caja:[\w-]{1,40})")
 
 
 def _nota_leer(p):
@@ -1896,8 +2046,8 @@ def _instantanea(i):
     reg = registro()
     ids = {c["ancla"] for p in f.get("partes", []) for c in p.get("carpetas", [])}
     remotas = {c["ancla"]: c["remota"] for p in f.get("partes", []) for c in p.get("carpetas", []) if c.get("remota")}
-    remotas |= {c["ancla"]: {"url": c["archivo"]["ruta"], "nombre": Path(c["archivo"]["ruta"]).name}
-                for p in f.get("partes", []) for c in p.get("carpetas", []) if c.get("archivo")}
+    remotas |= {c["ancla"]: {"url": _ruta_fija(c), "nombre": Path(_ruta_fija(c)).name}
+                for p in f.get("partes", []) for c in p.get("carpetas", []) if c.get("archivo") or c.get("porruta")}
     return {"ficha": f, "notas": notas(i), "anclas": {a: ({"ruta": remotas[a].get("url", ""), "nombre": remotas[a]["nombre"]} if a in remotas else
                                                           {"ruta": reg.get(a, {}).get("ruta", ""), "nombre": Path(reg.get(a, {}).get("ruta", "?")).name})
                                                      for a in ids}}
@@ -2003,8 +2153,9 @@ def restaurar_version(i, v):
                                                                                           **({"icono": c["icono"]} if c.get("icono") else {}),
                                                                                           **({"remota": c["remota"]} if c.get("remota") else {}),
                                                                                           **({"archivo": c["archivo"]} if c.get("archivo") else {}),
+                                                                                          **({"porruta": c["porruta"]} if c.get("porruta") else {}),
                                                                                           **({"etapa": c["etapa"]} if c.get("etapa") else {})}
-                                                                         for c in p["carpetas"] if c.get("remota") or c.get("archivo") or c["ancla"] in registro()]}
+                                                                         for c in p["carpetas"] if c.get("remota") or c.get("archivo") or c.get("porruta") or c["ancla"] in registro()]}
                                 for p in f.get("partes", [])]})
     for n in notas(i):  # las notas, como estaban
         (COMUN / "notas" / f"{n['id']}.md").unlink(missing_ok=True)
@@ -2284,6 +2435,8 @@ def post(ruta, datos):
         if r == "ficha/anadir":
             f, av = anadir_carpetas(datos.get("id", ""), datos.get("carpetas", []), datos.get("principal_ruta", ""), datos.get("carpetas_movidas"))
             return 200, {"ficha": f, "avisos": av}
+        if r == "ficha/modo_ancla":  # 🔗 Quitar ancla (seguir por ruta) · Poner ancla
+            return 200, {"ancla": cambiar_modo_ancla(datos.get("id", ""), datos.get("ancla", ""), datos.get("modo", ""))}
         if r == "ficha/quitar_carpeta":
             return 200, {"ficha": quitar_carpeta(datos.get("id", ""), datos.get("ancla", ""))}
         if r == "ficha/mover_carpeta":

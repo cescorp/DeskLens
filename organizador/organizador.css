@@ -527,3 +527,10 @@ dialog#orgDlg[data-tipo="nuevo"]{resize:both;overflow:hidden;min-width:620px;min
 #og_comp label{display:inline-flex;align-items:center;gap:5px;margin:0 10px 6px 0}
 #og_comp input{font:inherit;font-size:12.5px;padding:3px 6px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink)}
 #og_comp small{display:block;margin-top:4px}
+
+/* ---------- 🔗 carpetas sin ancla (por ruta) y filas que no la admiten (2026-11-22) ---------- */
+.oporruta{font-size:11px;color:#8a6d1f;background:color-mix(in srgb,#d4a72c 16%,transparent);border-radius:8px;padding:0 6px;white-space:nowrap}
+.onvfila.onvfmal{border-color:#d24a4a;background:color-mix(in srgb,#d24a4a 7%,var(--side))}
+.onvmal{color:#d24a4a;font-weight:600}
+.onvbtns{display:inline-flex;flex-wrap:wrap;gap:4px}
+.obtn.onvmini{font-size:11.5px;padding:1px 7px}

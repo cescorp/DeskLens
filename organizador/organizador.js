@@ -499,6 +499,9 @@
       const cont = (a.contiene || []).filter(ajeno);
       if (cont.length) out.push(`<span title="${esc(cont.map(x => x.ruta).join(' · '))}">ⓘ contiene ${cont.length} elemento(s) de otros proyectos</span>`);
       if (it.archivo) out.push('<span>↗ acceso a un archivo: no lleva ancla; si lo mueves, sale en ⚠</span>');
+      if (it.porruta) out.push(`<span>🔗 por ruta: no se escribe nada en ella; si la mueves o renombras, sale en ⚠ <button class="obtn onvmini" data-conancla ${a.anclable ? '' : 'disabled'} title="${a.anclable ? 'Ponerle el ancla (sigue la carpeta aunque la muevas)' : esc(a.motivo || '')}">Poner ancla</button></span>`);
+      else if (it.dir && a.anclable === false) out.push(`<span class="onvmal">⚠ Aquí no se puede poner el ancla: ${esc(a.motivo || '')}</span>
+        <span class="onvbtns"><button class="obtn onvmini" data-sinancla title="Se sigue por su ruta; no se escribe nada en ella">🔗 Usar sin ancla</button>${a.sugerida ? `<button class="obtn onvmini" data-sug title="${esc(a.sugerida)}">Elegir «${esc(a.sugerida.split(/[\\/]/).pop())}»</button>` : ''}<button class="obtn onvmini" data-dentro>📁 Examinar dentro…</button></span>`);
       if (it.remota) out.push(`<span>☁ ${esc(it.remota.url || 'sin dirección')}</span>`);
       return out.length ? `<div class="onvav">${out.join('')}</div>` : '';
     }
@@ -523,6 +526,11 @@
         el.querySelector('[data-star]').onclick = () => { N.principal = it.ruta; N.propuesta = ''; pintar(); sugerir(); };
         el.querySelector('[data-tipo]').onchange = e => { const [t, et] = e.target.value.split('|'); it.tipo = t; it.etapa = et || ''; N.nuevo = it.ruta; pintar(); };
         el.querySelectorAll('[data-acc]').forEach(b => b.onclick = () => { it.accion = b.dataset.acc; pintar(); });
+        el.querySelector('[data-sinancla]')?.addEventListener('click', () => { it.porruta = true; N.nuevo = it.ruta; pintar(); });
+        el.querySelector('[data-conancla]')?.addEventListener('click', () => { it.porruta = false; N.nuevo = it.ruta; pintar(); });
+        el.querySelector('[data-sug]')?.addEventListener('click', async () => { const r = it.info.sugerida, pr = normRuta(N.principal) === normRuta(it.ruta); quitarIt(it); await anadir(r, { tipo: it.tipo }); if (pr) { N.principal = r; pintar(); } });
+        el.querySelector('[data-dentro]')?.addEventListener('click', () => explorar('dir', it.ruta));
+        el.classList.toggle('onvfmal', !!(it.dir && !it.remota && !it.porruta && it.info?.anclable === false));
         el.onkeydown = e => { if (e.key === 'Delete' && !e.target.closest('select')) { e.preventDefault(); quitarIt(it); setTimeout(() => $n('.onvfila[data-i]')?.focus(), 0); } };
       });
       $n('#nvProp')?.addEventListener('click', () => { N.principal = N.propuesta; N.propuesta = ''; pintar(); sugerir(); });
@@ -532,7 +540,7 @@
     function fichaVista() {
       const partes = f ? f.partes.map(p => ({ ...p, carpetas: p.carpetas.map(c => ({ ...c })) })) : [];
       const parteDe = t => partes.find(p => p.tipo === t) || (partes.push({ nombre: TIPO[t][1], tipo: t, carpetas: [] }), partes.at(-1));
-      N.items.forEach((it, i) => parteDe(it.tipo).carpetas.push({ ancla: 'nv' + i, nombre: it.nombre, ruta: it.ruta, estado: it.remota ? 'remota' : 'ok', remota: it.remota,
+      N.items.forEach((it, i) => parteDe(it.tipo).carpetas.push({ ancla: 'nv' + i, nombre: it.nombre, ruta: it.ruta, estado: it.remota ? 'remota' : 'ok', remota: it.remota, porruta: !!it.porruta,
         icono: it.archivo ? '📄' : it.info?.icono || '📁', icono_propio: false, etapa: it.etapa, git: it.git, proyectos: [], acceso: it.archivo, _nuevo: it.ruta === N.nuevo }));
       for (const p of partes) if (p.tipo === 'entornos') p.carpetas.sort((a, b) => (ORD_ETAPA[a.etapa] ?? 9) - (ORD_ETAPA[b.etapa] ?? 9));
       const iPr = N.items.findIndex(it => normRuta(it.ruta) === normRuta(N.principal));
@@ -582,7 +590,10 @@
       pintarLista(); pintarVista();
       const n = N.items.filter(it => it.dir && !it.remota).length, acc = N.items.filter(it => it.archivo).length, rem = N.items.filter(it => it.remota).length;
       $n('#nvPie').textContent = !N.items.length && !f && N.nombre.trim() ? `Se crea «${N.nombre.trim()}» solo con el nombre («Contenedor con nombre»): sin carpetas ni anclas. Las añades cuando quieras.` : N.items.length ? `Se pondrá un ancla oculta en ${n} carpeta(s)${acc ? ` · ${acc} acceso(s) a archivos` : ''}${rem ? ` · ${rem} etapa(s) remota(s)` : ''}. No se mueve ni copia ningún archivo.` : 'No se mueve ni copia ningún archivo: solo se crea la ficha y se pone un ancla oculta en cada carpeta.';
-      $n('#nvOk').disabled = f ? !N.items.length : N.items.length ? !principalIt() : !N.nombre.trim(); // solo con el nombre también se puede crear
+      const sinAncla = N.items.filter(it => it.dir && !it.remota && !it.porruta && it.info?.anclable === false);
+      $n('#nvOk').disabled = !!sinAncla.length || (f ? !N.items.length : N.items.length ? !principalIt() : !N.nombre.trim()); // solo con el nombre también se puede crear
+      $n('#nvOk').title = sinAncla.length ? `Antes: «${sinAncla.map(it => it.nombre).join('», «')}» no admite el ancla (usa «Usar sin ancla» u otra carpeta)` : 'Ctrl+Enter';
+      if (sinAncla.length) $n('#nvPie').textContent = `⚠ ${sinAncla.length} carpeta(s) no admiten el ancla: elige «🔗 Usar sin ancla», otra carpeta o quítala. No se crea nada hasta entonces.`;
       if ($n('#nvOtro')) $n('#nvOtro').disabled = $n('#nvOk').disabled;
       setTimeout(() => { if (N.nuevo) { N.nuevo = ''; d.querySelectorAll('.onvflash').forEach(x => x.classList.remove('onvflash')); } }, 1600);
     }
@@ -740,7 +751,8 @@
       const ok = $n('#nvOk'); ok.disabled = true;
       const movidas = {};
       for (const it of N.items) { const otros = (it.info?.proyectos || []).filter(x => !f || x.id !== f.id).map(x => x.id); if (it.accion === 'mover' && otros.length) movidas[it.ruta] = otros; }
-      const carpeta = it => it.remota ? { remota: it.remota, etapa: it.etapa } : it.archivo ? { archivo: { ruta: it.ruta } } : { ruta: it.ruta, ...(it.tipo === 'entornos' ? { etapa: it.etapa } : {}) };
+      const carpeta = it => it.remota ? { remota: it.remota, etapa: it.etapa } : it.archivo ? { archivo: { ruta: it.ruta } }
+        : { ...(it.porruta ? { porruta: { ruta: it.ruta } } : { ruta: it.ruta }), ...(it.tipo === 'entornos' ? { etapa: it.etapa } : {}) };
       try {
         let r;
         if (f) r = await api('/api/org/ficha/anadir', { id: f.id, carpetas: N.items.map(it => ({ ...carpeta(it), tipo: it.tipo })), principal_ruta: N.principal || '', carpetas_movidas: movidas });
@@ -748,7 +760,7 @@
           const partes = [];
           for (const it of N.items) { const p = partes.find(x => x.tipo === it.tipo) || (partes.push({ nombre: TIPO[it.tipo][1], tipo: it.tipo, carpetas: [] }), partes.at(-1)); p.carpetas.push(carpeta(it)); }
           for (const p of partes) if (p.tipo === 'entornos') p.carpetas.sort((a, b) => (ORD_ETAPA[a.etapa] ?? 9) - (ORD_ETAPA[b.etapa] ?? 9));
-          r = await api('/api/org/ficha/crear', { nombre: N.nombre.trim() || nombreAuto(), estado: N.estado, partes, principal_ruta: N.principal, carpetas_movidas: movidas,
+          r = await api('/api/org/ficha/crear', { estricto: true, nombre: N.nombre.trim() || nombreAuto(), estado: N.estado, partes, principal_ruta: N.principal, carpetas_movidas: movidas,
             ...(N.items.length ? {} : { raiz_nombre: true }) }); // sin carpetas: nace con «Contenedor con nombre»
         }
         r.avisos?.forEach(a => flash('⚠ ' + a));
@@ -1321,6 +1333,17 @@
     };
     pintar();
   }
+  // 🔗 «Quitar ancla (seguir por ruta)» · «Poner ancla» (aprobado 2026-11-22)
+  const itemModoAncla = (f, c) => c.porruta || String(c.ancla).startsWith('ruta:')
+    ? ['⚓ Poner ancla', async () => {
+      try { await api('/api/org/ficha/modo_ancla', { id: f.id, ancla: c.ancla, modo: 'ancla' }); flash(`⚓ «${c.nombre}» ya lleva ancla: se la encuentra aunque la muevas`); await cargar(); }
+      catch (x) { ask('Poner ancla', x.message, ['Entendido']); }
+    }, { title: 'Escribe el archivo oculto .desklens-ancla en la carpeta para seguirla aunque la muevas' }]
+    : ['🔗 Quitar ancla (seguir por ruta)…', async () => {
+      if (await ask('Quitar ancla', `«${c.nombre}» se seguirá por su ruta: se borra su archivo oculto .desklens-ancla (salvo que otro proyecto lo use). Si luego la mueves o la renombras, saldrá en ⚠.`, ['Quitar ancla', 'Cancelar']) !== 'Quitar ancla') return;
+      try { await api('/api/org/ficha/modo_ancla', { id: f.id, ancla: c.ancla, modo: 'ruta' }); flash(`🔗 «${c.nombre}» se sigue ahora por su ruta`); await cargar(); }
+      catch (x) { ask('Quitar ancla', x.message, ['Entendido']); }
+    }, { title: 'Para no escribir nada en esa carpeta (p. ej. que no suba a la nube)' }];
   const itemEntornos = f => ['🚦 Ordenar entornos…', () => ordenarEntornos(f), { title: 'Cambiar el orden de las etapas (arrastrando) y la etapa de cada una' }];
   // Editar la jerarquía de una ficha existente: las demás fichas a la izquierda (para pasar o compartir carpetas)
   function editarFicha(f) {
@@ -1529,7 +1552,7 @@
       if (String(c.ancla).startsWith('archivo:')) return `<div class="onodo raiz oacceso ${viva ? '' : 'gris'}" data-j="${j}" data-k="${k}" data-ruta="${esc(c.ruta)}" title="Acceso a un archivo · ${esc(c.ruta)}">
         <span class="otw"></span>${svgI('documentos', COLT[p.tipo])}<span class="onom">${esc(c.nombre)}</span><span title="Acceso: no lleva ancla">↗</span>${viva ? '' : '<span class="owarn">⚠ no está</span>'}</div>`;
       const nn = nNotas(c.ancla);
-      const marcas = `${nn ? `<span class="onotat" title="${nn} nota(s): se ven y editan en Flujo o Red">${svgI('notas')}${nn}</span>` : ''}${c.git ? '<span title="Repositorio git">⎇</span>' : ''}${c.proyectos.length > 1 ? `<span title="Compartida con ${c.proyectos.length - 1} proyecto(s) más">🔗</span>` : ''}${borrada ? `<span class="owarn">🗑 ${borrada}</span>` : c.estado === 'otro_equipo' ? `<span class="oequipo" title="Está en ${esc(c.equipo)}: ${esc(c.ruta)}${c.visto_equipo ? ' · visto ' + esc(hace(c.visto_equipo)) : ''}">🖧 en ${esc(c.equipo)}</span>` : c.estado === 'desconectado' ? '<span class="owarn">⚠ no conectado</span>' : c.estado === 'falta' ? '<span class="owarn">⚠ no encontrada</span>' : ''}`;
+      const marcas = `${nn ? `<span class="onotat" title="${nn} nota(s): se ven y editan en Flujo o Red">${svgI('notas')}${nn}</span>` : ''}${c.porruta ? '<span class="oporruta" title="Sin ancla: se sigue por su ruta (si la mueves o renombras, sale en ⚠)">🔗 por ruta</span>' : ''}${c.git ? '<span title="Repositorio git">⎇</span>' : ''}${c.proyectos.length > 1 ? `<span title="Compartida con ${c.proyectos.length - 1} proyecto(s) más">🔗</span>` : ''}${borrada ? `<span class="owarn">🗑 ${borrada}</span>` : c.estado === 'otro_equipo' ? `<span class="oequipo" title="Está en ${esc(c.equipo)}: ${esc(c.ruta)}${c.visto_equipo ? ' · visto ' + esc(hace(c.visto_equipo)) : ''}">🖧 en ${esc(c.equipo)}</span>` : c.estado === 'desconectado' ? '<span class="owarn">⚠ no conectado</span>' : c.estado === 'falta' ? '<span class="owarn">⚠ no encontrada</span>' : ''}`;
       const det = [principal ? 'principal' : '', p.tipo === 'entornos' ? c.etapa || 'Etapa' : ''].filter(Boolean).join(' · ');
       return `<div class="onodo raiz ${viva ? '' : 'gris'} ${principal ? 'oprincipal' : ''}" data-j="${j}" data-k="${k}" data-ruta="${esc(c.ruta)}" data-dir="1" title="${esc(c.ruta)}">
         <span class="otw">${viva ? (O.adm.abiertas.has(c.ruta) ? '▾' : '▸') : ''}</span>${principal ? svgI('principal', 'var(--accent)', 'Carpeta principal') : ''}${icoC(c, p.tipo)}<span class="onom">${esc(c.nombre)}</span>${marcas}${det ? `<small>${esc(det)}</small>` : ''}</div>${extra}`;
@@ -1589,6 +1612,7 @@
         ...(dir ? [['>_ Terminal aquí', () => openTerminal(ruta), { disabled: n.classList.contains('gris') }]] : [['Abrir', () => abrirArchivo(ruta, true)]])]),
         ...(raiz && !remota && !n.classList.contains('oacceso') && c.ancla !== f.principal ? ['-', hacerPrincipalItem(f, c.ancla, c.nombre)] : []),
         ...(raiz && f.partes[+n.dataset.j]?.tipo === 'entornos' ? ['-', itemEntornos(f)] : []),
+        ...(raiz && c && !remota && !n.classList.contains('oacceso') ? ['-', itemModoAncla(f, c)] : []),
         ...(raiz && c?.ancla === f.principal && !f.raiz_nombre ? ['-', itemConNombre(f)] : []), // la raíz ★: aquí también se cambia
         ...(raiz ? menuMover(f, c.ancla, f.partes[+n.dataset.j].tipo) : []),
         ...(raiz ? ['-', ['Quitar del proyecto…', async () => {
@@ -1826,11 +1850,11 @@
     const anc = conNombre ? '' : ficha.principal || '', pr = ficha.partes.flatMap(p => p.carpetas.map(c => ({ c, p }))).find(x => x.c.ancla === anc);
     const nodoCarpeta = (c, p, id) => {
       const d = datosDe(c);
-      const marca = BORRADA[d.estado] ? '🗑 ' : d.estado === 'otro_equipo' ? '🖧 ' : d.estado === 'falta' || d.estado === 'desconectado' ? '⚠ ' : '';
+      const marca = (BORRADA[d.estado] ? '🗑 ' : d.estado === 'otro_equipo' ? '🖧 ' : d.estado === 'falta' || d.estado === 'desconectado' ? '⚠ ' : '') + (d.porruta || c.porruta ? '🔗 ' : '');
       const et = p.tipo === 'entornos' ? `${c.etapa || 'Etapa'}\n` : '';
       return { id, label: `${et}${marca}${d.nombre}`, ico: d.estado === 'remota' ? 'produccion' : p.tipo === 'entornos' ? icoKeyEtapa(c.etapa) : icoKey(c.icono || d.icono), clase: 'carpeta', tipo: p.tipo, parte: p.nombre, etapa: c.etapa || '',
         icono: c.icono_propio === false ? '' : c.icono || '', // solo el elegido a mano (el sugerido no es un cambio)
-        icoAuto: d.icono || '', nombre: d.nombre, ruta: d.ruta, estado: d.estado || 'ok', compartida: (d.proyectos || []).length > 1, ancla: c.ancla,
+        icoAuto: d.icono || '', nombre: d.nombre, ruta: d.ruta, estado: d.estado || 'ok', compartida: (d.proyectos || []).length > 1, ancla: c.ancla, porruta: !!(d.porruta || c.porruta),
         ...(String(c.ancla).startsWith('archivo:') || c.acceso ? { acceso: true, ico: 'documentos', label: `↗ ${marca}${d.nombre}` } : {}) };
     };
     if (pr) { const n = nodoCarpeta(pr.c, pr.p, 'p'); m.nodos.set('p', { ...n, ico: 'principal', clase: 'proyecto', principal: true, proyecto: ficha.nombre }); } // su icono es la ★
@@ -2678,7 +2702,7 @@
       ['Contiene', `<span id="iC">${cuenta(nd, 'carpeta', 'carpetas')} · ${cuenta(items.length - nd, 'archivo', 'archivos')} aquí</span>`],
       ['Modificada', fFecha(m.modificado)], ['Creada', fFecha(m.creado)], ['Atributos', esc(m.atributos.join(', '))],
       ['Git', g?.rama ? `⎇ ${esc(g.rama)} · ${g.cambios ? `${g.cambios} cambio${g.cambios > 1 ? 's' : ''}` : 'al día'}` : m.git ? '⎇ repositorio git' : ''],
-      ['Ancla', esRaiz ? '✓ anclada (se sigue aunque la muevas)' : r ? `dentro de «${esc(r.nombre)}»` : ''],
+      ['Ancla', esRaiz ? (r?.porruta ? '🔗 sin ancla: se sigue por su ruta (si la mueves o renombras, sale en ⚠)' : '✓ anclada (se sigue aunque la muevas)') : r ? `dentro de «${esc(r.nombre)}»${r.porruta ? ' (🔗 por ruta)' : ''}` : ''],
       ['Proyectos', esRaiz && r.proyectos.length > 1 ? `🔗 ${r.proyectos.map(id => esc(O.st.fichas.find(x => x.id === id)?.nombre || id)).join(', ')}` : ''],
       ['Notas', nn ? `💬 ${nn}` : ''],
     ]) + `<div class="oicab"><b>Contenido (${items.length})</b><span class="sp"></span><input type="search" placeholder="Filtrar…" class="oifil"></div>
@@ -2922,6 +2946,7 @@
       ...(clase === 'carpeta' && viva && !el.data('acceso') && !el.cy().scratch('soloLectura') ? [['▾ Desplegar o plegar (doble clic)', () => desplegar(f, cy, el)]] : []),
       ...(el.data('acceso') && viva ? [['Abrir en una pestaña (doble clic)', () => abrirEnContenedor(ruta)]] : []), ...(viva ? [['📂 Mostrar en el Explorador', () => api('/api/mostrar', { ruta }).catch(err)], ['🗂 Ver en el Contenedor', () => { O.adm.vista = 'contenedor'; O.adm.abiertas.add(ruta); guardarVista(); admin(); }]] : []),
       ...(clase === 'carpeta' && viva && !el.data('acceso') && !el.cy().scratch('soloLectura') ? ['-', hacerPrincipalItem(f, id.slice(2), el.data('nombre'))] : []),
+      ...(clase === 'carpeta' && el.data('estado') !== 'remota' && !el.data('acceso') && !el.cy().scratch('soloLectura') ? [itemModoAncla(f, { ancla: id.slice(2), porruta: el.data('porruta'), nombre: el.data('nombre') })] : []),
       ...((clase === 'parte' || clase === 'proyecto' || clase === 'bloque') && !el.cy().scratch('soloLectura') ? ['-', ['＋ Añadir carpetas…', () => nuevoProyecto(f, clase === 'proyecto' ? '' : el.data('tipo'))]] : []),
       ...((clase === 'bloque' || el.data('tipo') === 'entornos' && (clase === 'parte' || clase === 'carpeta')) && !el.cy().scratch('soloLectura') ? ['-', itemEntornos(f)] : []),
       ...((clase === 'proyecto' || clase === 'bloque') && !el.cy().scratch('soloLectura') ? ['-', itemConNombre(f)] : []),

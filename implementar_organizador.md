@@ -835,6 +835,10 @@ Regla: **todo atajo nuevo se añade a `KEYS`** (⚙ Ajustes › Accesos por tecl
 - Teclas: Ctrl+N (nuevo, en Proyectos), Enter (añadir ruta), Supr (quitar fila), Ctrl+Enter (crear y abrir).
 - Comprobado al construir: la ventana propia corre en otro proceso, así que Examinar usa el explorador de DeskLens; soltar carpetas desde el Explorador de Windows no da la ruta completa en la página.
 
+### ✅ Carpetas sin ancla (🔗 por ruta) y no crear proyectos a medias (ok y hecho 2026-11-22)
+- A: al añadir una carpeta se comprueba si admite el ancla; si no, la fila lo dice en rojo con el motivo y «🔗 Usar sin ancla · Elegir «Mi unidad» · 📁 Examinar dentro…»; no se crea ni se añade nada mientras quede una así.
+- B2: carpetas «🔗 por ruta»: como las demás, pero sin escribir nada en ellas; movidas o renombradas salen en ⚠. Clic derecho: Quitar ancla (seguir por ruta) / Poner ancla.
+
 ### ✅ Pestañas propias por proyecto y archivos de fuera (ok y hecho 2026-11-22)
 - Al entrar en un proyecto se guardan las pestañas de DeskLens normal y se ponen las del proyecto (la primera vez, vacío); al salir, al revés. Por proyecto; lo escrito sin guardar no se pierde.
 - Dentro del proyecto solo se abre lo suyo o lo arrastrado a sus pestañas; lo demás sale del proyecto sin preguntar y se abre en DeskLens normal.

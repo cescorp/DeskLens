@@ -457,6 +457,37 @@ try:
     assert org.get("/api/org/sugerencias", {"nombre": "homeshape", "excluir": str(hs)})[0] == 200
     assert org.post("/api/org/ficha/anadir", {"id": "no-hay", "carpetas": []})[0] == 400
 
+    # 🔗 carpetas sin ancla (por ruta), ¿se puede anclar?, crear estricto y pasar de un modo a otro
+    assert org.puede_anclar(str(hs)) == (True, "") and org.puede_anclar(str(disco / "nada"))[0] is False
+    assert org.puede_anclar(str(Path(str(disco)).anchor))[0] is False
+    nube = carpeta("nube-raiz", archivos=["a.txt"])
+    try:
+        org.crear_ficha({"nombre": "Estricto", "estricto": True, "partes": [{"tipo": "otro", "carpetas": [{"ruta": str(disco / "nada")}]}]})
+        raise AssertionError("debió negarse a crear un proyecto a medias")
+    except ValueError as e:
+        assert "No se creó" in str(e) and not org._ficha_path("estricto").exists()
+    f, _ = org.crear_ficha({"nombre": "Nube", "estricto": True, "partes": [{"tipo": "otro", "carpetas": [{"porruta": {"ruta": str(nube)}}]}]})
+    c0 = f["partes"][0]["carpetas"][0]
+    assert c0["ancla"].startswith("ruta:") and c0["porruta"]["ruta"] == str(nube) and not (nube / org.ANCLA).exists(), c0
+    cn = next(c for x in org.fichas(False) if x["id"] == "nube" for p in x["partes"] for c in p["carpetas"])
+    assert cn["estado"] == "ok" and cn["nombre"] == "nube-raiz" and cn["porruta"], cn
+    assert org.nombre_principal(org.leer_json(org._ficha_path("nube"), {})) == "nube-raiz"
+    assert any(str(nube) == str(r) for r in org.rutas_permitidas()) and org.dentro_de_proyecto(str(nube / "a.txt"))
+    _, av = org.anadir_carpetas("nube", [{"porruta": {"ruta": str(nube)}, "tipo": "otro"}])
+    assert any("Ya estaba" in x for x in av), av
+    nuevo = org.cambiar_modo_ancla("nube", c0["ancla"], "ancla")  # 🔗 → ancla
+    assert org.ID_RE.fullmatch(nuevo) and org.leer_ancla(nube) == nuevo
+    org.guardar_ficha("nube", {"principal": nuevo, "conexiones": [{"id": "k", "de": "n:" + nuevo, "a": "p", "etiqueta": "x"}]})
+    otra = org.cambiar_modo_ancla("nube", nuevo, "ruta")  # ancla → 🔗 (se borra el archivo de ancla)
+    g = org.leer_json(org._ficha_path("nube"), {})
+    assert otra.startswith("ruta:") and not (nube / org.ANCLA).exists() and nuevo not in org.registro()
+    assert g["principal"] == otra and g["conexiones"][0]["de"] == "n:" + otra, g
+    shutil.rmtree(nube)
+    assert next(c for x in org.fichas(False) if x["id"] == "nube" for p in x["partes"] for c in p["carpetas"])["estado"] == "falta"
+    org.quitar_ficha("nube")
+    a = org.analizar_ruta(str(hs))
+    assert a["anclable"] is True and "motivo" in a
+
     # ☑ pendientes: en la ficha, texto de varias líneas, hecho con su fecha, unido a una carpeta; vacíos fuera; en el MAPA
     f, _ = org.guardar_ficha("nuevo-proy", {"pendientes": [{"texto": "Subir la web\nal VPS de calidad", "ancla": "abc"}, {"texto": "  "},
                                                            {"id": "x1", "texto": "Hecho ya", "hecho": True}]})
